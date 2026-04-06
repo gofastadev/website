@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { LandingTemplate } from "@/components/templates";
 import { Hero, FeaturesGrid, QuickStartSection } from "@/components/organisms";
+import { getKeywordsForPath } from "@/lib/seo-keywords";
 
 export const metadata: Metadata = {
+  keywords: getKeywordsForPath("/"),
   alternates: {
     canonical: "https://gofasta.dev",
   },

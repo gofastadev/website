@@ -1,5 +1,6 @@
 import { generateStaticParamsFor, importPage } from "nextra/pages";
 import { useMDXComponents as getMDXComponents } from "../../../../../mdx-components";
+import { getKeywordsForPath } from "@/lib/seo-keywords";
 
 export const generateStaticParams = generateStaticParamsFor("mdxPath");
 
@@ -8,7 +9,11 @@ export async function generateMetadata(props: {
 }) {
   const params = await props.params;
   const { metadata } = await importPage(params.mdxPath);
-  return metadata;
+  const urlPath = `/docs${params.mdxPath ? `/${params.mdxPath.join("/")}` : ""}`;
+  return {
+    ...metadata,
+    keywords: getKeywordsForPath(urlPath),
+  };
 }
 
 const { wrapper: Wrapper } = getMDXComponents() as Record<

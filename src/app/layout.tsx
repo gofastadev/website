@@ -29,18 +29,6 @@ export const metadata: Metadata = {
   authors: [{ name: "Gofasta", url: siteUrl }],
   creator: "Gofasta",
   publisher: "Gofasta",
-  keywords: [
-    "Go",
-    "Golang",
-    "web framework",
-    "backend",
-    "code generation",
-    "scaffolding",
-    "CLI",
-    "REST API",
-    "GraphQL",
-    "Go web services",
-  ],
   openGraph: {
     type: "website",
     locale: "en_US",
