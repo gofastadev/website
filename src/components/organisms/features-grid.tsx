@@ -1,3 +1,5 @@
+import { FeatureCard } from "@/components/molecules";
+
 const features = [
   {
     title: "Code Generation",
@@ -73,25 +75,19 @@ export function FeaturesGrid() {
       <h2 className="text-center text-3xl font-bold sm:text-4xl">
         Everything you need to ship
       </h2>
-      <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-muted">
+      <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-gray-600 dark:text-gray-400">
         27 production-ready packages covering auth, caching, email, middleware,
         observability, and more. No glue code required.
       </p>
 
       <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {features.map((feature) => (
-          <div
+          <FeatureCard
             key={feature.title}
-            className="rounded-xl border border-gray-200 bg-surface p-6 transition-shadow hover:shadow-lg dark:border-gray-800"
-          >
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              {feature.icon}
-            </div>
-            <h3 className="text-lg font-semibold">{feature.title}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              {feature.description}
-            </p>
-          </div>
+            icon={feature.icon}
+            title={feature.title}
+            description={feature.description}
+          />
         ))}
       </div>
     </section>
