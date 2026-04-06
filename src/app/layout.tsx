@@ -38,10 +38,11 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [
       {
-        url: "/logo.png",
-        width: 512,
-        height: 512,
-        alt: "Gofasta logo",
+        url: "/api/og?title=Build%20Go%20Backends%20at%20Lightning%20Speed&section=Gofasta",
+        width: 1200,
+        height: 630,
+        alt: "Gofasta - Build Go Backends at Lightning Speed",
+        type: "image/png",
       },
     ],
   },
@@ -49,7 +50,9 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteTitle,
     description: siteDescription,
-    images: ["/logo.png"],
+    images: [
+      "/api/og?title=Build%20Go%20Backends%20at%20Lightning%20Speed&section=Gofasta",
+    ],
   },
   robots: {
     index: true,
@@ -65,6 +68,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: siteUrl,
   },
+  other: {
+    "theme-color": "#00ADD8",
+  },
+  category: "technology",
 };
 
 export default function RootLayout({
