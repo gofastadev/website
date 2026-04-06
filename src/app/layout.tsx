@@ -14,14 +14,69 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteTitle = "Gofasta - Build Go Backends at Lightning Speed";
+const siteDescription =
+  "Production-ready scaffolding, code generation, and batteries-included packages for Go web services.";
+const siteUrl = "https://gofasta.dev";
+
 export const metadata: Metadata = {
   title: {
     template: "%s - Gofasta",
-    default: "Gofasta - Build Go Backends at Lightning Speed",
+    default: siteTitle,
   },
-  description:
-    "Production-ready scaffolding, code generation, and batteries-included packages for Go web services.",
-  metadataBase: new URL("https://gofasta.dev"),
+  description: siteDescription,
+  metadataBase: new URL(siteUrl),
+  authors: [{ name: "Gofasta", url: siteUrl }],
+  creator: "Gofasta",
+  publisher: "Gofasta",
+  keywords: [
+    "Go",
+    "Golang",
+    "web framework",
+    "backend",
+    "code generation",
+    "scaffolding",
+    "CLI",
+    "REST API",
+    "GraphQL",
+    "Go web services",
+  ],
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: siteUrl,
+    siteName: "Gofasta",
+    title: siteTitle,
+    description: siteDescription,
+    images: [
+      {
+        url: "/logo.png",
+        width: 512,
+        height: 512,
+        alt: "Gofasta logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+    images: ["/logo.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  alternates: {
+    canonical: siteUrl,
+  },
 };
 
 export default function RootLayout({
