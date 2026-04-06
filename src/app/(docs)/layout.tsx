@@ -1,5 +1,4 @@
 import { Footer, Layout, Navbar } from "nextra-theme-docs";
-import { Head } from "nextra/components";
 import { getPageMap } from "nextra/page-map";
 import "nextra-theme-docs/style.css";
 
@@ -31,7 +30,6 @@ export default async function DocsLayout({
       sidebar={{ defaultMenuCollapseLevel: 1 }}
       pageMap={pageMap}
     >
-      <Head faviconGlyph="G" />
       {children}
     </Layout>
   );
