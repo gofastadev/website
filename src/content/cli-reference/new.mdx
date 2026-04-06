@@ -1,8 +1,143 @@
 ---
 title: gofasta new
-description: Create a new Gofasta project.
+description: Create a new Gofasta project with a complete Go web application scaffold.
 ---
 
 # gofasta new
 
-Documentation coming soon.
+Creates a brand-new Gofasta project from scratch. This command generates approximately 78 files that give you a fully working Go web application with REST API, GraphQL, database migrations, authentication, dependency injection, background jobs, email support, Docker configuration, and CI/CD pipelines.
+
+## Usage
+
+```bash
+gofasta new <project-name> [flags]
+```
+
+The `<project-name>` can be a simple name like `myapp` or a full Go module path like `github.com/myorg/myapp`. When a simple name is used, the module path defaults to the project name.
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--driver` | `-d` | `postgres` | Database driver to use. Options: `postgres`, `mysql`, `sqlite`, `sqlserver`, `clickhouse` |
+| `--module` | `-m` | `<project-name>` | Go module path (e.g., `github.com/myorg/myapp`) |
+| `--skip-git` | | `false` | Skip initializing a Git repository |
+| `--skip-deps` | | `false` | Skip running `go mod tidy` and installing dependencies |
+| `--skip-wire` | | `false` | Skip running Wire dependency injection code generation |
+| `--skip-gqlgen` | | `false` | Skip running gqlgen GraphQL code generation |
+
+## Examples
+
+Create a project with the default PostgreSQL driver:
+
+```bash
+gofasta new myapp
+```
+
+Create a project with a full Go module path:
+
+```bash
+gofasta new github.com/myorg/myapp
+```
+
+Create a project using MySQL:
+
+```bash
+gofasta new myapp --driver mysql
+```
+
+Create a project using SQLite for lightweight local development:
+
+```bash
+gofasta new myapp -d sqlite
+```
+
+Create a project but skip dependency installation (useful in CI or Docker builds):
+
+```bash
+gofasta new myapp --skip-deps --skip-wire --skip-gqlgen
+```
+
+## What It Generates
+
+Running `gofasta new myapp` produces the following project structure with approximately 78 files:
+
+```
+myapp/
+  cmd/
+    serve.go                        # HTTP server entry point
+  app/
+    models/                         # GORM database models
+      user.model.go
+    repositories/                   # Data access layer
+      interfaces/
+        user_repository.go
+      user.repository.go
+    services/                       # Business logic layer
+      interfaces/
+        user_service.go
+        auth_service.go
+      user.service.go
+      auth.service.go
+    rest/
+      controllers/                  # REST API controllers
+        user.controller.go
+        auth.controller.go
+      routes/                       # Route definitions
+        index.routes.go
+        user.routes.go
+        auth.routes.go
+      middlewares/                   # HTTP middlewares
+        auth.middleware.go
+        casbin.middleware.go
+    dtos/                           # Request/response DTOs
+      user.dtos.go
+      auth.dtos.go
+    di/                             # Dependency injection (Google Wire)
+      container.go
+      wire.go
+      providers/
+        user.go
+        auth.go
+    graphql/                        # GraphQL schema and resolvers
+      schema.graphqls
+      resolver.go
+      generated.go
+    jobs/                           # Background jobs
+    tasks/                          # Scheduled tasks (cron)
+    emails/                         # Email templates
+  db/
+    migrations/                     # SQL migration files (up/down)
+    seeders/                        # Database seed files
+  config/
+    config.yaml                     # Application configuration
+  docker-compose.yml                # Docker Compose for app + database
+  Dockerfile                        # Multi-stage Docker build
+  Makefile                          # Common development commands
+  .github/
+    workflows/                      # CI/CD pipeline definitions
+  .air.toml                         # Air hot reload configuration
+  .env.example                      # Environment variable template
+  go.mod
+  go.sum
+```
+
+## Architecture
+
+The generated project follows a layered architecture:
+
+```
+Controller --> Service --> Repository --> Database
+```
+
+- **Controllers** handle HTTP requests and delegate to services
+- **Services** contain business logic and call repositories
+- **Repositories** handle database queries via GORM
+- **DI Container** wires everything together using Google Wire
+
+## Related
+
+- [Quick Start](/docs/getting-started/quick-start)
+- [Project Structure](/docs/getting-started/project-structure)
+- [gofasta init](/docs/cli-reference/init) -- initialize a cloned project
+- [gofasta dev](/docs/cli-reference/dev) -- start the development server

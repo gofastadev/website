@@ -15,7 +15,7 @@ const linkStyles = {
 
 export function NavLinks({ variant = "header", className }: NavLinksProps) {
   return (
-    <div className={cn("flex items-center gap-6", className)}>
+    <div className={cn("flex items-center gap-3 sm:gap-6", className)}>
       <Link
         href="/docs/getting-started/introduction"
         className={linkStyles[variant]}
