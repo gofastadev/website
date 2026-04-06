@@ -17,7 +17,7 @@ export default async function DocsLayout({
           logo={
             <span className="flex items-center gap-2">
               <Image src="/logo.png" alt="Gofasta" width={28} height={28} className="rounded-lg" />
-              <span className="text-lg font-bold text-gray-900 dark:text-white">Gofasta</span>
+              <span className="text-lg font-bold">Gofasta</span>
             </span>
           }
           projectLink="https://github.com/gofastadev/gofasta"
