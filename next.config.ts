@@ -11,4 +11,7 @@ export default withNextra({
   reactStrictMode: true,
   reactCompiler: true,
   output: "standalone",
+  turbopack: {
+    root: __dirname,
+  },
 });
