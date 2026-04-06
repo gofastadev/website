@@ -1,36 +1,187 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gofasta Website
 
-## Getting Started
+The official documentation website for the [Gofasta](https://github.com/gofastadev/gofasta) Go web framework and its [CLI tool](https://github.com/gofastadev/cli). Live at **[gofasta.dev](https://gofasta.dev)**.
 
-First, run the development server:
+## What This Repo Contains
+
+This is the source code for the Gofasta documentation site. It is built with [Next.js 16.2](https://nextjs.org) and [Nextra 4](https://nextra.site), a documentation framework that turns MDX files into pages with sidebar navigation, full-text search, and syntax highlighting.
+
+The site has two parts:
+
+- **Landing page** (`/`) — A custom React page with a hero section, feature grid, and quick start guide
+- **Documentation** (`/docs`) — 60+ pages of guides, CLI reference, and framework API documentation, all written in MDX
+
+## Tech Stack
+
+| Technology | Purpose |
+|-----------|---------|
+| [Next.js 16.2](https://nextjs.org) | React framework (App Router, Turbopack, React Compiler) |
+| [Nextra 4](https://nextra.site) | Documentation framework (MDX routing, sidebar, search) |
+| [React 19](https://react.dev) | UI library |
+| [TypeScript](https://www.typescriptlang.org) | Type safety |
+| [Tailwind CSS 4](https://tailwindcss.com) | Styling |
+| [Pagefind](https://pagefind.app) | Static full-text search |
+| [Shiki](https://shiki.matsu.io) | Syntax highlighting (Go, bash, YAML, SQL, GraphQL) |
+
+## Development Setup
+
+### Prerequisites
+
+- [Node.js 22](https://nodejs.org) or later
+- [Yarn](https://yarnpkg.com) package manager
+- [Docker](https://www.docker.com) (optional, for containerized development)
+
+### Local Development
 
 ```bash
-npm run dev
-# or
+# Clone the repo
+git clone https://github.com/gofastadev/website.git
+cd website
+
+# Install dependencies
+yarn install
+
+# Start the dev server
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the landing page, and [http://localhost:3000/docs](http://localhost:3000/docs) for the documentation.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Docker Development
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Start the dev server in a container
+docker compose up
 
-## Learn More
+# Install dependencies inside the container
+docker exec -it <container_name> sh
+yarn add <package>
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Build for Production
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+yarn build    # Compiles the site (Pagefind search index runs automatically via postbuild)
+yarn start    # Serves the production build locally
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+website/
+├── src/
+│   ├── app/                          # Next.js App Router
+│   │   ├── layout.tsx                # Root layout (fonts, globals.css)
+│   │   ├── globals.css               # Tailwind + brand colors
+│   │   ├── _meta.js                  # Top-level navigation config
+│   │   ├── (home)/                   # Landing page (no Nextra sidebar)
+│   │   │   ├── layout.tsx
+│   │   │   └── page.tsx
+│   │   └── (docs)/                   # Documentation (Nextra sidebar + search)
+│   │       ├── layout.tsx
+│   │       └── docs/[[...mdxPath]]/
+│   │           └── page.tsx          # Catch-all that renders MDX content
+│   ├── content/                      # All documentation MDX files
+│   │   ├── _meta.js                  # Sidebar section ordering
+│   │   ├── index.mdx                 # /docs overview
+│   │   ├── getting-started/          # Introduction, installation, quick start
+│   │   ├── guides/                   # REST, GraphQL, auth, deployment, etc.
+│   │   ├── cli-reference/            # Every CLI command
+│   │   │   └── generate/             # Code generation subcommands
+│   │   └── api-reference/            # Every framework package
+│   └── components/
+│       └── landing/                  # Landing page components
+├── mdx-components.tsx                # MDX component overrides
+├── next.config.ts                    # Nextra + Next.js config
+├── Dockerfile                        # Production container
+├── compose.yaml                      # Docker Compose for development
+└── package.json
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Adding Documentation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Add a new page
+
+1. Create a `.mdx` file in the appropriate `src/content/` subdirectory:
+
+   ```bash
+   # Example: add a "WebSocket" guide
+   touch src/content/guides/websocket.mdx
+   ```
+
+2. Add frontmatter and content:
+
+   ```mdx
+   ---
+   title: WebSocket
+   description: Real-time communication with WebSocket support.
+   ---
+
+   # WebSocket
+
+   Your content here...
+   ```
+
+3. Add the page to the sidebar by editing the directory's `_meta.js`:
+
+   ```js
+   // src/content/guides/_meta.js
+   export default {
+     // ... existing entries
+     websocket: "WebSocket",
+   };
+   ```
+
+4. Push to GitHub. The CI pipeline builds and deploys automatically.
+
+### Sidebar ordering
+
+Each directory under `src/content/` has a `_meta.js` file that controls the sidebar order and display names:
+
+```js
+export default {
+  introduction: "Introduction",      // key = filename without .mdx
+  installation: "Installation",      // value = sidebar display name
+  "quick-start": "Quick Start",
+};
+```
+
+Pages not listed in `_meta.js` appear alphabetically at the end.
+
+### Using Nextra components in MDX
+
+Nextra provides built-in components you can use in any MDX file without importing:
+
+- `Callout` — Info, warning, and error boxes
+- `Steps` — Numbered step-by-step instructions
+- `Tabs` / `Tab` — Tabbed content sections
+- `Cards` / `Card` — Linked card grids
+- `FileTree` — File/directory tree visualization
+
+## Documentation Sections
+
+| Section | Path | Pages | Description |
+|---------|------|-------|-------------|
+| Getting Started | `content/getting-started/` | 4 | Introduction, installation, quick start, project structure |
+| Guides | `content/guides/` | 10 | REST, GraphQL, auth, database, deployment, etc. |
+| CLI Reference | `content/cli-reference/` | 21 | Every CLI command and generation subcommand |
+| Framework API | `content/api-reference/` | 26 | Package-by-package reference for all 27 `pkg/*` packages |
+
+## Deployment
+
+The site deploys to [Vercel](https://vercel.com) automatically via GitHub Actions:
+
+- **Push to `main`** — builds, lints, and deploys to production
+- **Pull request** — builds, lints, and deploys a preview URL (commented on the PR)
+
+Required GitHub secrets:
+
+| Secret | Description |
+|--------|-------------|
+| `VERCEL_TOKEN` | Vercel API token ([create one here](https://vercel.com/account/tokens)) |
+| `VERCEL_ORG_ID` | Your Vercel org/team ID (from `.vercel/project.json` after `vercel link`) |
+| `VERCEL_PROJECT_ID` | Your Vercel project ID (from `.vercel/project.json` after `vercel link`) |
+
+## License
+
+MIT
