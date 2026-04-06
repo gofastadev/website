@@ -22,7 +22,7 @@ export function NavbarLanding() {
         <div className="flex items-center gap-6">
           <Link
             href="/docs/getting-started/introduction"
-            className="text-sm font-medium text-muted hover:text-foreground transition-colors"
+            className="text-sm font-medium text-gray-700 hover:text-foreground dark:text-gray-300 dark:hover:text-white transition-colors"
           >
             Docs
           </Link>
@@ -30,14 +30,14 @@ export function NavbarLanding() {
             href="https://github.com/gofastadev/gofasta"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm font-medium text-muted hover:text-foreground transition-colors"
+            className="text-sm font-medium text-gray-700 hover:text-foreground dark:text-gray-300 dark:hover:text-white transition-colors"
           >
             GitHub
           </a>
           {mounted && (
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="rounded-lg p-2 text-muted hover:bg-gray-100 hover:text-foreground dark:hover:bg-gray-800 transition-colors"
+              className="rounded-lg p-2 text-gray-700 hover:bg-gray-100 hover:text-foreground dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
               aria-label="Toggle theme"
             >
               {theme === "dark" ? (

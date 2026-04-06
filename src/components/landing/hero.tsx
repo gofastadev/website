@@ -12,7 +12,7 @@ export function Hero() {
         <span className="text-primary">lightning speed</span>
       </h1>
 
-      <p className="mt-6 max-w-2xl text-lg text-muted sm:text-xl">
+      <p className="mt-6 max-w-2xl text-lg text-gray-600 dark:text-gray-400 sm:text-xl">
         Production-ready scaffolding, code generation, and 27
         batteries-included packages for Go web services. Go from zero to CRUD
         in under a minute.
