@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Footer, Layout, Navbar } from "nextra-theme-docs";
 import { getPageMap } from "nextra/page-map";
 import "nextra-theme-docs/style.css";
@@ -14,8 +15,9 @@ export default async function DocsLayout({
       navbar={
         <Navbar
           logo={
-            <span className="text-lg font-bold">
-              Gofasta
+            <span className="flex items-center gap-2">
+              <Image src="/logo.png" alt="Gofasta" width={28} height={28} className="rounded-lg" />
+              <span className="text-lg font-bold text-gray-900 dark:text-white">Gofasta</span>
             </span>
           }
           projectLink="https://github.com/gofastadev/gofasta"
