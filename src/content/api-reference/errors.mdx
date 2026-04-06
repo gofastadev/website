@@ -1,7 +1,142 @@
 ---
-title: errors
+title: Errors
+description: Custom error types, HTTP error responses, error wrapping, and standardized error codes.
 ---
 
-# errors
+# Errors
 
-Documentation coming soon.
+The `errors` package provides structured error handling with custom error types, HTTP-aware error responses, error wrapping with context, and a standardized set of error codes for consistent API responses.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/errors"
+```
+
+## Key Types
+
+### AppError
+
+The primary error type used throughout Gofasta applications.
+
+```go
+type AppError struct {
+    Code       string `json:"code"`
+    Message    string `json:"message"`
+    Detail     string `json:"detail,omitempty"`
+    HTTPStatus int    `json:"-"`
+    Err        error  `json:"-"`
+}
+
+func (e *AppError) Error() string
+func (e *AppError) Unwrap() error
+```
+
+### ErrorResponse
+
+The JSON structure returned to API clients.
+
+```go
+type ErrorResponse struct {
+    Error ErrorBody `json:"error"`
+}
+
+type ErrorBody struct {
+    Code    string `json:"code"`
+    Message string `json:"message"`
+    Detail  string `json:"detail,omitempty"`
+}
+```
+
+## Error Codes
+
+| Constant | Code | HTTP Status | Description |
+|----------|------|-------------|-------------|
+| `ErrNotFound` | `NOT_FOUND` | 404 | Resource not found |
+| `ErrBadRequest` | `BAD_REQUEST` | 400 | Malformed or invalid request |
+| `ErrUnauthorized` | `UNAUTHORIZED` | 401 | Missing or invalid authentication |
+| `ErrForbidden` | `FORBIDDEN` | 403 | Insufficient permissions |
+| `ErrConflict` | `CONFLICT` | 409 | Resource conflict (e.g., duplicate) |
+| `ErrInternal` | `INTERNAL_ERROR` | 500 | Unexpected server error |
+| `ErrValidation` | `VALIDATION_ERROR` | 422 | Input validation failure |
+| `ErrTimeout` | `TIMEOUT` | 504 | Operation timed out |
+| `ErrServiceUnavailable` | `SERVICE_UNAVAILABLE` | 503 | Upstream dependency unavailable |
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `New` | `func New(code string, message string, status int) *AppError` | Creates a new AppError |
+| `Wrap` | `func Wrap(err error, code string, message string, status int) *AppError` | Wraps an existing error with context |
+| `NotFound` | `func NotFound(resource string, id string) *AppError` | Returns a 404 error for a missing resource |
+| `BadRequest` | `func BadRequest(message string) *AppError` | Returns a 400 error |
+| `Unauthorized` | `func Unauthorized(message string) *AppError` | Returns a 401 error |
+| `Forbidden` | `func Forbidden(message string) *AppError` | Returns a 403 error |
+| `Internal` | `func Internal(err error) *AppError` | Wraps an internal error with a 500 response |
+| `Validation` | `func Validation(detail string) *AppError` | Returns a 422 validation error |
+| `Is` | `func Is(err error, code string) bool` | Checks if an error matches a specific error code |
+| `ToResponse` | `func ToResponse(err error) (int, ErrorResponse)` | Converts an error to an HTTP status and JSON response |
+
+## Usage
+
+### Creating Errors
+
+```go
+// Simple error creation
+err := errors.New("PAYMENT_FAILED", "payment processing failed", 402)
+
+// Convenience constructors
+err := errors.NotFound("User", "user-123")
+// -> {"code":"NOT_FOUND","message":"User not found","detail":"id: user-123"}
+
+err := errors.BadRequest("email field is required")
+err := errors.Unauthorized("token has expired")
+err := errors.Forbidden("admin role required")
+```
+
+### Wrapping Errors
+
+```go
+user, err := repo.FindByID(ctx, id)
+if err != nil {
+    return errors.Wrap(err, "NOT_FOUND", "user not found", 404)
+}
+
+// The original error is preserved and accessible
+var appErr *errors.AppError
+if stderrors.As(err, &appErr) {
+    fmt.Println(appErr.Unwrap()) // original error
+}
+```
+
+### Converting to HTTP Responses
+
+```go
+func (c *UserController) GetUser(w http.ResponseWriter, r *http.Request) {
+    user, err := c.service.FindUser(ctx, id)
+    if err != nil {
+        status, response := errors.ToResponse(err)
+        httputil.JSON(w, status, response)
+        return
+    }
+    httputil.JSON(w, http.StatusOK, user)
+}
+```
+
+### Checking Error Codes
+
+```go
+err := service.CreateUser(ctx, input)
+if errors.Is(err, "CONFLICT") {
+    // handle duplicate user
+}
+if errors.Is(err, "VALIDATION_ERROR") {
+    // handle validation failure
+}
+```
+
+## Related Pages
+
+- [HTTP Utilities](/docs/api-reference/http-utilities) -- JSON response helpers that work with AppError
+- [Validators](/docs/api-reference/validators) -- Validation errors integrate with this package
+- [Middleware](/docs/api-reference/middleware) -- Recovery middleware catches panics and returns error responses

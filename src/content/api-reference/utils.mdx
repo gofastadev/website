@@ -1,7 +1,138 @@
 ---
-title: utils
+title: Utils
+description: Pagination helpers, string utilities, slice operations, and common helper functions.
 ---
 
-# utils
+# Utils
 
-Documentation coming soon.
+The `utils` package provides a collection of general-purpose utility functions including pagination math, string manipulation, slice operations, and other common helpers used throughout Gofasta applications.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/utils"
+```
+
+## Key Functions
+
+### Pagination
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `CalcOffset` | `func CalcOffset(page, pageSize int) int` | Calculates the database offset from page and page size |
+| `CalcTotalPages` | `func CalcTotalPages(total int64, pageSize int) int` | Calculates the total number of pages |
+| `ClampPage` | `func ClampPage(page, totalPages int) int` | Clamps a page number to valid range |
+
+### String Helpers
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `Slugify` | `func Slugify(s string) string` | Converts a string to a URL-friendly slug |
+| `Truncate` | `func Truncate(s string, maxLen int) string` | Truncates a string to the given length with ellipsis |
+| `CamelToSnake` | `func CamelToSnake(s string) string` | Converts CamelCase to snake_case |
+| `SnakeToCamel` | `func SnakeToCamel(s string) string` | Converts snake_case to CamelCase |
+| `Pluralize` | `func Pluralize(s string) string` | Returns the plural form of a word |
+| `RandomString` | `func RandomString(n int) string` | Generates a random alphanumeric string of length n |
+
+### Slice Utilities
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `Contains` | `func Contains[T comparable](slice []T, item T) bool` | Checks if a slice contains an item |
+| `Unique` | `func Unique[T comparable](slice []T) []T` | Returns a slice with duplicates removed |
+| `Map` | `func Map[T any, U any](slice []T, fn func(T) U) []U` | Transforms each element of a slice |
+| `Filter` | `func Filter[T any](slice []T, fn func(T) bool) []T` | Returns elements that match the predicate |
+| `Chunk` | `func Chunk[T any](slice []T, size int) [][]T` | Splits a slice into chunks of the given size |
+| `Flatten` | `func Flatten[T any](slices [][]T) []T` | Flattens a slice of slices into a single slice |
+| `IndexOf` | `func IndexOf[T comparable](slice []T, item T) int` | Returns the index of an item, or -1 |
+
+### Map Utilities
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `Keys` | `func Keys[K comparable, V any](m map[K]V) []K` | Returns all keys of a map |
+| `Values` | `func Values[K comparable, V any](m map[K]V) []V` | Returns all values of a map |
+| `MergeMaps` | `func MergeMaps[K comparable, V any](maps ...map[K]V) map[K]V` | Merges multiple maps, last write wins |
+
+### Pointer Helpers
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `Ptr` | `func Ptr[T any](v T) *T` | Returns a pointer to the given value |
+| `Deref` | `func Deref[T any](p *T, fallback T) T` | Dereferences a pointer with a fallback for nil |
+
+## Usage
+
+### Pagination Calculations
+
+```go
+offset := utils.CalcOffset(3, 20) // 40
+totalPages := utils.CalcTotalPages(95, 20) // 5
+page := utils.ClampPage(10, 5) // 5
+```
+
+### String Operations
+
+```go
+slug := utils.Slugify("Hello World! This is a Test")
+// -> "hello-world-this-is-a-test"
+
+truncated := utils.Truncate("This is a very long string that should be cut off", 20)
+// -> "This is a very lo..."
+
+snake := utils.CamelToSnake("UserProfileSettings")
+// -> "user_profile_settings"
+
+camel := utils.SnakeToCamel("user_profile_settings")
+// -> "UserProfileSettings"
+```
+
+### Slice Operations
+
+```go
+names := []string{"alice", "bob", "charlie", "alice"}
+
+utils.Contains(names, "bob")    // true
+utils.Unique(names)             // ["alice", "bob", "charlie"]
+utils.IndexOf(names, "charlie") // 2
+
+numbers := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+evens := utils.Filter(numbers, func(n int) bool { return n%2 == 0 })
+// -> [2, 4, 6, 8, 10]
+
+doubled := utils.Map(numbers, func(n int) int { return n * 2 })
+// -> [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+
+chunks := utils.Chunk(numbers, 3)
+// -> [[1,2,3], [4,5,6], [7,8,9], [10]]
+```
+
+### Pointer Helpers
+
+```go
+name := utils.Ptr("Jane")       // *string pointing to "Jane"
+value := utils.Deref(name, "")  // "Jane"
+value = utils.Deref(nil, "default") // "default"
+```
+
+### Map Operations
+
+```go
+m := map[string]int{"a": 1, "b": 2, "c": 3}
+
+keys := utils.Keys(m)     // ["a", "b", "c"]
+values := utils.Values(m)  // [1, 2, 3]
+
+merged := utils.MergeMaps(
+    map[string]int{"a": 1, "b": 2},
+    map[string]int{"b": 3, "c": 4},
+)
+// -> {"a": 1, "b": 3, "c": 4}
+```
+
+## Related Pages
+
+- [Types](/docs/api-reference/types) -- Type definitions that utilities operate on
+- [HTTP Utilities](/docs/api-reference/http-utilities) -- Higher-level pagination helpers
+- [Validators](/docs/api-reference/validators) -- String validation rules

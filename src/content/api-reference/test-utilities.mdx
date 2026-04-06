@@ -1,7 +1,215 @@
 ---
-title: test-utilities
+title: Test Utilities
+description: Test helpers for database setup, HTTP test client, fixture loading, and assertion utilities.
 ---
 
-# test-utilities
+# Test Utilities
 
-Documentation coming soon.
+The `testutil` package provides testing utilities for Gofasta applications including test database setup and teardown, an HTTP test client for integration tests, fixture loading, and assertion helpers.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/testutil"
+```
+
+## Key Types
+
+### TestDB
+
+```go
+type TestDB struct {
+    DB     *gorm.DB
+    Config config.DatabaseConfig
+}
+```
+
+### TestClient
+
+```go
+type TestClient struct {
+    Handler http.Handler
+    Token   string
+    Headers map[string]string
+}
+```
+
+### TestResponse
+
+```go
+type TestResponse struct {
+    StatusCode int
+    Body       []byte
+    Headers    http.Header
+}
+
+func (r *TestResponse) JSON(dest interface{}) error
+func (r *TestResponse) String() string
+```
+
+## Key Functions
+
+### Database Helpers
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `SetupTestDB` | `func SetupTestDB(t *testing.T, models ...interface{}) *TestDB` | Creates a test database with auto-migration |
+| `TeardownTestDB` | `func (tdb *TestDB) Teardown(t *testing.T)` | Drops all tables and closes the connection |
+| `TruncateTables` | `func (tdb *TestDB) TruncateTables(t *testing.T, tables ...string)` | Truncates specified tables between tests |
+| `SeedTestData` | `func (tdb *TestDB) SeedTestData(t *testing.T, records ...interface{})` | Inserts test records into the database |
+
+### HTTP Test Client
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewTestClient` | `func NewTestClient(handler http.Handler) *TestClient` | Creates a test client for the given handler |
+| `WithToken` | `func (tc *TestClient) WithToken(token string) *TestClient` | Sets the Authorization header |
+| `WithHeader` | `func (tc *TestClient) WithHeader(key, value string) *TestClient` | Sets a custom header |
+| `Get` | `func (tc *TestClient) Get(t *testing.T, path string) *TestResponse` | Sends a GET request |
+| `Post` | `func (tc *TestClient) Post(t *testing.T, path string, body interface{}) *TestResponse` | Sends a POST request with JSON body |
+| `Put` | `func (tc *TestClient) Put(t *testing.T, path string, body interface{}) *TestResponse` | Sends a PUT request with JSON body |
+| `Delete` | `func (tc *TestClient) Delete(t *testing.T, path string) *TestResponse` | Sends a DELETE request |
+
+### Fixture Helpers
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `LoadFixture` | `func LoadFixture(t *testing.T, path string, dest interface{})` | Loads a JSON fixture file into a struct |
+| `LoadFixtures` | `func LoadFixtures(t *testing.T, dir string) map[string]json.RawMessage` | Loads all JSON files from a directory |
+| `GenerateToken` | `func GenerateToken(t *testing.T, claims auth.Claims) string` | Generates a test JWT token |
+
+### Assertion Helpers
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `AssertStatus` | `func AssertStatus(t *testing.T, resp *TestResponse, expected int)` | Asserts the HTTP status code |
+| `AssertJSON` | `func AssertJSON(t *testing.T, resp *TestResponse, key string, expected interface{})` | Asserts a JSON field value |
+| `AssertContains` | `func AssertContains(t *testing.T, resp *TestResponse, substring string)` | Asserts the response body contains a string |
+| `AssertDBHas` | `func AssertDBHas(t *testing.T, db *gorm.DB, table string, conditions map[string]interface{})` | Asserts a record exists in the database |
+| `AssertDBMissing` | `func AssertDBMissing(t *testing.T, db *gorm.DB, table string, conditions map[string]interface{})` | Asserts a record does not exist |
+
+## Usage
+
+### Integration Test with Test Database
+
+```go
+func TestUserRepository_Create(t *testing.T) {
+    tdb := testutil.SetupTestDB(t, &User{})
+    defer tdb.Teardown(t)
+
+    repo := NewUserRepository(tdb.DB)
+
+    user := &User{
+        Name:  "Jane Doe",
+        Email: "jane@example.com",
+        Role:  "editor",
+    }
+
+    err := repo.Create(context.Background(), user)
+    assert.NoError(t, err)
+    assert.NotEmpty(t, user.ID)
+
+    testutil.AssertDBHas(t, tdb.DB, "users", map[string]interface{}{
+        "email": "jane@example.com",
+        "role":  "editor",
+    })
+}
+```
+
+### HTTP Integration Test
+
+```go
+func TestUserController_Create(t *testing.T) {
+    tdb := testutil.SetupTestDB(t, &User{})
+    defer tdb.Teardown(t)
+
+    handler := setupRouter(tdb.DB) // your router setup function
+    client := testutil.NewTestClient(handler)
+
+    token := testutil.GenerateToken(t, auth.Claims{
+        UserID: "admin-123",
+        Roles:  []string{"admin"},
+    })
+
+    resp := client.WithToken(token).Post(t, "/api/users", map[string]string{
+        "name":  "Jane Doe",
+        "email": "jane@example.com",
+        "role":  "editor",
+    })
+
+    testutil.AssertStatus(t, resp, http.StatusCreated)
+    testutil.AssertJSON(t, resp, "data.email", "jane@example.com")
+    testutil.AssertDBHas(t, tdb.DB, "users", map[string]interface{}{
+        "email": "jane@example.com",
+    })
+}
+```
+
+### Using Fixtures
+
+Create fixture files in `testdata/`:
+
+`testdata/users.json`:
+
+```json
+[
+  {"name": "Alice", "email": "alice@test.com", "role": "admin"},
+  {"name": "Bob", "email": "bob@test.com", "role": "editor"}
+]
+```
+
+Load and use in tests:
+
+```go
+func TestUserService_List(t *testing.T) {
+    tdb := testutil.SetupTestDB(t, &User{})
+    defer tdb.Teardown(t)
+
+    var users []User
+    testutil.LoadFixture(t, "testdata/users.json", &users)
+    tdb.SeedTestData(t, users)
+
+    service := NewUserService(NewUserRepository(tdb.DB))
+    result, total, err := service.List(context.Background(), types.DefaultQueryParams())
+
+    assert.NoError(t, err)
+    assert.Equal(t, int64(2), total)
+    assert.Len(t, result, 2)
+}
+```
+
+### Table-Driven Tests
+
+```go
+func TestUserController_GetUser(t *testing.T) {
+    tdb := testutil.SetupTestDB(t, &User{})
+    defer tdb.Teardown(t)
+
+    handler := setupRouter(tdb.DB)
+    client := testutil.NewTestClient(handler)
+    token := testutil.GenerateToken(t, auth.Claims{UserID: "user-1", Roles: []string{"admin"}})
+
+    tests := []struct {
+        name       string
+        userID     string
+        wantStatus int
+    }{
+        {"existing user", "user-1", http.StatusOK},
+        {"non-existing user", "user-999", http.StatusNotFound},
+        {"invalid uuid", "not-a-uuid", http.StatusBadRequest},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            resp := client.WithToken(token).Get(t, "/api/users/"+tt.userID)
+            testutil.AssertStatus(t, resp, tt.wantStatus)
+        })
+    }
+}
+```
+
+## Related Pages
+
+- [Config](/docs/api-reference/config) -- Test database configuration
+- [Auth](/docs/api-reference/auth) -- GenerateToken uses auth package claims
+- [Models](/docs/api-reference/models) -- Models used in test database setup

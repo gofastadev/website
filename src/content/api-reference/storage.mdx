@@ -1,7 +1,172 @@
 ---
-title: storage
+title: Storage
+description: File storage abstraction with local and S3 drivers, upload/download, and signed URL generation.
 ---
 
-# storage
+# Storage
 
-Documentation coming soon.
+The `storage` package provides a unified file storage interface with support for local filesystem and Amazon S3 (or S3-compatible) backends. It handles file uploads, downloads, deletion, and signed URL generation.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/storage"
+```
+
+## Key Types
+
+### Storage
+
+```go
+type Storage interface {
+    Put(ctx context.Context, path string, content io.Reader, opts ...PutOption) error
+    Get(ctx context.Context, path string) (io.ReadCloser, error)
+    Delete(ctx context.Context, path string) error
+    Exists(ctx context.Context, path string) (bool, error)
+    URL(path string) string
+    SignedURL(ctx context.Context, path string, expiry time.Duration) (string, error)
+    List(ctx context.Context, prefix string) ([]FileInfo, error)
+}
+```
+
+### FileInfo
+
+```go
+type FileInfo struct {
+    Path         string    `json:"path"`
+    Size         int64     `json:"size"`
+    ContentType  string    `json:"content_type"`
+    LastModified time.Time `json:"last_modified"`
+}
+```
+
+### StorageConfig
+
+```go
+type StorageConfig struct {
+    Driver    string `yaml:"driver" env:"STORAGE_DRIVER"`
+    LocalPath string `yaml:"local_path" env:"STORAGE_LOCAL_PATH"`
+    Bucket    string `yaml:"bucket" env:"STORAGE_BUCKET"`
+    Region    string `yaml:"region" env:"STORAGE_REGION"`
+    Endpoint  string `yaml:"endpoint" env:"STORAGE_ENDPOINT"`
+    AccessKey string `yaml:"access_key" env:"STORAGE_ACCESS_KEY"`
+    SecretKey string `yaml:"secret_key" env:"STORAGE_SECRET_KEY"`
+    BaseURL   string `yaml:"base_url" env:"STORAGE_BASE_URL"`
+}
+```
+
+### PutOption
+
+```go
+type PutOption func(*putOptions)
+
+func WithContentType(ct string) PutOption
+func WithACL(acl string) PutOption
+func WithMetadata(meta map[string]string) PutOption
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewStorage` | `func NewStorage(cfg StorageConfig) (Storage, error)` | Creates a storage instance based on the configured driver |
+| `NewLocalStorage` | `func NewLocalStorage(cfg StorageConfig) Storage` | Creates a local filesystem storage |
+| `NewS3Storage` | `func NewS3Storage(cfg StorageConfig) (Storage, error)` | Creates an S3-compatible storage |
+
+## Usage
+
+### Uploading Files
+
+```go
+store, err := storage.NewStorage(storage.StorageConfig{
+    Driver:    "s3",
+    Bucket:    "my-bucket",
+    Region:    "us-east-1",
+    AccessKey: "AKIA...",
+    SecretKey: "secret",
+})
+if err != nil {
+    log.Fatalf("failed to create storage: %v", err)
+}
+
+file, header, _ := r.FormFile("avatar")
+defer file.Close()
+
+path := fmt.Sprintf("avatars/%s/%s", userID, header.Filename)
+err = store.Put(ctx, path, file,
+    storage.WithContentType(header.Header.Get("Content-Type")),
+    storage.WithACL("public-read"),
+)
+```
+
+### Downloading Files
+
+```go
+reader, err := store.Get(ctx, "avatars/user-123/photo.jpg")
+if err != nil {
+    return errors.NotFound("File", path)
+}
+defer reader.Close()
+
+io.Copy(w, reader)
+```
+
+### Generating Signed URLs
+
+```go
+url, err := store.SignedURL(ctx, "documents/report.pdf", 15*time.Minute)
+if err != nil {
+    return err
+}
+// url is a time-limited pre-signed URL for the file
+```
+
+### Listing Files
+
+```go
+files, err := store.List(ctx, "avatars/user-123/")
+if err != nil {
+    return err
+}
+
+for _, f := range files {
+    fmt.Printf("Path: %s, Size: %d, Type: %s\n", f.Path, f.Size, f.ContentType)
+}
+```
+
+### Deleting Files
+
+```go
+err := store.Delete(ctx, "avatars/user-123/old-photo.jpg")
+```
+
+### Local Filesystem Storage
+
+```go
+store := storage.NewLocalStorage(storage.StorageConfig{
+    Driver:    "local",
+    LocalPath: "./uploads",
+    BaseURL:   "http://localhost:8080/files",
+})
+
+url := store.URL("avatars/photo.jpg")
+// -> "http://localhost:8080/files/avatars/photo.jpg"
+```
+
+### Configuration via config.yaml
+
+```yaml
+storage:
+  driver: s3          # "local" or "s3"
+  bucket: my-bucket
+  region: us-east-1
+  access_key: "AKIA..."
+  secret_key: "secret"
+  base_url: "https://my-bucket.s3.amazonaws.com"
+```
+
+## Related Pages
+
+- [Config](/docs/api-reference/config) -- Storage configuration loading
+- [HTTP Utilities](/docs/api-reference/http-utilities) -- File upload handling in controllers
+- [Encryption](/docs/api-reference/encryption) -- Encrypt files before storage

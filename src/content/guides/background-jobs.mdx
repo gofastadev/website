@@ -1,7 +1,315 @@
 ---
-title: background-jobs
+title: Background Jobs
+description: Cron scheduling, async task queues, job definitions, and recurring jobs in Gofasta.
 ---
 
-# background-jobs
+# Background Jobs
 
-Documentation coming soon.
+Gofasta provides two mechanisms for running work outside the request-response cycle: **cron jobs** for scheduled recurring tasks and **async task queues** for deferred one-off work. Both are configured in your project and backed by framework packages.
+
+## Overview
+
+| Mechanism | Use Case | Package |
+|-----------|----------|---------|
+| Cron jobs | Recurring scheduled work (cleanup, reports, syncs) | `github.com/gofastadev/gofasta/pkg/scheduler` |
+| Task queues | One-off deferred work (send email, process upload) | `github.com/gofastadev/gofasta/pkg/queue` |
+
+## Cron Jobs
+
+Cron jobs run on a schedule defined using cron expressions. They live in `app/jobs/` and are registered with the scheduler at application startup.
+
+### Defining a Job
+
+```go
+// app/jobs/cleanup_expired_tokens.job.go
+package jobs
+
+import (
+    "context"
+    "log/slog"
+
+    "gorm.io/gorm"
+)
+
+type CleanupExpiredTokensJob struct {
+    db *gorm.DB
+}
+
+func NewCleanupExpiredTokensJob(db *gorm.DB) *CleanupExpiredTokensJob {
+    return &CleanupExpiredTokensJob{db: db}
+}
+
+func (j *CleanupExpiredTokensJob) Name() string {
+    return "cleanup_expired_tokens"
+}
+
+func (j *CleanupExpiredTokensJob) Schedule() string {
+    return "0 */6 * * *" // Every 6 hours
+}
+
+func (j *CleanupExpiredTokensJob) Run(ctx context.Context) error {
+    result := j.db.WithContext(ctx).
+        Where("expires_at < NOW()").
+        Delete(&models.RefreshToken{})
+
+    if result.Error != nil {
+        return result.Error
+    }
+
+    slog.Info("cleaned up expired tokens", "count", result.RowsAffected)
+    return nil
+}
+```
+
+Each job implements three methods:
+- **`Name()`** -- a unique identifier for the job
+- **`Schedule()`** -- a cron expression defining when the job runs
+- **`Run(ctx)`** -- the work the job performs
+
+### Generating a Job
+
+Use the CLI to generate a job skeleton:
+
+```bash
+gofasta g job CleanupExpiredTokens
+```
+
+This creates `app/jobs/cleanup_expired_tokens.job.go` with the struct, constructor, and method stubs.
+
+### Cron Expression Reference
+
+| Expression | Description |
+|-----------|-------------|
+| `* * * * *` | Every minute |
+| `*/5 * * * *` | Every 5 minutes |
+| `0 * * * *` | Every hour |
+| `0 */6 * * *` | Every 6 hours |
+| `0 0 * * *` | Daily at midnight |
+| `0 0 * * 0` | Weekly on Sunday at midnight |
+| `0 0 1 * *` | Monthly on the 1st at midnight |
+
+The format is: `minute hour day-of-month month day-of-week`.
+
+### Registering Jobs
+
+Jobs are registered with the scheduler in `cmd/serve.go`:
+
+```go
+import "github.com/gofastadev/gofasta/pkg/scheduler"
+
+func startServer(deps *di.Container) {
+    // Create scheduler
+    s := scheduler.New()
+
+    // Register jobs
+    s.Register(jobs.NewCleanupExpiredTokensJob(deps.DB))
+    s.Register(jobs.NewDailyReportJob(deps.ReportService))
+    s.Register(jobs.NewSyncInventoryJob(deps.InventoryService))
+
+    // Start the scheduler (runs in the background)
+    s.Start()
+    defer s.Stop()
+
+    // Start the HTTP server
+    // ...
+}
+```
+
+### Scheduler Options
+
+Configure scheduler behavior:
+
+```go
+s := scheduler.New(
+    scheduler.WithLogger(logger),
+    scheduler.WithRecovery(true),       // Recover from panics in jobs
+    scheduler.WithConcurrency(5),       // Max concurrent jobs
+    scheduler.WithTimezone("UTC"),      // Timezone for cron expressions
+)
+```
+
+## Async Task Queues
+
+Task queues allow you to defer work to be processed asynchronously. This is useful for operations that should not block the HTTP response, such as sending emails, processing uploads, or calling external APIs.
+
+### Queue Configuration
+
+Configure the queue backend in `config.yaml`:
+
+```yaml
+queue:
+  driver: redis       # redis or memory
+  redis:
+    host: localhost
+    port: 6379
+    db: 1
+  workers: 5           # Number of concurrent workers
+  retry_attempts: 3    # Max retry attempts for failed tasks
+  retry_delay: 30s     # Delay between retries
+```
+
+The `memory` driver is useful for development and testing. Use `redis` in production for persistence and multi-instance support.
+
+### Defining a Task
+
+```go
+// app/jobs/send_welcome_email.task.go
+package jobs
+
+import (
+    "context"
+    "encoding/json"
+    "log/slog"
+
+    "github.com/gofastadev/gofasta/pkg/mailer"
+)
+
+type SendWelcomeEmailTask struct {
+    mailer *mailer.Mailer
+}
+
+func NewSendWelcomeEmailTask(mailer *mailer.Mailer) *SendWelcomeEmailTask {
+    return &SendWelcomeEmailTask{mailer: mailer}
+}
+
+func (t *SendWelcomeEmailTask) Name() string {
+    return "send_welcome_email"
+}
+
+func (t *SendWelcomeEmailTask) Handle(ctx context.Context, payload []byte) error {
+    var data struct {
+        Email     string `json:"email"`
+        FirstName string `json:"first_name"`
+    }
+    if err := json.Unmarshal(payload, &data); err != nil {
+        return err
+    }
+
+    err := t.mailer.Send(ctx, &mailer.Message{
+        To:       []string{data.Email},
+        Subject:  "Welcome to MyApp",
+        Template: "welcome",
+        Data: map[string]interface{}{
+            "FirstName": data.FirstName,
+        },
+    })
+
+    if err != nil {
+        slog.Error("failed to send welcome email", "email", data.Email, "error", err)
+        return err
+    }
+
+    slog.Info("sent welcome email", "email", data.Email)
+    return nil
+}
+```
+
+Each task implements:
+- **`Name()`** -- a unique identifier for the task type
+- **`Handle(ctx, payload)`** -- processes the task with the given JSON payload
+
+### Generating a Task
+
+```bash
+gofasta g task SendWelcomeEmail
+```
+
+This creates `app/jobs/send_welcome_email.task.go` with the struct and method stubs.
+
+### Dispatching Tasks
+
+Enqueue tasks from anywhere in your application -- typically from services or controllers:
+
+```go
+import "github.com/gofastadev/gofasta/pkg/queue"
+
+type AuthService struct {
+    userRepo interfaces.UserRepository
+    queue    *queue.Queue
+}
+
+func (s *AuthService) Register(ctx context.Context, req *dtos.RegisterRequest) (*dtos.AuthResponse, error) {
+    // ... create user ...
+
+    // Dispatch welcome email task
+    payload, _ := json.Marshal(map[string]string{
+        "email":      user.Email,
+        "first_name": user.FirstName,
+    })
+    s.queue.Dispatch("send_welcome_email", payload)
+
+    return response, nil
+}
+```
+
+### Registering Task Handlers
+
+Register task handlers when starting the queue worker:
+
+```go
+import "github.com/gofastadev/gofasta/pkg/queue"
+
+func startServer(deps *di.Container) {
+    // Create queue
+    q := queue.New(deps.Config.Queue)
+
+    // Register task handlers
+    q.RegisterHandler(jobs.NewSendWelcomeEmailTask(deps.Mailer))
+    q.RegisterHandler(jobs.NewProcessUploadTask(deps.Storage))
+
+    // Start processing tasks (runs in the background)
+    q.Start()
+    defer q.Stop()
+
+    // Start the HTTP server
+    // ...
+}
+```
+
+### Task Options
+
+Control task behavior when dispatching:
+
+```go
+// Delay execution by 5 minutes
+q.Dispatch("send_reminder", payload, queue.WithDelay(5*time.Minute))
+
+// Set a custom retry count
+q.Dispatch("process_payment", payload, queue.WithRetries(5))
+
+// Set a deadline
+q.Dispatch("generate_report", payload, queue.WithDeadline(time.Now().Add(1*time.Hour)))
+```
+
+## Error Handling and Retries
+
+Both cron jobs and task queues support automatic retry on failure:
+
+- **Cron jobs** -- if a job returns an error, it is logged but does not affect the next scheduled run
+- **Task queues** -- failed tasks are retried up to `retry_attempts` times with `retry_delay` between attempts. After exhausting retries, the task is moved to a dead-letter queue for manual inspection
+
+## Monitoring Jobs
+
+Use structured logging to monitor job execution:
+
+```go
+func (j *DailyReportJob) Run(ctx context.Context) error {
+    slog.Info("starting daily report generation")
+    start := time.Now()
+
+    // ... do work ...
+
+    slog.Info("daily report completed",
+        "duration", time.Since(start),
+        "records_processed", count,
+    )
+    return nil
+}
+```
+
+## Next Steps
+
+- [Set up email sending](/docs/guides/email-and-notifications)
+- [Configure your application](/docs/guides/configuration)
+- [Scheduler API reference](/docs/api-reference/scheduler)
+- [Queue API reference](/docs/api-reference/queue)

@@ -1,7 +1,365 @@
 ---
-title: authentication
+title: Authentication
+description: JWT authentication, login and registration flows, middleware, Casbin RBAC, and token refresh in Gofasta.
 ---
 
-# authentication
+# Authentication
 
-Documentation coming soon.
+Gofasta provides a complete authentication system out of the box, using JWT tokens for stateless auth and Casbin for role-based access control. The starter `User` model and auth endpoints are included in every new project.
+
+## Overview
+
+The authentication system consists of:
+
+- **JWT tokens** for stateless authentication (`github.com/gofastadev/gofasta/pkg/auth`)
+- **Auth middleware** for protecting routes (`github.com/gofastadev/gofasta/pkg/middleware`)
+- **Casbin RBAC** for role-based access control
+- **Pre-built auth controller** with register, login, and token refresh endpoints
+
+## JWT Configuration
+
+JWT settings live in `config.yaml`:
+
+```yaml
+jwt:
+  secret: your-secret-key-change-in-production
+  expiration: 24h
+  refresh_expiration: 168h  # 7 days
+  issuer: myapp
+```
+
+Override in production with environment variables:
+
+```bash
+MYAPP_JWT_SECRET=your-production-secret
+MYAPP_JWT_EXPIRATION=1h
+```
+
+## Registration and Login Flow
+
+### Register
+
+The built-in auth controller handles user registration:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "securepassword123",
+    "first_name": "Jane",
+    "last_name": "Doe"
+  }'
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "first_name": "Jane",
+      "last_name": "Doe",
+      "role": "user"
+    },
+    "access_token": "eyJhbGciOiJIUzI1NiIs...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
+  }
+}
+```
+
+### Login
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "securepassword123"
+  }'
+```
+
+The response includes both an access token and a refresh token.
+
+### Token Refresh
+
+When the access token expires, use the refresh token to get a new pair:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
+  }'
+```
+
+## Auth Service Implementation
+
+The auth service handles password hashing, token generation, and user lookup:
+
+```go
+// app/services/auth.service.go
+package services
+
+import (
+    "context"
+    "errors"
+
+    "github.com/gofastadev/gofasta/pkg/auth"
+    "myapp/app/dtos"
+    "myapp/app/models"
+    "myapp/app/repositories/interfaces"
+)
+
+type AuthService struct {
+    userRepo  interfaces.UserRepository
+    jwtConfig *auth.JWTConfig
+}
+
+func NewAuthService(userRepo interfaces.UserRepository, jwtConfig *auth.JWTConfig) *AuthService {
+    return &AuthService{userRepo: userRepo, jwtConfig: jwtConfig}
+}
+
+func (s *AuthService) Register(ctx context.Context, req *dtos.RegisterRequest) (*dtos.AuthResponse, error) {
+    hashedPassword, err := auth.HashPassword(req.Password)
+    if err != nil {
+        return nil, err
+    }
+
+    user := &models.User{
+        Email:     req.Email,
+        Password:  hashedPassword,
+        FirstName: req.FirstName,
+        LastName:  req.LastName,
+        Role:      "user",
+    }
+
+    if err := s.userRepo.Create(ctx, user); err != nil {
+        return nil, err
+    }
+
+    accessToken, err := auth.GenerateToken(user.ID.String(), user.Role, s.jwtConfig)
+    if err != nil {
+        return nil, err
+    }
+
+    refreshToken, err := auth.GenerateRefreshToken(user.ID.String(), s.jwtConfig)
+    if err != nil {
+        return nil, err
+    }
+
+    return &dtos.AuthResponse{
+        User:         user.ToResponse(),
+        AccessToken:  accessToken,
+        RefreshToken: refreshToken,
+    }, nil
+}
+
+func (s *AuthService) Login(ctx context.Context, req *dtos.LoginRequest) (*dtos.AuthResponse, error) {
+    user, err := s.userRepo.FindByEmail(ctx, req.Email)
+    if err != nil {
+        return nil, errors.New("invalid credentials")
+    }
+
+    if !auth.CheckPassword(req.Password, user.Password) {
+        return nil, errors.New("invalid credentials")
+    }
+
+    accessToken, err := auth.GenerateToken(user.ID.String(), user.Role, s.jwtConfig)
+    if err != nil {
+        return nil, err
+    }
+
+    refreshToken, err := auth.GenerateRefreshToken(user.ID.String(), s.jwtConfig)
+    if err != nil {
+        return nil, err
+    }
+
+    return &dtos.AuthResponse{
+        User:         user.ToResponse(),
+        AccessToken:  accessToken,
+        RefreshToken: refreshToken,
+    }, nil
+}
+```
+
+## Auth Package Functions
+
+The `github.com/gofastadev/gofasta/pkg/auth` package provides these functions:
+
+| Function | Description |
+|----------|-------------|
+| `auth.HashPassword(password)` | Bcrypt hash a plaintext password |
+| `auth.CheckPassword(password, hash)` | Compare plaintext against bcrypt hash |
+| `auth.GenerateToken(userID, role, config)` | Create a signed JWT access token |
+| `auth.GenerateRefreshToken(userID, config)` | Create a signed JWT refresh token |
+| `auth.ValidateToken(tokenString, config)` | Parse and validate a JWT token |
+| `auth.ExtractClaims(tokenString, config)` | Extract claims from a valid token |
+
+## Protecting Routes with Middleware
+
+The auth middleware from `github.com/gofastadev/gofasta/pkg/middleware` validates JWT tokens and sets user information on the request context.
+
+```go
+import "github.com/gofastadev/gofasta/pkg/middleware"
+
+// Apply to a route group
+protected := router.Group("/api/v1")
+protected.Use(middleware.Auth(jwtConfig))
+{
+    // All routes in this group require a valid JWT
+    protected.GET("/profile", userController.GetProfile)
+    protected.PUT("/profile", userController.UpdateProfile)
+}
+```
+
+The middleware:
+1. Extracts the `Authorization: Bearer <token>` header
+2. Validates the token signature and expiration
+3. Sets `user_id` and `role` on the Gin context
+4. Returns 401 if the token is missing or invalid
+
+Access user info in controllers:
+
+```go
+func (c *UserController) GetProfile(ctx *gin.Context) {
+    userID := ctx.GetString("user_id")
+    role := ctx.GetString("role")
+
+    user, err := c.service.FindByID(ctx, userID)
+    if err != nil {
+        httputil.HandleError(ctx, err)
+        return
+    }
+    httputil.OK(ctx, user)
+}
+```
+
+## Role-Based Access Control (RBAC) with Casbin
+
+Gofasta uses [Casbin](https://casbin.org/) for fine-grained role-based access control. Casbin policies define who can access which resources.
+
+### Policy Configuration
+
+RBAC policies are defined in `configs/rbac_policy.csv`:
+
+```csv
+p, admin, /api/v1/*, *
+p, admin, /api/v1/admin/*, *
+p, user, /api/v1/products, GET
+p, user, /api/v1/products/:id, GET
+p, user, /api/v1/profile, (GET)|(PUT)
+p, moderator, /api/v1/products, *
+p, moderator, /api/v1/products/:id, *
+```
+
+Each line defines a policy rule: `p, role, resource, action`.
+
+The RBAC model is defined in `configs/rbac_model.conf`:
+
+```ini
+[request_definition]
+r = sub, obj, act
+
+[policy_definition]
+p = sub, obj, act
+
+[role_definition]
+g = _, _
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && keyMatch2(r.obj, p.obj) && regexMatch(r.act, p.act)
+```
+
+### Applying RBAC Middleware
+
+Stack the RBAC middleware after the auth middleware:
+
+```go
+import "github.com/gofastadev/gofasta/pkg/middleware"
+
+// Load the Casbin enforcer
+enforcer := middleware.NewCasbinEnforcer("configs/rbac_model.conf", "configs/rbac_policy.csv")
+
+// Admin routes require both authentication and admin role
+admin := router.Group("/api/v1/admin")
+admin.Use(middleware.Auth(jwtConfig))
+admin.Use(middleware.RBAC(enforcer))
+{
+    admin.GET("/users", adminController.ListUsers)
+    admin.DELETE("/users/:id", adminController.DeleteUser)
+}
+```
+
+The RBAC middleware:
+1. Reads the `role` from the Gin context (set by the auth middleware)
+2. Checks the Casbin policy to see if the role can access the requested path with the given HTTP method
+3. Returns 403 Forbidden if the policy denies access
+
+### Role Hierarchy
+
+Define role inheritance in the policy file using `g` rules:
+
+```csv
+g, admin, moderator
+g, moderator, user
+```
+
+This means `admin` inherits all permissions from `moderator`, which inherits from `user`.
+
+### Dynamic Policies
+
+You can modify policies at runtime through the Casbin enforcer:
+
+```go
+// Add a policy
+enforcer.AddPolicy("editor", "/api/v1/articles", "PUT")
+
+// Remove a policy
+enforcer.RemovePolicy("editor", "/api/v1/articles", "PUT")
+
+// Check a permission
+allowed, _ := enforcer.Enforce("user", "/api/v1/products", "GET")
+```
+
+## Auth DTOs
+
+```go
+// app/dtos/auth.dtos.go
+package dtos
+
+type RegisterRequest struct {
+    Email     string `json:"email" binding:"required,email"`
+    Password  string `json:"password" binding:"required,min=8"`
+    FirstName string `json:"first_name" binding:"required"`
+    LastName  string `json:"last_name" binding:"required"`
+}
+
+type LoginRequest struct {
+    Email    string `json:"email" binding:"required,email"`
+    Password string `json:"password" binding:"required"`
+}
+
+type RefreshRequest struct {
+    RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+type AuthResponse struct {
+    User         *UserResponse `json:"user"`
+    AccessToken  string        `json:"access_token"`
+    RefreshToken string        `json:"refresh_token"`
+}
+```
+
+## Next Steps
+
+- [Build REST API endpoints](/docs/guides/rest-api)
+- [Configure your application](/docs/guides/configuration)
+- [Auth API reference](/docs/api-reference/auth)
+- [Middleware API reference](/docs/api-reference/middleware)

@@ -1,7 +1,166 @@
 ---
-title: auth
+title: Auth
+description: JWT token generation and validation, claims management, auth middleware, and Casbin RBAC setup.
 ---
 
-# auth
+# Auth
 
-Documentation coming soon.
+The `auth` package provides JWT-based authentication with token generation and validation, custom claims, authentication middleware, and role-based access control (RBAC) powered by Casbin.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/auth"
+```
+
+## Key Types
+
+### Claims
+
+```go
+type Claims struct {
+    UserID   string   `json:"user_id"`
+    Email    string   `json:"email"`
+    Roles    []string `json:"roles"`
+    jwt.RegisteredClaims
+}
+```
+
+### AuthConfig
+
+```go
+type AuthConfig struct {
+    SecretKey     string        `yaml:"secret_key" env:"AUTH_SECRET_KEY"`
+    TokenExpiry   time.Duration `yaml:"token_expiry" env:"AUTH_TOKEN_EXPIRY"`
+    RefreshExpiry time.Duration `yaml:"refresh_expiry" env:"AUTH_REFRESH_EXPIRY"`
+    Issuer        string        `yaml:"issuer" env:"AUTH_ISSUER"`
+}
+```
+
+### RBACConfig
+
+```go
+type RBACConfig struct {
+    ModelPath  string `yaml:"model_path" env:"RBAC_MODEL_PATH"`
+    PolicyPath string `yaml:"policy_path" env:"RBAC_POLICY_PATH"`
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `GenerateToken` | `func GenerateToken(cfg AuthConfig, claims Claims) (string, error)` | Creates a signed JWT token from the given claims |
+| `ValidateToken` | `func ValidateToken(cfg AuthConfig, tokenStr string) (*Claims, error)` | Parses and validates a JWT token, returning the claims |
+| `GenerateRefreshToken` | `func GenerateRefreshToken(cfg AuthConfig, userID string) (string, error)` | Creates a long-lived refresh token |
+| `HashPassword` | `func HashPassword(password string) (string, error)` | Hashes a password using bcrypt |
+| `CheckPassword` | `func CheckPassword(hashed, password string) bool` | Compares a bcrypt hash with a plaintext password |
+| `NewEnforcer` | `func NewEnforcer(cfg RBACConfig) (*casbin.Enforcer, error)` | Creates a Casbin enforcer for RBAC policy evaluation |
+
+## Usage
+
+### Generating and Validating Tokens
+
+```go
+cfg := auth.AuthConfig{
+    SecretKey:     "my-secret-key",
+    TokenExpiry:   24 * time.Hour,
+    RefreshExpiry: 7 * 24 * time.Hour,
+    Issuer:        "my-service",
+}
+
+claims := auth.Claims{
+    UserID: "user-123",
+    Email:  "user@example.com",
+    Roles:  []string{"admin", "editor"},
+}
+
+// Generate an access token
+token, err := auth.GenerateToken(cfg, claims)
+if err != nil {
+    log.Fatalf("failed to generate token: %v", err)
+}
+
+// Validate the token
+parsed, err := auth.ValidateToken(cfg, token)
+if err != nil {
+    log.Fatalf("invalid token: %v", err)
+}
+
+fmt.Println(parsed.UserID) // "user-123"
+fmt.Println(parsed.Roles)  // ["admin", "editor"]
+```
+
+### Password Hashing
+
+```go
+hashed, err := auth.HashPassword("my-secure-password")
+if err != nil {
+    log.Fatalf("failed to hash password: %v", err)
+}
+
+ok := auth.CheckPassword(hashed, "my-secure-password")
+fmt.Println(ok) // true
+```
+
+### Casbin RBAC Setup
+
+Define a Casbin model file (`rbac_model.conf`):
+
+```ini
+[request_definition]
+r = sub, obj, act
+
+[policy_definition]
+p = sub, obj, act
+
+[role_definition]
+g = _, _
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
+```
+
+Define a policy file (`rbac_policy.csv`):
+
+```csv
+p, admin, /api/users, GET
+p, admin, /api/users, POST
+p, editor, /api/posts, GET
+p, editor, /api/posts, PUT
+g, alice, admin
+g, bob, editor
+```
+
+Initialize the enforcer:
+
+```go
+enforcer, err := auth.NewEnforcer(auth.RBACConfig{
+    ModelPath:  "rbac_model.conf",
+    PolicyPath: "rbac_policy.csv",
+})
+if err != nil {
+    log.Fatalf("failed to create enforcer: %v", err)
+}
+
+allowed, _ := enforcer.Enforce("alice", "/api/users", "POST")
+fmt.Println(allowed) // true
+```
+
+### Wire Integration
+
+```go
+var AuthSet = wire.NewSet(
+    auth.NewEnforcer,
+    wire.Struct(new(auth.AuthConfig), "*"),
+)
+```
+
+## Related Pages
+
+- [Middleware](/docs/api-reference/middleware) -- Auth middleware for protecting routes
+- [Sessions](/docs/api-reference/sessions) -- Session-based authentication alternative
+- [Encryption](/docs/api-reference/encryption) -- Cryptographic utilities

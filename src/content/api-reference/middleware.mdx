@@ -1,7 +1,153 @@
 ---
-title: middleware
+title: Middleware
+description: HTTP middleware for CORS, rate limiting, logging, authentication, panic recovery, and request ID injection.
 ---
 
-# middleware
+# Middleware
 
-Documentation coming soon.
+The `middleware` package provides a collection of HTTP middleware functions for cross-cutting concerns including CORS, rate limiting, request logging, JWT authentication, panic recovery, and request ID propagation.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/middleware"
+```
+
+## Key Types
+
+### CORSConfig
+
+```go
+type CORSConfig struct {
+    AllowedOrigins   []string      `yaml:"allowed_origins"`
+    AllowedMethods   []string      `yaml:"allowed_methods"`
+    AllowedHeaders   []string      `yaml:"allowed_headers"`
+    ExposedHeaders   []string      `yaml:"exposed_headers"`
+    AllowCredentials bool          `yaml:"allow_credentials"`
+    MaxAge           time.Duration `yaml:"max_age"`
+}
+```
+
+### RateLimitConfig
+
+```go
+type RateLimitConfig struct {
+    RequestsPerSecond float64       `yaml:"requests_per_second"`
+    Burst             int           `yaml:"burst"`
+    Window            time.Duration `yaml:"window"`
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `CORS` | `func CORS(cfg CORSConfig) func(http.Handler) http.Handler` | Adds CORS headers based on configuration |
+| `RateLimit` | `func RateLimit(cfg RateLimitConfig) func(http.Handler) http.Handler` | Limits request rate per client IP |
+| `Logger` | `func Logger(log logger.Logger) func(http.Handler) http.Handler` | Logs request method, path, status, and duration |
+| `Auth` | `func Auth(cfg auth.AuthConfig) func(http.Handler) http.Handler` | Validates JWT tokens and injects claims into context |
+| `RBAC` | `func RBAC(enforcer *casbin.Enforcer) func(http.Handler) http.Handler` | Enforces role-based access control via Casbin |
+| `Recovery` | `func Recovery(log logger.Logger) func(http.Handler) http.Handler` | Recovers from panics and returns a 500 response |
+| `RequestID` | `func RequestID() func(http.Handler) http.Handler` | Generates or propagates a unique request ID |
+| `Timeout` | `func Timeout(d time.Duration) func(http.Handler) http.Handler` | Cancels requests that exceed the given duration |
+| `Chain` | `func Chain(middlewares ...func(http.Handler) http.Handler) func(http.Handler) http.Handler` | Composes multiple middleware into a single handler wrapper |
+
+## Usage
+
+### Applying Middleware
+
+```go
+mux := http.NewServeMux()
+
+// Apply middleware in order (outermost first)
+handler := middleware.Chain(
+    middleware.RequestID(),
+    middleware.Recovery(log),
+    middleware.Logger(log),
+    middleware.CORS(middleware.CORSConfig{
+        AllowedOrigins: []string{"https://myapp.com"},
+        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+        AllowedHeaders: []string{"Authorization", "Content-Type"},
+        MaxAge:         12 * time.Hour,
+    }),
+)(mux)
+
+http.ListenAndServe(":8080", handler)
+```
+
+### JWT Authentication
+
+```go
+authMiddleware := middleware.Auth(auth.AuthConfig{
+    SecretKey: "my-secret-key",
+    Issuer:    "my-service",
+})
+
+// Protect specific routes
+protectedMux := http.NewServeMux()
+protectedMux.HandleFunc("GET /api/profile", profileHandler)
+protectedMux.HandleFunc("PUT /api/profile", updateProfileHandler)
+
+mux.Handle("/api/", authMiddleware(protectedMux))
+```
+
+Access the authenticated claims in your handler:
+
+```go
+func profileHandler(w http.ResponseWriter, r *http.Request) {
+    claims := auth.ClaimsFromContext(r.Context())
+    fmt.Println(claims.UserID) // "user-123"
+    fmt.Println(claims.Roles)  // ["admin"]
+}
+```
+
+### Role-Based Access Control
+
+```go
+enforcer, _ := auth.NewEnforcer(auth.RBACConfig{
+    ModelPath:  "rbac_model.conf",
+    PolicyPath: "rbac_policy.csv",
+})
+
+adminRoutes := http.NewServeMux()
+adminRoutes.HandleFunc("GET /api/admin/users", listUsersHandler)
+adminRoutes.HandleFunc("DELETE /api/admin/users/{id}", deleteUserHandler)
+
+mux.Handle("/api/admin/", middleware.Chain(
+    middleware.Auth(authCfg),
+    middleware.RBAC(enforcer),
+)(adminRoutes))
+```
+
+### Rate Limiting
+
+```go
+limiter := middleware.RateLimit(middleware.RateLimitConfig{
+    RequestsPerSecond: 10,
+    Burst:             20,
+    Window:            time.Minute,
+})
+
+mux.Handle("/api/", limiter(apiHandler))
+```
+
+### Request Logging
+
+```go
+loggingMiddleware := middleware.Logger(log)
+// Logs: {"method":"GET","path":"/api/users","status":200,"duration":"12ms","request_id":"abc-123"}
+```
+
+### Panic Recovery
+
+```go
+recoveryMiddleware := middleware.Recovery(log)
+// Catches panics, logs the stack trace, and returns:
+// 500 {"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}
+```
+
+## Related Pages
+
+- [Auth](/docs/api-reference/auth) -- JWT and RBAC configuration used by auth middleware
+- [Logger](/docs/api-reference/logger) -- Logger used by logging and recovery middleware
+- [HTTP Utilities](/docs/api-reference/http-utilities) -- Response helpers used within middleware

@@ -1,7 +1,129 @@
 ---
 title: gofasta g migration
+description: Generate up and down SQL migration files for a database table.
 ---
 
 # gofasta g migration
 
-Documentation coming soon.
+Generates a pair of SQL migration files (up and down) for creating or modifying a database table. The migration number is automatically incremented based on existing migration files in the `db/migrations/` directory.
+
+## Usage
+
+```bash
+gofasta g migration <ResourceName> [field:type ...] [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--action` | `-a` | `create` | Migration action. Options: `create`, `add`, `remove`, `modify` |
+| `--table` | `-t` | pluralized resource name | Override the table name |
+
+## Examples
+
+Generate a migration to create a products table:
+
+```bash
+gofasta g migration Product name:string price:float
+```
+
+Generate a migration to add columns to an existing table:
+
+```bash
+gofasta g migration Product description:text sku:string --action add
+```
+
+Generate a migration to remove a column:
+
+```bash
+gofasta g migration Product sku:string --action remove
+```
+
+Generate with a custom table name:
+
+```bash
+gofasta g migration UserProfile bio:text --table profiles
+```
+
+## What It Generates
+
+Running `gofasta g migration Product name:string price:float` creates two files:
+
+| File | Description |
+|------|-------------|
+| `db/migrations/000006_create_products.up.sql` | SQL to create the table |
+| `db/migrations/000006_create_products.down.sql` | SQL to drop the table |
+
+The migration number (`000006`) is automatically determined by scanning existing migration files and incrementing.
+
+### Up Migration (create action)
+
+```sql
+-- db/migrations/000006_create_products.up.sql
+CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMP
+);
+
+CREATE INDEX idx_products_deleted_at ON products(deleted_at);
+```
+
+### Down Migration (create action)
+
+```sql
+-- db/migrations/000006_create_products.down.sql
+DROP TABLE IF EXISTS products;
+```
+
+### Up Migration (add action)
+
+```sql
+-- db/migrations/000007_add_columns_to_products.up.sql
+ALTER TABLE products ADD COLUMN description TEXT;
+ALTER TABLE products ADD COLUMN sku VARCHAR(255) NOT NULL;
+```
+
+### Down Migration (add action)
+
+```sql
+-- db/migrations/000007_add_columns_to_products.down.sql
+ALTER TABLE products DROP COLUMN IF EXISTS sku;
+ALTER TABLE products DROP COLUMN IF EXISTS description;
+```
+
+## Database Driver Adaptation
+
+The generated SQL syntax adapts based on the database driver configured in `config/config.yaml`. For example, UUID generation differs across databases:
+
+| Driver | UUID Default |
+|--------|-------------|
+| Postgres | `DEFAULT gen_random_uuid()` |
+| MySQL | `DEFAULT (UUID())` |
+| SQLite | handled at application level |
+| SQL Server | `DEFAULT NEWID()` |
+| ClickHouse | `DEFAULT generateUUIDv4()` |
+
+## Running Migrations
+
+After generating migration files, apply them with:
+
+```bash
+gofasta migrate up
+```
+
+To roll back:
+
+```bash
+gofasta migrate down
+```
+
+## Related
+
+- [gofasta migrate](/docs/cli-reference/migrate) -- run migration files
+- [gofasta g model](/docs/cli-reference/generate/model) -- generate the corresponding model
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers including migrations

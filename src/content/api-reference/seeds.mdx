@@ -1,7 +1,173 @@
 ---
-title: seeds
+title: Seeds
+description: Database seed runner with seed function registration, conditional seeding, and ordered execution.
 ---
 
-# seeds
+# Seeds
 
-Documentation coming soon.
+The `seeds` package provides a database seeding system for populating initial or test data. It supports seed function registration, ordered execution, conditional seeding based on environment, and idempotent seed operations.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/seeds"
+```
+
+## Key Types
+
+### Seeder
+
+```go
+type Seeder interface {
+    Register(name string, fn SeedFunc, opts ...SeedOption)
+    Run(ctx context.Context) error
+    RunNamed(ctx context.Context, names ...string) error
+    List() []SeedInfo
+}
+```
+
+### SeedFunc
+
+```go
+type SeedFunc func(ctx context.Context, db *gorm.DB) error
+```
+
+### SeedInfo
+
+```go
+type SeedInfo struct {
+    Name        string `json:"name"`
+    Order       int    `json:"order"`
+    Environment string `json:"environment,omitempty"`
+}
+```
+
+### SeedOption
+
+```go
+type SeedOption func(*seedConfig)
+
+func WithOrder(order int) SeedOption
+func WithEnvironment(env string) SeedOption
+func WithCondition(fn func() bool) SeedOption
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewSeeder` | `func NewSeeder(db *gorm.DB, env string) Seeder` | Creates a new seeder instance |
+| `Register` | `func (s *Seeder) Register(name string, fn SeedFunc, opts ...SeedOption)` | Registers a named seed function |
+| `Run` | `func (s *Seeder) Run(ctx context.Context) error` | Executes all registered seeds in order |
+| `RunNamed` | `func (s *Seeder) RunNamed(ctx context.Context, names ...string) error` | Executes specific seeds by name |
+
+## Usage
+
+### Registering Seeds
+
+```go
+seeder := seeds.NewSeeder(db, "development")
+
+seeder.Register("roles", func(ctx context.Context, db *gorm.DB) error {
+    roles := []Role{
+        {Name: "admin", Description: "Administrator"},
+        {Name: "editor", Description: "Content Editor"},
+        {Name: "viewer", Description: "Read-only Viewer"},
+    }
+    for _, role := range roles {
+        if err := db.FirstOrCreate(&role, Role{Name: role.Name}).Error; err != nil {
+            return err
+        }
+    }
+    return nil
+}, seeds.WithOrder(1))
+
+seeder.Register("admin_user", func(ctx context.Context, db *gorm.DB) error {
+    hash, _ := encryption.HashPassword("admin123")
+    admin := User{
+        Name:     "Admin",
+        Email:    "admin@example.com",
+        Password: hash,
+        Role:     "admin",
+    }
+    return db.FirstOrCreate(&admin, User{Email: admin.Email}).Error
+}, seeds.WithOrder(2))
+```
+
+### Running Seeds
+
+```go
+// Run all seeds
+if err := seeder.Run(ctx); err != nil {
+    log.Fatalf("seeding failed: %v", err)
+}
+
+// Run specific seeds
+if err := seeder.RunNamed(ctx, "roles", "admin_user"); err != nil {
+    log.Fatalf("seeding failed: %v", err)
+}
+```
+
+### Environment-Specific Seeds
+
+```go
+seeder.Register("test_users", func(ctx context.Context, db *gorm.DB) error {
+    for i := 0; i < 50; i++ {
+        user := User{
+            Name:  fmt.Sprintf("Test User %d", i),
+            Email: fmt.Sprintf("user%d@test.com", i),
+            Role:  "viewer",
+        }
+        if err := db.Create(&user).Error; err != nil {
+            return err
+        }
+    }
+    return nil
+}, seeds.WithEnvironment("development"), seeds.WithOrder(10))
+// This seed only runs when the environment is "development"
+```
+
+### Conditional Seeds
+
+```go
+seeder.Register("sample_products", func(ctx context.Context, db *gorm.DB) error {
+    // seed products...
+    return nil
+}, seeds.WithCondition(func() bool {
+    var count int64
+    db.Model(&Product{}).Count(&count)
+    return count == 0 // only seed if no products exist
+}))
+```
+
+### Listing Registered Seeds
+
+```go
+for _, info := range seeder.List() {
+    fmt.Printf("Seed: %s (order: %d, env: %s)\n", info.Name, info.Order, info.Environment)
+}
+```
+
+### Integration with Application Startup
+
+```go
+func main() {
+    cfg, _ := config.LoadConfig("config.yaml")
+    db, _ := config.SetupDBWithMigrate(cfg.Database, &User{}, &Role{}, &Product{})
+
+    seeder := seeds.NewSeeder(db, cfg.App.Environment)
+    registerSeeds(seeder)
+
+    if err := seeder.Run(context.Background()); err != nil {
+        log.Fatalf("seeding failed: %v", err)
+    }
+
+    // Start server...
+}
+```
+
+## Related Pages
+
+- [Config](/docs/api-reference/config) -- Database setup used by the seeder
+- [Models](/docs/api-reference/models) -- Models being seeded
+- [Encryption](/docs/api-reference/encryption) -- Password hashing for user seeds

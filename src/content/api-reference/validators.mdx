@@ -1,7 +1,186 @@
 ---
-title: validators
+title: Validators
+description: Input validation with built-in rules, custom validators, and structured error messages.
 ---
 
-# validators
+# Validators
 
-Documentation coming soon.
+The `validators` package provides input validation with a rich set of built-in rules, support for custom validators, and structured error messages that integrate with the `errors` package.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/validators"
+```
+
+## Key Types
+
+### Validator
+
+```go
+type Validator struct {
+    errors []FieldError
+}
+```
+
+### FieldError
+
+```go
+type FieldError struct {
+    Field   string `json:"field"`
+    Rule    string `json:"rule"`
+    Message string `json:"message"`
+}
+```
+
+### ValidationResult
+
+```go
+type ValidationResult struct {
+    Valid  bool         `json:"valid"`
+    Errors []FieldError `json:"errors,omitempty"`
+}
+```
+
+### Rule
+
+```go
+type Rule func(field string, value interface{}) *FieldError
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `New` | `func New() *Validator` | Creates a new validator instance |
+| `Validate` | `func (v *Validator) Validate(field string, value interface{}, rules ...Rule) *Validator` | Validates a field against one or more rules |
+| `Result` | `func (v *Validator) Result() ValidationResult` | Returns the validation result |
+| `HasErrors` | `func (v *Validator) HasErrors() bool` | Returns true if any validation errors exist |
+| `ToAppError` | `func (v *Validator) ToAppError() *errors.AppError` | Converts validation errors to an AppError |
+
+## Built-in Rules
+
+| Rule | Description |
+|------|-------------|
+| `Required()` | Field must not be zero value |
+| `MinLength(n int)` | String must be at least n characters |
+| `MaxLength(n int)` | String must be at most n characters |
+| `Email()` | Must be a valid email address |
+| `URL()` | Must be a valid URL |
+| `Min(n float64)` | Numeric value must be at least n |
+| `Max(n float64)` | Numeric value must be at most n |
+| `Between(min, max float64)` | Numeric value must be within range |
+| `In(values ...string)` | Must be one of the specified values |
+| `UUID()` | Must be a valid UUID |
+| `Regex(pattern string)` | Must match the regular expression |
+| `Date(layout string)` | Must be a valid date in the given format |
+| `Alpha()` | Must contain only letters |
+| `AlphaNumeric()` | Must contain only letters and numbers |
+| `Unique(field string, db *gorm.DB, table string)` | Must be unique in the database table |
+
+## Usage
+
+### Basic Validation
+
+```go
+v := validators.New()
+
+v.Validate("name", input.Name, validators.Required(), validators.MinLength(2), validators.MaxLength(100))
+v.Validate("email", input.Email, validators.Required(), validators.Email())
+v.Validate("age", input.Age, validators.Min(18), validators.Max(120))
+v.Validate("role", input.Role, validators.Required(), validators.In("admin", "editor", "viewer"))
+
+if v.HasErrors() {
+    result := v.Result()
+    // result.Errors contains all field-level errors
+    return v.ToAppError()
+}
+```
+
+### Validation in a Controller
+
+```go
+func (c *UserController) Create(w http.ResponseWriter, r *http.Request) {
+    var input CreateUserInput
+    if err := httputil.Bind(r, &input); err != nil {
+        httputil.Error(w, errors.BadRequest(err.Error()))
+        return
+    }
+
+    v := validators.New()
+    v.Validate("name", input.Name, validators.Required(), validators.MinLength(2))
+    v.Validate("email", input.Email, validators.Required(), validators.Email())
+    v.Validate("password", input.Password, validators.Required(), validators.MinLength(8))
+
+    if v.HasErrors() {
+        httputil.Error(w, v.ToAppError())
+        return
+    }
+
+    user, err := c.service.Create(r.Context(), input)
+    if err != nil {
+        httputil.Error(w, err)
+        return
+    }
+    httputil.Created(w, "user created", user)
+}
+```
+
+The error response looks like:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "validation failed",
+    "detail": "[{\"field\":\"email\",\"rule\":\"email\",\"message\":\"must be a valid email address\"}]"
+  }
+}
+```
+
+### Custom Validators
+
+Create custom rules by implementing the `Rule` function signature.
+
+```go
+func PasswordStrength() validators.Rule {
+    return func(field string, value interface{}) *validators.FieldError {
+        password, ok := value.(string)
+        if !ok {
+            return &validators.FieldError{Field: field, Rule: "password_strength", Message: "must be a string"}
+        }
+
+        hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(password)
+        hasLower := regexp.MustCompile(`[a-z]`).MatchString(password)
+        hasDigit := regexp.MustCompile(`[0-9]`).MatchString(password)
+
+        if !hasUpper || !hasLower || !hasDigit {
+            return &validators.FieldError{
+                Field:   field,
+                Rule:    "password_strength",
+                Message: "must contain uppercase, lowercase, and digit characters",
+            }
+        }
+        return nil
+    }
+}
+
+// Usage
+v.Validate("password", input.Password, validators.Required(), validators.MinLength(8), PasswordStrength())
+```
+
+### Database Uniqueness Check
+
+```go
+v.Validate("email", input.Email,
+    validators.Required(),
+    validators.Email(),
+    validators.Unique("email", db, "users"),
+)
+```
+
+## Related Pages
+
+- [Errors](/docs/api-reference/errors) -- Validation errors map to VALIDATION_ERROR code
+- [HTTP Utilities](/docs/api-reference/http-utilities) -- Bind and validate request input
+- [Types](/docs/api-reference/types) -- Shared input types used with validators

@@ -1,7 +1,169 @@
 ---
 title: gofasta g resolver
+description: Generate a GraphQL resolver for a resource.
 ---
 
 # gofasta g resolver
 
-Documentation coming soon.
+Generates a GraphQL resolver for a resource using [gqlgen](https://gqlgen.com/). This creates the resolver implementation along with the corresponding GraphQL schema definitions for queries and mutations.
+
+## Usage
+
+```bash
+gofasta g resolver <ResourceName> [field:type ...] [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--queries` | `-q` | `all` | Comma-separated list of queries. Options: `list`, `get` |
+| `--mutations` | `-m` | `all` | Comma-separated list of mutations. Options: `create`, `update`, `delete` |
+
+## Examples
+
+Generate a resolver with all queries and mutations:
+
+```bash
+gofasta g resolver Product name:string price:float
+```
+
+Generate with only query resolvers:
+
+```bash
+gofasta g resolver Product name:string price:float --mutations none
+```
+
+Generate with specific operations:
+
+```bash
+gofasta g resolver Product name:string price:float --queries list,get --mutations create
+```
+
+## What It Generates
+
+Running `gofasta g resolver Product name:string price:float` creates and modifies the following:
+
+| File | Description |
+|------|-------------|
+| `app/graphql/product.resolvers.go` | Resolver implementation |
+| `app/graphql/product.graphqls` | GraphQL schema definitions |
+
+It also updates `app/graphql/schema.graphqls` to include the new type and operation definitions.
+
+### GraphQL Schema
+
+```graphql
+# app/graphql/product.graphqls
+
+type Product {
+  id: ID!
+  name: String!
+  price: Float!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input CreateProductInput {
+  name: String!
+  price: Float!
+}
+
+input UpdateProductInput {
+  name: String
+  price: Float
+}
+
+type ProductConnection {
+  data: [Product!]!
+  total: Int!
+  page: Int!
+  limit: Int!
+  totalPages: Int!
+}
+
+extend type Query {
+  products(page: Int = 1, limit: Int = 10): ProductConnection!
+  product(id: ID!): Product!
+}
+
+extend type Mutation {
+  createProduct(input: CreateProductInput!): Product!
+  updateProduct(id: ID!, input: UpdateProductInput!): Product!
+  deleteProduct(id: ID!): Boolean!
+}
+```
+
+### Resolver Implementation
+
+```go
+// app/graphql/product.resolvers.go
+package graphql
+
+import (
+    "context"
+    "myapp/app/dtos"
+)
+
+func (r *queryResolver) Products(ctx context.Context, page *int, limit *int) (*dtos.PaginatedProductResponse, error) {
+    p, l := 1, 10
+    if page != nil {
+        p = *page
+    }
+    if limit != nil {
+        l = *limit
+    }
+    return r.productService.FindAll(p, l)
+}
+
+func (r *queryResolver) Product(ctx context.Context, id string) (*dtos.ProductResponse, error) {
+    return r.productService.FindByID(id)
+}
+
+func (r *mutationResolver) CreateProduct(ctx context.Context, input dtos.CreateProductRequest) (*dtos.ProductResponse, error) {
+    return r.productService.Create(input)
+}
+
+func (r *mutationResolver) UpdateProduct(ctx context.Context, id string, input dtos.UpdateProductRequest) (*dtos.ProductResponse, error) {
+    return r.productService.Update(id, input)
+}
+
+func (r *mutationResolver) DeleteProduct(ctx context.Context, id string) (bool, error) {
+    err := r.productService.Delete(id)
+    return err == nil, err
+}
+```
+
+## Testing with GraphQL Playground
+
+After generating the resolver and starting the server, test queries using the GraphQL Playground at `http://localhost:8080/graphql-playground`:
+
+```graphql
+# List products
+query {
+  products(page: 1, limit: 10) {
+    data {
+      id
+      name
+      price
+    }
+    total
+    totalPages
+  }
+}
+
+# Create a product
+mutation {
+  createProduct(input: { name: "Widget", price: 9.99 }) {
+    id
+    name
+    price
+  }
+}
+```
+
+## Related
+
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers including GraphQL
+- [gofasta g dto](/docs/cli-reference/generate/dto) -- generate DTOs used by the resolver
+- [gofasta g service](/docs/cli-reference/generate/service) -- generate the service the resolver calls

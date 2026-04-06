@@ -1,7 +1,110 @@
 ---
 title: gofasta swagger
+description: Generate OpenAPI/Swagger documentation from code annotations.
 ---
 
 # gofasta swagger
 
-Documentation coming soon.
+Generates OpenAPI/Swagger documentation from annotation comments in your Go source code. The generated specification is served as an interactive Swagger UI at `/swagger/index.html` when the server is running.
+
+This command uses [swag](https://github.com/swaggo/swag) under the hood to parse Go annotations and produce the OpenAPI spec.
+
+## Usage
+
+```bash
+gofasta swagger [flags]
+```
+
+Run this command from the root directory of your Gofasta project.
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--output` | `-o` | `docs/` | Output directory for generated Swagger files |
+| `--general` | `-g` | `cmd/serve.go` | Path to the file containing the general API annotations |
+
+## Examples
+
+Generate Swagger docs with defaults:
+
+```bash
+gofasta swagger
+```
+
+Generate to a custom output directory:
+
+```bash
+gofasta swagger --output api/docs
+```
+
+## Annotation Format
+
+Gofasta controllers use swag-style annotations to describe API endpoints. Here is an example from a generated controller:
+
+```go
+// CreateProduct godoc
+// @Summary      Create a new product
+// @Description  Create a new product with the provided data
+// @Tags         Products
+// @Accept       json
+// @Produce      json
+// @Param        body  body      dtos.CreateProductRequest  true  "Product data"
+// @Success      201   {object}  dtos.ProductResponse
+// @Failure      400   {object}  dtos.ErrorResponse
+// @Failure      401   {object}  dtos.ErrorResponse
+// @Failure      500   {object}  dtos.ErrorResponse
+// @Security     BearerAuth
+// @Router       /api/v1/products [post]
+func (c *ProductController) Create(ctx *gin.Context) {
+    // ...
+}
+```
+
+The general API information is defined in `cmd/serve.go`:
+
+```go
+// @title        My App API
+// @version      1.0
+// @description  REST API for My App
+// @host         localhost:8080
+// @BasePath     /api/v1
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+```
+
+## What It Generates
+
+Running `gofasta swagger` produces three files:
+
+| File | Description |
+|------|-------------|
+| `docs/docs.go` | Go file that embeds the spec for serving at runtime |
+| `docs/swagger.json` | OpenAPI spec in JSON format |
+| `docs/swagger.yaml` | OpenAPI spec in YAML format |
+
+## Accessing Swagger UI
+
+After generating the docs and starting the server, the interactive Swagger UI is available at:
+
+```
+http://localhost:8080/swagger/index.html
+```
+
+This provides an interactive interface where you can browse all endpoints, view request/response schemas, and test API calls directly from the browser.
+
+## When to Run
+
+Run `gofasta swagger` after:
+
+- Adding or modifying controller annotations
+- Changing DTO structures that are referenced in annotations
+- Adding new routes or controllers
+- Updating the general API information in `cmd/serve.go`
+
+## Related
+
+- [gofasta g controller](/docs/cli-reference/generate/controller) -- generate a controller with Swagger annotations
+- [gofasta g dto](/docs/cli-reference/generate/dto) -- generate DTOs referenced in annotations
+- [gofasta serve](/docs/cli-reference/serve) -- start the server to view Swagger UI

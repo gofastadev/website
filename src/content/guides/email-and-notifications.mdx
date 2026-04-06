@@ -1,7 +1,305 @@
 ---
-title: email-and-notifications
+title: Email & Notifications
+description: Sending emails with SMTP, SendGrid, and Brevo, using HTML templates, and notification channels in Gofasta.
 ---
 
-# email-and-notifications
+# Email & Notifications
 
-Documentation coming soon.
+Gofasta includes a mailer package that supports multiple email providers and HTML templates, plus a notifications package for multi-channel delivery. This guide covers configuration, template creation, and sending emails from your application.
+
+## Email Configuration
+
+Email settings live in `config.yaml`:
+
+```yaml
+mail:
+  driver: smtp          # smtp, sendgrid, or brevo
+  from_name: MyApp
+  from_address: noreply@myapp.com
+
+  smtp:
+    host: smtp.mailtrap.io
+    port: 587
+    username: your-username
+    password: your-password
+    encryption: tls     # tls, ssl, or none
+
+  sendgrid:
+    api_key: SG.xxxxxxxxxxxx
+
+  brevo:
+    api_key: xkeysib-xxxxxxxxxxxx
+```
+
+Override in production with environment variables:
+
+```bash
+MYAPP_MAIL_DRIVER=sendgrid
+MYAPP_MAIL_SENDGRID_API_KEY=SG.production-key
+```
+
+## Supported Providers
+
+| Provider | `mail.driver` | Best For |
+|----------|-------------|----------|
+| SMTP | `smtp` | Development (Mailtrap), self-hosted mail servers |
+| SendGrid | `sendgrid` | Production transactional email at scale |
+| Brevo | `brevo` | Transactional + marketing email combined |
+
+Switch providers by changing the `mail.driver` value. The mailer interface is the same regardless of provider.
+
+## Sending Emails
+
+The `github.com/gofastadev/gofasta/pkg/mailer` package provides the `Mailer` struct for sending emails.
+
+### Basic Email
+
+```go
+import "github.com/gofastadev/gofasta/pkg/mailer"
+
+func (s *OrderService) SendConfirmation(ctx context.Context, order *models.Order) error {
+    return s.mailer.Send(ctx, &mailer.Message{
+        To:      []string{order.User.Email},
+        Subject: "Order Confirmation #" + order.Number,
+        Template: "order-confirmation",
+        Data: map[string]interface{}{
+            "OrderNumber": order.Number,
+            "Total":       order.Total,
+            "Items":       order.Items,
+            "CustomerName": order.User.FirstName,
+        },
+    })
+}
+```
+
+### Message Options
+
+The `mailer.Message` struct supports these fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `To` | `[]string` | Recipient email addresses |
+| `CC` | `[]string` | Carbon copy recipients |
+| `BCC` | `[]string` | Blind carbon copy recipients |
+| `Subject` | `string` | Email subject line |
+| `Template` | `string` | Name of the HTML template (without extension) |
+| `Data` | `map[string]interface{}` | Template variables |
+| `Body` | `string` | Plain text body (used if no template) |
+| `HTMLBody` | `string` | Raw HTML body (used if no template) |
+| `Attachments` | `[]mailer.Attachment` | File attachments |
+| `ReplyTo` | `string` | Reply-to address |
+
+### Sending with Attachments
+
+```go
+err := s.mailer.Send(ctx, &mailer.Message{
+    To:       []string{"user@example.com"},
+    Subject:  "Your Invoice",
+    Template: "invoice",
+    Data:     templateData,
+    Attachments: []mailer.Attachment{
+        {
+            Filename: "invoice.pdf",
+            Content:  pdfBytes,
+            MIMEType: "application/pdf",
+        },
+    },
+})
+```
+
+## HTML Email Templates
+
+Email templates live in `templates/emails/` and use Go's `html/template` syntax.
+
+### Template Structure
+
+```html
+<!-- templates/emails/order-confirmation.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { background: #00ADD8; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .footer { text-align: center; color: #888; font-size: 12px; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Order Confirmation</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{.CustomerName}},</p>
+            <p>Thank you for your order <strong>#{{.OrderNumber}}</strong>.</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Items}}
+                    <tr>
+                        <td>{{.Name}}</td>
+                        <td>{{.Quantity}}</td>
+                        <td>${{.Price}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+
+            <p><strong>Total: ${{.Total}}</strong></p>
+        </div>
+        <div class="footer">
+            <p>MyApp Inc. | 123 Main St</p>
+        </div>
+    </div>
+</body>
+</html>
+```
+
+### Generating Templates
+
+Use the CLI to generate a template skeleton:
+
+```bash
+gofasta g email-template order-confirmation
+```
+
+This creates `templates/emails/order-confirmation.html` with a basic responsive layout.
+
+### Template Variables
+
+Templates receive data through the `Data` field of `mailer.Message`. Access variables with `{{.VariableName}}`:
+
+```go
+s.mailer.Send(ctx, &mailer.Message{
+    To:       []string{user.Email},
+    Subject:  "Password Reset",
+    Template: "password-reset",
+    Data: map[string]interface{}{
+        "UserName":  user.FirstName,
+        "ResetLink": resetURL,
+        "ExpiresIn": "1 hour",
+    },
+})
+```
+
+```html
+<!-- templates/emails/password-reset.html -->
+<p>Hi {{.UserName}},</p>
+<p>Click the link below to reset your password:</p>
+<a href="{{.ResetLink}}">Reset Password</a>
+<p>This link expires in {{.ExpiresIn}}.</p>
+```
+
+## Async Email Sending
+
+For production workloads, send emails through the task queue to avoid blocking HTTP responses:
+
+```go
+// Dispatch to queue instead of sending directly
+payload, _ := json.Marshal(map[string]interface{}{
+    "to":       user.Email,
+    "subject":  "Welcome to MyApp",
+    "template": "welcome",
+    "data": map[string]string{
+        "FirstName": user.FirstName,
+    },
+})
+s.queue.Dispatch("send_email", payload)
+```
+
+See the [Background Jobs guide](/docs/guides/background-jobs) for details on setting up task queues.
+
+## Notifications
+
+The `github.com/gofastadev/gofasta/pkg/notifications` package provides a multi-channel notification system. Notifications can be delivered through multiple channels simultaneously.
+
+### Notification Channels
+
+| Channel | Description |
+|---------|-------------|
+| `email` | Send notification via email |
+| `database` | Store notification in the database |
+| `slack` | Send to a Slack webhook |
+
+### Defining a Notification
+
+```go
+import "github.com/gofastadev/gofasta/pkg/notifications"
+
+type OrderShippedNotification struct {
+    Order *models.Order
+}
+
+func (n *OrderShippedNotification) Channels() []string {
+    return []string{"email", "database"}
+}
+
+func (n *OrderShippedNotification) ToEmail() *mailer.Message {
+    return &mailer.Message{
+        Subject:  "Your order has shipped",
+        Template: "order-shipped",
+        Data: map[string]interface{}{
+            "OrderNumber":  n.Order.Number,
+            "TrackingCode": n.Order.TrackingCode,
+        },
+    }
+}
+
+func (n *OrderShippedNotification) ToDatabase() map[string]interface{} {
+    return map[string]interface{}{
+        "type":    "order_shipped",
+        "title":   "Your order has shipped",
+        "message": "Order #" + n.Order.Number + " is on its way",
+        "data": map[string]string{
+            "order_id":     n.Order.ID.String(),
+            "tracking_code": n.Order.TrackingCode,
+        },
+    }
+}
+```
+
+### Sending Notifications
+
+```go
+notifier := notifications.New(mailer, db)
+
+// Send to a single user
+notifier.Send(ctx, user, &OrderShippedNotification{Order: order})
+
+// Send to multiple users
+notifier.SendBulk(ctx, users, &MaintenanceNotification{
+    StartTime: scheduledTime,
+})
+```
+
+### Notification Configuration
+
+```yaml
+notifications:
+  slack:
+    webhook_url: https://hooks.slack.com/services/xxx/yyy/zzz
+```
+
+## Development Tips
+
+- Use [Mailtrap](https://mailtrap.io/) as your SMTP provider during development to catch all outgoing emails without delivering them
+- Set `mail.driver: smtp` with Mailtrap credentials in your development `config.yaml`
+- Preview email templates by rendering them locally before sending
+
+## Next Steps
+
+- [Set up background jobs for async emails](/docs/guides/background-jobs)
+- [Configure your application](/docs/guides/configuration)
+- [Mailer API reference](/docs/api-reference/mailer)
+- [Notifications API reference](/docs/api-reference/notifications)

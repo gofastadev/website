@@ -1,7 +1,346 @@
 ---
-title: database-and-migrations
+title: Database & Migrations
+description: Database setup, GORM models, migrations, multi-database support, and relationships in Gofasta.
 ---
 
-# database-and-migrations
+# Database & Migrations
 
-Documentation coming soon.
+Gofasta uses [GORM](https://gorm.io/) as its ORM and raw SQL files for migrations. This guide covers database configuration, model definitions, migration management, and multi-database support.
+
+## Database Configuration
+
+Database settings live in `config.yaml`:
+
+```yaml
+database:
+  driver: postgres
+  host: localhost
+  port: 5432
+  name: myapp_db
+  user: postgres
+  password: postgres
+  ssl_mode: disable
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+```
+
+The `github.com/gofastadev/gofasta/pkg/config` package loads this configuration and provides a `SetupDB()` function that initializes the GORM connection:
+
+```go
+import "github.com/gofastadev/gofasta/pkg/config"
+
+cfg := config.LoadConfig("config.yaml")
+db, err := config.SetupDB(cfg)
+```
+
+## Supported Databases
+
+Gofasta supports five database drivers:
+
+| Driver | `database.driver` value | Default Port |
+|--------|------------------------|-------------|
+| PostgreSQL | `postgres` | 5432 |
+| MySQL | `mysql` | 3306 |
+| SQLite | `sqlite` | N/A |
+| SQL Server | `sqlserver` | 1433 |
+| ClickHouse | `clickhouse` | 9000 |
+
+Switch databases by changing the `database.driver` value in `config.yaml`. The framework handles driver-specific connection strings and dialect differences automatically.
+
+For SQLite, set the `database.name` to a file path:
+
+```yaml
+database:
+  driver: sqlite
+  name: ./data/myapp.db
+```
+
+## Models
+
+Models live in `app/models/` and represent your database tables. Every model embeds `models.BaseModelImpl` from the framework, which provides standard fields.
+
+### BaseModelImpl
+
+The `github.com/gofastadev/gofasta/pkg/models` package provides `BaseModelImpl`:
+
+```go
+type BaseModelImpl struct {
+    ID        uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+    CreatedAt time.Time      `json:"created_at"`
+    UpdatedAt time.Time      `json:"updated_at"`
+    DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+    Version   int            `gorm:"default:1" json:"version"`
+}
+```
+
+This gives every model:
+- **UUID primary key** with auto-generation
+- **Timestamps** for creation and last update
+- **Soft delete** via `DeletedAt` (records are not removed from the database)
+- **Optimistic locking** via `Version` for concurrent update safety
+
+### Defining a Model
+
+```go
+// app/models/product.model.go
+package models
+
+import "github.com/gofastadev/gofasta/pkg/models"
+
+type Product struct {
+    models.BaseModelImpl
+    Name        string  `gorm:"type:varchar(255);not null" json:"name"`
+    Price       float64 `gorm:"type:decimal(10,2);not null" json:"price"`
+    Description string  `gorm:"type:text" json:"description"`
+    CategoryID  *string `gorm:"type:uuid" json:"category_id,omitempty"`
+}
+```
+
+### Relationships
+
+Define relationships using standard GORM conventions:
+
+```go
+// One-to-Many: Category has many Products
+type Category struct {
+    models.BaseModelImpl
+    Name     string    `gorm:"type:varchar(255);not null" json:"name"`
+    Products []Product `gorm:"foreignKey:CategoryID" json:"products,omitempty"`
+}
+
+type Product struct {
+    models.BaseModelImpl
+    Name       string    `gorm:"type:varchar(255);not null" json:"name"`
+    Price      float64   `gorm:"type:decimal(10,2);not null" json:"price"`
+    CategoryID *string   `gorm:"type:uuid" json:"category_id,omitempty"`
+    Category   *Category `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
+}
+
+// Many-to-Many: Product has many Tags
+type Product struct {
+    models.BaseModelImpl
+    Name string  `gorm:"type:varchar(255);not null" json:"name"`
+    Tags []Tag   `gorm:"many2many:product_tags;" json:"tags,omitempty"`
+}
+
+type Tag struct {
+    models.BaseModelImpl
+    Name     string    `gorm:"type:varchar(100);not null;uniqueIndex" json:"name"`
+    Products []Product `gorm:"many2many:product_tags;" json:"products,omitempty"`
+}
+```
+
+## Migrations
+
+Gofasta uses SQL migration files in pairs: an `up` file to apply changes and a `down` file to reverse them. Migration files live in `db/migrations/`.
+
+### Migration File Format
+
+```
+db/migrations/
+├── 000001_create_users.up.sql
+├── 000001_create_users.down.sql
+├── 000002_create_categories.up.sql
+├── 000002_create_categories.down.sql
+├── 000003_create_products.up.sql
+└── 000003_create_products.down.sql
+```
+
+Each pair shares a sequence number and a descriptive name. The sequence number determines execution order.
+
+### Writing Migrations
+
+Up migration (creates or modifies schema):
+
+```sql
+-- db/migrations/000003_create_products.up.sql
+CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    description TEXT,
+    category_id UUID REFERENCES categories(id),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMP,
+    version INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX idx_products_category_id ON products(category_id);
+CREATE INDEX idx_products_deleted_at ON products(deleted_at);
+```
+
+Down migration (reverses the up migration):
+
+```sql
+-- db/migrations/000003_create_products.down.sql
+DROP TABLE IF EXISTS products;
+```
+
+### Generating Migrations
+
+Use the CLI to generate a new migration pair:
+
+```bash
+gofasta g migration create_orders
+```
+
+This creates two empty files with the next sequence number:
+
+```
+Created db/migrations/000004_create_orders.up.sql
+Created db/migrations/000004_create_orders.down.sql
+```
+
+When using `gofasta g scaffold` or `gofasta g model`, migration files are generated automatically with the correct SQL for your configured database driver.
+
+### Running Migrations
+
+```bash
+# Apply all pending migrations
+gofasta migrate up
+
+# Roll back the last migration
+gofasta migrate down
+
+# Roll back all migrations
+gofasta migrate down --all
+
+# Check current migration status
+gofasta migrate status
+```
+
+## Repositories
+
+Repositories provide a data access layer between your services and the database. Each repository has an interface and an implementation.
+
+### Repository Interface
+
+```go
+// app/repositories/interfaces/product_repository.go
+package interfaces
+
+import (
+    "context"
+    "myapp/app/models"
+)
+
+type ProductRepository interface {
+    Create(ctx context.Context, product *models.Product) error
+    FindAll(ctx context.Context, page, perPage int) ([]models.Product, int64, error)
+    FindByID(ctx context.Context, id string) (*models.Product, error)
+    Update(ctx context.Context, product *models.Product) error
+    Delete(ctx context.Context, id string) error
+}
+```
+
+### Repository Implementation
+
+```go
+// app/repositories/product.repository.go
+package repositories
+
+import (
+    "context"
+
+    "gorm.io/gorm"
+    "myapp/app/models"
+)
+
+type ProductRepository struct {
+    db *gorm.DB
+}
+
+func NewProductRepository(db *gorm.DB) *ProductRepository {
+    return &ProductRepository{db: db}
+}
+
+func (r *ProductRepository) Create(ctx context.Context, product *models.Product) error {
+    return r.db.WithContext(ctx).Create(product).Error
+}
+
+func (r *ProductRepository) FindAll(ctx context.Context, page, perPage int) ([]models.Product, int64, error) {
+    var products []models.Product
+    var total int64
+
+    r.db.WithContext(ctx).Model(&models.Product{}).Count(&total)
+
+    offset := (page - 1) * perPage
+    err := r.db.WithContext(ctx).
+        Offset(offset).
+        Limit(perPage).
+        Order("created_at DESC").
+        Find(&products).Error
+
+    return products, total, err
+}
+
+func (r *ProductRepository) FindByID(ctx context.Context, id string) (*models.Product, error) {
+    var product models.Product
+    err := r.db.WithContext(ctx).Where("id = ?", id).First(&product).Error
+    return &product, err
+}
+
+func (r *ProductRepository) Update(ctx context.Context, product *models.Product) error {
+    return r.db.WithContext(ctx).Save(product).Error
+}
+
+func (r *ProductRepository) Delete(ctx context.Context, id string) error {
+    return r.db.WithContext(ctx).Where("id = ?", id).Delete(&models.Product{}).Error
+}
+```
+
+### Eager Loading Relationships
+
+Use GORM's `Preload` to load related data:
+
+```go
+func (r *ProductRepository) FindByIDWithCategory(ctx context.Context, id string) (*models.Product, error) {
+    var product models.Product
+    err := r.db.WithContext(ctx).
+        Preload("Category").
+        Where("id = ?", id).
+        First(&product).Error
+    return &product, err
+}
+```
+
+## Database Seeds
+
+Seeds live in `db/seeds/` and populate your database with initial or test data:
+
+```go
+// db/seeds/product_seed.go
+package seeds
+
+import "gorm.io/gorm"
+
+func SeedProducts(db *gorm.DB) error {
+    products := []models.Product{
+        {Name: "Widget", Price: 9.99},
+        {Name: "Gadget", Price: 24.99},
+    }
+
+    for _, p := range products {
+        if err := db.Create(&p).Error; err != nil {
+            return err
+        }
+    }
+    return nil
+}
+```
+
+Run seeds with:
+
+```bash
+gofasta seed
+```
+
+## Next Steps
+
+- [Set up authentication](/docs/guides/authentication)
+- [Build REST endpoints](/docs/guides/rest-api)
+- [Generate models with the CLI](/docs/guides/code-generation)
+- [Models API reference](/docs/api-reference/models)
+- [Config API reference](/docs/api-reference/config)

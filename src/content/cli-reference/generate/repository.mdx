@@ -1,7 +1,135 @@
 ---
 title: gofasta g repository
+description: Generate a repository interface and implementation for database access.
 ---
 
 # gofasta g repository
 
-Documentation coming soon.
+Generates a repository interface and its GORM-based implementation for a given resource. The repository layer handles all database operations (CRUD queries) and is the only layer that interacts directly with the database.
+
+## Usage
+
+```bash
+gofasta g repository <ResourceName> [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--methods` | `-m` | `all` | Comma-separated list of CRUD methods to generate. Options: `create`, `findAll`, `findByID`, `update`, `delete` |
+
+## Examples
+
+Generate a repository with all CRUD methods:
+
+```bash
+gofasta g repository Product
+```
+
+Generate with only specific methods:
+
+```bash
+gofasta g repository Product --methods create,findAll,findByID
+```
+
+## What It Generates
+
+Running `gofasta g repository Product` creates two files:
+
+| File | Description |
+|------|-------------|
+| `app/repositories/interfaces/product_repository.go` | Repository interface |
+| `app/repositories/product.repository.go` | GORM implementation |
+
+### Repository Interface
+
+```go
+// app/repositories/interfaces/product_repository.go
+package interfaces
+
+import "myapp/app/models"
+
+type ProductRepository interface {
+    Create(product *models.Product) (*models.Product, error)
+    FindAll(page, limit int) ([]models.Product, int64, error)
+    FindByID(id string) (*models.Product, error)
+    Update(id string, product *models.Product) (*models.Product, error)
+    Delete(id string) error
+}
+```
+
+### Repository Implementation
+
+```go
+// app/repositories/product.repository.go
+package repositories
+
+import (
+    "myapp/app/models"
+    repoInterfaces "myapp/app/repositories/interfaces"
+    "gorm.io/gorm"
+)
+
+type ProductRepositoryImpl struct {
+    db *gorm.DB
+}
+
+func NewProductRepository(db *gorm.DB) repoInterfaces.ProductRepository {
+    return &ProductRepositoryImpl{db: db}
+}
+
+func (r *ProductRepositoryImpl) Create(product *models.Product) (*models.Product, error) {
+    if err := r.db.Create(product).Error; err != nil {
+        return nil, err
+    }
+    return product, nil
+}
+
+func (r *ProductRepositoryImpl) FindAll(page, limit int) ([]models.Product, int64, error) {
+    var products []models.Product
+    var total int64
+
+    r.db.Model(&models.Product{}).Count(&total)
+    err := r.db.Offset((page - 1) * limit).Limit(limit).Find(&products).Error
+    return products, total, err
+}
+
+func (r *ProductRepositoryImpl) FindByID(id string) (*models.Product, error) {
+    var product models.Product
+    if err := r.db.Where("id = ?", id).First(&product).Error; err != nil {
+        return nil, err
+    }
+    return &product, nil
+}
+
+func (r *ProductRepositoryImpl) Update(id string, product *models.Product) (*models.Product, error) {
+    if err := r.db.Where("id = ?", id).Updates(product).Error; err != nil {
+        return nil, err
+    }
+    return r.FindByID(id)
+}
+
+func (r *ProductRepositoryImpl) Delete(id string) error {
+    return r.db.Where("id = ?", id).Delete(&models.Product{}).Error
+}
+```
+
+## Architecture
+
+The repository sits between the service layer and the database:
+
+```
+Controller --> Service --> Repository --> Database (GORM)
+```
+
+- Repositories receive a `*gorm.DB` instance via dependency injection
+- All methods return domain models, not DTOs
+- Soft deletes are used by default (via GORM's `DeletedAt` field)
+- Pagination is handled with `Offset` and `Limit`
+
+## Related
+
+- [gofasta g model](/docs/cli-reference/generate/model) -- generate the model this repository operates on
+- [gofasta g service](/docs/cli-reference/generate/service) -- generate the service that calls this repository
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers at once

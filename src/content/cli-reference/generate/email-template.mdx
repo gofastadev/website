@@ -1,7 +1,163 @@
 ---
 title: gofasta g email-template
+description: Generate an HTML email template for transactional emails.
 ---
 
 # gofasta g email-template
 
-Documentation coming soon.
+Generates an HTML email template file for sending transactional emails such as welcome messages, password resets, order confirmations, and notifications. Templates use Go's `html/template` package for dynamic content rendering.
+
+## Usage
+
+```bash
+gofasta g email-template <TemplateName> [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--subject` | `-s` | derived from name | Default email subject line |
+| `--layout` | `-l` | `default` | Base layout to extend. Options: `default`, `minimal`, `none` |
+
+## Examples
+
+Generate a welcome email template:
+
+```bash
+gofasta g email-template Welcome
+```
+
+Generate a password reset template with a custom subject:
+
+```bash
+gofasta g email-template PasswordReset --subject "Reset Your Password"
+```
+
+Generate an order confirmation template with a minimal layout:
+
+```bash
+gofasta g email-template OrderConfirmation --layout minimal
+```
+
+Generate a template without any base layout:
+
+```bash
+gofasta g email-template CustomNotification --layout none
+```
+
+## What It Generates
+
+Running `gofasta g email-template Welcome` creates one file:
+
+```
+app/emails/welcome.email.html
+```
+
+### Generated Code
+
+```html
+<!-- app/emails/welcome.email.html -->
+{{"{{"}}define "subject"{{"}}"}}Welcome to {{"{{"}} .AppName {{"}}"}}!{{"{{"}}end{{"}}"}}
+
+{{"{{"}}define "content"{{"}}"}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td style="padding: 24px 0;">
+      <h1 style="font-size: 24px; font-weight: 600; color: #1a1a1a; margin: 0 0 16px;">
+        Welcome, {{"{{"}} .Name {{"}}"}}!
+      </h1>
+      <p style="font-size: 16px; color: #4a4a4a; line-height: 1.6; margin: 0 0 16px;">
+        Thank you for joining {{"{{"}} .AppName {{"}}"}}. We are excited to have you on board.
+      </p>
+      <p style="font-size: 16px; color: #4a4a4a; line-height: 1.6; margin: 0 0 24px;">
+        To get started, click the button below to verify your email address:
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="border-radius: 6px; background-color: #00ADD8;">
+            <a href="{{"{{"}} .VerificationURL {{"}}"}}"
+               style="display: inline-block; padding: 12px 24px; font-size: 16px;
+                      color: #ffffff; text-decoration: none; font-weight: 500;">
+              Verify Email
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+{{"{{"}}end{{"}}"}}
+```
+
+## Template Data
+
+Each template receives a data struct when rendered. Define the struct in your service or job:
+
+```go
+type WelcomeEmailData struct {
+    AppName         string
+    Name            string
+    Email           string
+    VerificationURL string
+}
+```
+
+## Sending Emails
+
+Use the email service to render and send templates:
+
+```go
+func (s *UserServiceImpl) SendWelcomeEmail(user *models.User, verificationToken string) error {
+    data := WelcomeEmailData{
+        AppName:         "My App",
+        Name:            user.Name,
+        Email:           user.Email,
+        VerificationURL: fmt.Sprintf("https://myapp.com/verify?token=%s", verificationToken),
+    }
+
+    return s.emailService.Send(EmailMessage{
+        To:       user.Email,
+        Template: "welcome",
+        Data:     data,
+    })
+}
+```
+
+## Email Configuration
+
+SMTP settings are configured in `config/config.yaml`:
+
+```yaml
+email:
+  smtp_host: smtp.example.com
+  smtp_port: 587
+  smtp_user: noreply@example.com
+  smtp_password: your-password
+  from_name: My App
+  from_address: noreply@example.com
+```
+
+## Layout System
+
+The `default` layout wraps your template content with a standard email structure including header, footer, and responsive styling. The available layouts:
+
+| Layout | Description |
+|--------|-------------|
+| `default` | Full layout with header logo, footer with unsubscribe link, responsive design |
+| `minimal` | Simple wrapper with basic styling, no header/footer |
+| `none` | Raw template with no layout wrapping |
+
+## Best Practices
+
+- Use inline styles for email compatibility across email clients
+- Use table-based layouts for reliable rendering
+- Always include a plain-text fallback for accessibility
+- Test with multiple email clients (Gmail, Outlook, Apple Mail)
+- Keep templates under 100KB for deliverability
+
+## Related
+
+- [gofasta g job](/docs/cli-reference/generate/job) -- generate a background job to send emails asynchronously
+- [gofasta g task](/docs/cli-reference/generate/task) -- generate a scheduled task for digest emails
+- [gofasta new](/docs/cli-reference/new) -- create a project with email support configured

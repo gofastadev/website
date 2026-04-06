@@ -1,7 +1,183 @@
 ---
-title: resilience
+title: Resilience
+description: Circuit breaker, retry with backoff, timeout, and bulkhead patterns for fault-tolerant applications.
 ---
 
-# resilience
+# Resilience
 
-Documentation coming soon.
+The `resilience` package provides fault-tolerance patterns including circuit breakers, retry with exponential backoff, timeouts, and bulkhead isolation. These patterns help applications gracefully handle failures in downstream dependencies.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/resilience"
+```
+
+## Key Types
+
+### CircuitBreaker
+
+```go
+type CircuitBreaker struct {
+    Name          string
+    State         State // Closed, Open, HalfOpen
+    FailureCount  int
+    SuccessCount  int
+    LastFailureAt time.Time
+}
+```
+
+### CircuitBreakerConfig
+
+```go
+type CircuitBreakerConfig struct {
+    MaxFailures    int           `yaml:"max_failures"`
+    Timeout        time.Duration `yaml:"timeout"`
+    HalfOpenMax    int           `yaml:"half_open_max"`
+    OnStateChange  func(name string, from, to State)
+}
+```
+
+### RetryConfig
+
+```go
+type RetryConfig struct {
+    MaxAttempts int           `yaml:"max_attempts"`
+    InitialWait time.Duration `yaml:"initial_wait"`
+    MaxWait     time.Duration `yaml:"max_wait"`
+    Multiplier  float64       `yaml:"multiplier"`
+    Jitter      bool          `yaml:"jitter"`
+}
+```
+
+### BulkheadConfig
+
+```go
+type BulkheadConfig struct {
+    MaxConcurrent int           `yaml:"max_concurrent"`
+    MaxWait       time.Duration `yaml:"max_wait"`
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewCircuitBreaker` | `func NewCircuitBreaker(name string, cfg CircuitBreakerConfig) *CircuitBreaker` | Creates a new circuit breaker |
+| `Execute` | `func (cb *CircuitBreaker) Execute(fn func() error) error` | Runs a function through the circuit breaker |
+| `Retry` | `func Retry(cfg RetryConfig, fn func() error) error` | Retries a function with exponential backoff |
+| `RetryWithContext` | `func RetryWithContext(ctx context.Context, cfg RetryConfig, fn func(ctx context.Context) error) error` | Context-aware retry |
+| `WithTimeout` | `func WithTimeout(ctx context.Context, d time.Duration, fn func(ctx context.Context) error) error` | Runs a function with a deadline |
+| `NewBulkhead` | `func NewBulkhead(cfg BulkheadConfig) *Bulkhead` | Creates a concurrency limiter |
+
+## Usage
+
+### Circuit Breaker
+
+```go
+cb := resilience.NewCircuitBreaker("payment-service", resilience.CircuitBreakerConfig{
+    MaxFailures: 5,
+    Timeout:     30 * time.Second,
+    HalfOpenMax: 2,
+    OnStateChange: func(name string, from, to resilience.State) {
+        log.Info("circuit breaker state change",
+            logger.F("name", name),
+            logger.F("from", from),
+            logger.F("to", to),
+        )
+    },
+})
+
+err := cb.Execute(func() error {
+    return paymentClient.Charge(ctx, amount)
+})
+
+if err != nil {
+    if errors.Is(err, resilience.ErrCircuitOpen) {
+        // Circuit is open -- fail fast
+        return errors.New("SERVICE_UNAVAILABLE", "payment service is unavailable", 503)
+    }
+    return err
+}
+```
+
+### Retry with Exponential Backoff
+
+```go
+err := resilience.Retry(resilience.RetryConfig{
+    MaxAttempts: 3,
+    InitialWait: 100 * time.Millisecond,
+    MaxWait:     5 * time.Second,
+    Multiplier:  2.0,
+    Jitter:      true,
+}, func() error {
+    return externalAPI.Call(ctx, payload)
+})
+// Attempts: 100ms -> 200ms -> 400ms (with jitter)
+```
+
+### Context-Aware Retry
+
+```go
+err := resilience.RetryWithContext(ctx, resilience.RetryConfig{
+    MaxAttempts: 5,
+    InitialWait: 200 * time.Millisecond,
+    MaxWait:     10 * time.Second,
+    Multiplier:  2.0,
+}, func(ctx context.Context) error {
+    return db.PingContext(ctx)
+})
+```
+
+### Timeout
+
+```go
+err := resilience.WithTimeout(ctx, 5*time.Second, func(ctx context.Context) error {
+    return slowService.Process(ctx, data)
+})
+
+if err != nil {
+    if errors.Is(err, context.DeadlineExceeded) {
+        return errors.New("TIMEOUT", "request timed out", 504)
+    }
+}
+```
+
+### Bulkhead (Concurrency Limiter)
+
+```go
+bulkhead := resilience.NewBulkhead(resilience.BulkheadConfig{
+    MaxConcurrent: 10,
+    MaxWait:       2 * time.Second,
+})
+
+err := bulkhead.Execute(func() error {
+    return cpuIntensiveTask(data)
+})
+
+if err != nil {
+    if errors.Is(err, resilience.ErrBulkheadFull) {
+        return errors.New("SERVICE_UNAVAILABLE", "too many concurrent requests", 503)
+    }
+}
+```
+
+### Combining Patterns
+
+```go
+func (s *PaymentService) Charge(ctx context.Context, amount float64) error {
+    return s.circuitBreaker.Execute(func() error {
+        return resilience.RetryWithContext(ctx, s.retryConfig, func(ctx context.Context) error {
+            return resilience.WithTimeout(ctx, 5*time.Second, func(ctx context.Context) error {
+                return s.paymentClient.Charge(ctx, amount)
+            })
+        })
+    })
+}
+```
+
+## Related Pages
+
+- [Queue](/docs/api-reference/queue) -- Retry policies for queued jobs
+- [Health](/docs/api-reference/health) -- Health checks reflect circuit breaker states
+- [Observability](/docs/api-reference/observability) -- Track resilience metrics

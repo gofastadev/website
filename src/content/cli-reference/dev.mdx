@@ -1,7 +1,103 @@
 ---
 title: gofasta dev
+description: Start the Gofasta development server with hot reload using Air.
 ---
 
 # gofasta dev
 
-Documentation coming soon.
+Starts the development server with automatic hot reload powered by [Air](https://github.com/air-verse/air). When you change any `.go` file, the server automatically rebuilds and restarts, giving you a fast feedback loop during development.
+
+## Usage
+
+```bash
+gofasta dev [flags]
+```
+
+Run this command from the root directory of your Gofasta project.
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--port` | `-p` | `8080` | Port number for the HTTP server |
+| `--host` | `-H` | `0.0.0.0` | Host address to bind to |
+| `--no-reload` | | `false` | Disable hot reload and run the server directly |
+
+## Examples
+
+Start the dev server with default settings:
+
+```bash
+gofasta dev
+```
+
+Start on a custom port:
+
+```bash
+gofasta dev --port 3000
+```
+
+Start on localhost only (not exposed to the network):
+
+```bash
+gofasta dev --host 127.0.0.1
+```
+
+Start without hot reload:
+
+```bash
+gofasta dev --no-reload
+```
+
+Combine flags:
+
+```bash
+gofasta dev -p 9090 -H 127.0.0.1
+```
+
+## How It Works
+
+The `gofasta dev` command wraps the [Air](https://github.com/air-verse/air) live reloader. When you run it:
+
+1. Air watches all `.go` files in your project for changes
+2. On any file change, it rebuilds the binary
+3. The previous server process is stopped
+4. The new binary is started automatically
+
+The Air configuration is stored in `.air.toml` at the project root. You can customize watched directories, excluded paths, build commands, and delay settings by editing this file.
+
+## Available Endpoints
+
+Once the dev server is running, the following endpoints are available:
+
+| Endpoint | URL |
+|----------|-----|
+| REST API | `http://localhost:8080/api/v1/` |
+| GraphQL | `http://localhost:8080/graphql` |
+| GraphQL Playground | `http://localhost:8080/graphql-playground` |
+| Health Check | `http://localhost:8080/health` |
+| Swagger UI | `http://localhost:8080/swagger/index.html` |
+
+Replace `8080` with your custom port if you used the `--port` flag.
+
+## Using Docker
+
+If you prefer running inside Docker with hot reload, use the provided Makefile command instead:
+
+```bash
+make dev
+```
+
+This starts the Docker Compose development profile, which includes both the application with Air hot reload and the database service.
+
+## Troubleshooting
+
+**Port already in use** -- If you see `bind: address already in use`, another process is using the port. Either stop that process or use a different port with `--port`.
+
+**Air not found** -- The `gofasta dev` command handles Air internally. If you encounter issues, make sure you have run `gofasta init` to install all dependencies.
+
+## Related
+
+- [gofasta serve](/docs/cli-reference/serve) -- start the production server
+- [gofasta new](/docs/cli-reference/new) -- create a new project
+- [Quick Start](/docs/getting-started/quick-start)

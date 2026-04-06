@@ -1,7 +1,106 @@
 ---
 title: gofasta seed
+description: Run database seeders to populate your database with initial or test data.
 ---
 
 # gofasta seed
 
-Documentation coming soon.
+Runs the database seeder files located in `db/seeders/` to populate your database with initial data. This is useful for setting up default roles, permissions, admin users, and sample data for development and testing.
+
+## Usage
+
+```bash
+gofasta seed [flags]
+```
+
+Run this command from the root directory of your Gofasta project.
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--env` | `-e` | `development` | Environment to use for database connection |
+| `--fresh` | | `false` | Drop all tables and re-run all migrations before seeding |
+| `--file` | `-f` | all | Run a specific seeder file only |
+
+## Examples
+
+Run all seeders:
+
+```bash
+gofasta seed
+```
+
+Run seeders against the staging database:
+
+```bash
+gofasta seed --env staging
+```
+
+Run only a specific seeder file:
+
+```bash
+gofasta seed --file users
+```
+
+Drop all tables, re-run migrations, and seed from scratch:
+
+```bash
+gofasta seed --fresh
+```
+
+## Default Seeders
+
+A newly generated Gofasta project includes the following seeders:
+
+| Seeder | Description |
+|--------|-------------|
+| `roles_seeder.go` | Creates default roles (admin, user, moderator) |
+| `permissions_seeder.go` | Creates default RBAC permissions |
+| `users_seeder.go` | Creates an admin user with default credentials |
+
+## Seeder File Structure
+
+Seeders are Go files in `db/seeders/` that implement the `Seeder` interface:
+
+```go
+// db/seeders/users_seeder.go
+package seeders
+
+import (
+    "myapp/app/models"
+    "gorm.io/gorm"
+)
+
+type UsersSeeder struct{}
+
+func (s *UsersSeeder) Seed(db *gorm.DB) error {
+    users := []models.User{
+        {
+            Email:    "admin@example.com",
+            Name:     "Admin User",
+            Password: "hashed_password_here",
+            RoleID:   1,
+        },
+    }
+
+    for _, user := range users {
+        if err := db.FirstOrCreate(&user, models.User{Email: user.Email}).Error; err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+func (s *UsersSeeder) Order() int {
+    return 3 // Controls execution order
+}
+```
+
+The `Order()` method determines the sequence in which seeders run. Lower numbers run first, which is important for satisfying foreign key constraints.
+
+## Related
+
+- [gofasta migrate](/docs/cli-reference/migrate) -- run database migrations
+- [gofasta new](/docs/cli-reference/new) -- create a new project with default seeders
+- [Quick Start](/docs/getting-started/quick-start)

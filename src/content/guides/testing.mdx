@@ -1,7 +1,411 @@
 ---
-title: testing
+title: Testing
+description: Test setup, test utilities, integration tests, mocking, and test database configuration in Gofasta.
 ---
 
-# testing
+# Testing
 
-Documentation coming soon.
+Gofasta projects use Go's built-in testing framework alongside the `github.com/gofastadev/gofasta/pkg/test-utilities` package, which provides helpers for setting up test databases, creating HTTP test requests, and mocking dependencies.
+
+## Project Test Structure
+
+Tests follow Go conventions and live alongside the code they test:
+
+```
+app/
+├── services/
+│   ├── product.service.go
+│   └── product.service_test.go
+├── rest/controllers/
+│   ├── product.controller.go
+│   └── product.controller_test.go
+├── repositories/
+│   ├── product.repository.go
+│   └── product.repository_test.go
+```
+
+Run all tests with:
+
+```bash
+go test ./...
+```
+
+Or use the Makefile shortcut:
+
+```bash
+make test
+```
+
+## Test Utilities Package
+
+The `github.com/gofastadev/gofasta/pkg/test-utilities` package (imported as `testutil`) provides helpers that reduce boilerplate in tests.
+
+### Setting Up a Test Database
+
+`testutil.SetupTestDB` creates an isolated test database using SQLite in-memory by default:
+
+```go
+package services_test
+
+import (
+    "testing"
+
+    testutil "github.com/gofastadev/gofasta/pkg/test-utilities"
+    "myapp/app/models"
+)
+
+func TestProductService(t *testing.T) {
+    db := testutil.SetupTestDB(t, &models.Product{}, &models.Category{})
+    // db is a *gorm.DB connected to an in-memory SQLite database
+    // Tables for Product and Category are auto-migrated
+}
+```
+
+Pass your model structs to `SetupTestDB` and it automatically creates the tables. The database is cleaned up when the test finishes.
+
+### Using a Real Database for Tests
+
+For integration tests against your actual database driver, use `testutil.SetupTestDBFromConfig`:
+
+```go
+func TestProductRepository_Postgres(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping integration test")
+    }
+
+    db := testutil.SetupTestDBFromConfig(t, "config.test.yaml",
+        &models.Product{},
+        &models.Category{},
+    )
+    // Uses the database configured in config.test.yaml
+}
+```
+
+Create a `config.test.yaml` that points to a test database:
+
+```yaml
+database:
+  driver: postgres
+  host: localhost
+  port: 5432
+  name: myapp_test
+  user: postgres
+  password: postgres
+```
+
+Run integration tests separately:
+
+```bash
+# Run only unit tests (skip integration)
+go test -short ./...
+
+# Run all tests including integration
+go test ./...
+```
+
+## Unit Testing Services
+
+Services contain business logic and are the most important layer to test. Mock the repository interface to isolate the service.
+
+### Creating Mocks
+
+Define mocks that implement repository interfaces:
+
+```go
+// app/repositories/mocks/product_repository_mock.go
+package mocks
+
+import (
+    "context"
+    "myapp/app/models"
+)
+
+type MockProductRepository struct {
+    CreateFn    func(ctx context.Context, product *models.Product) error
+    FindAllFn   func(ctx context.Context, page, perPage int) ([]models.Product, int64, error)
+    FindByIDFn  func(ctx context.Context, id string) (*models.Product, error)
+    UpdateFn    func(ctx context.Context, product *models.Product) error
+    DeleteFn    func(ctx context.Context, id string) error
+}
+
+func (m *MockProductRepository) Create(ctx context.Context, product *models.Product) error {
+    return m.CreateFn(ctx, product)
+}
+
+func (m *MockProductRepository) FindAll(ctx context.Context, page, perPage int) ([]models.Product, int64, error) {
+    return m.FindAllFn(ctx, page, perPage)
+}
+
+func (m *MockProductRepository) FindByID(ctx context.Context, id string) (*models.Product, error) {
+    return m.FindByIDFn(ctx, id)
+}
+
+func (m *MockProductRepository) Update(ctx context.Context, product *models.Product) error {
+    return m.UpdateFn(ctx, product)
+}
+
+func (m *MockProductRepository) Delete(ctx context.Context, id string) error {
+    return m.DeleteFn(ctx, id)
+}
+```
+
+### Writing Service Tests
+
+```go
+package services_test
+
+import (
+    "context"
+    "testing"
+
+    "myapp/app/dtos"
+    "myapp/app/models"
+    "myapp/app/repositories/mocks"
+    "myapp/app/services"
+)
+
+func TestProductService_Create(t *testing.T) {
+    mockRepo := &mocks.MockProductRepository{
+        CreateFn: func(ctx context.Context, product *models.Product) error {
+            product.ID = uuid.New()
+            return nil
+        },
+    }
+
+    svc := services.NewProductService(mockRepo)
+
+    req := &dtos.CreateProductRequest{
+        Name:  "Widget",
+        Price: 9.99,
+    }
+
+    result, err := svc.Create(context.Background(), req)
+    if err != nil {
+        t.Fatalf("expected no error, got %v", err)
+    }
+
+    if result.Name != "Widget" {
+        t.Errorf("expected name Widget, got %s", result.Name)
+    }
+
+    if result.Price != 9.99 {
+        t.Errorf("expected price 9.99, got %f", result.Price)
+    }
+}
+
+func TestProductService_Create_InvalidPrice(t *testing.T) {
+    mockRepo := &mocks.MockProductRepository{}
+    svc := services.NewProductService(mockRepo)
+
+    req := &dtos.CreateProductRequest{
+        Name:  "Widget",
+        Price: -5.00,
+    }
+
+    _, err := svc.Create(context.Background(), req)
+    if err == nil {
+        t.Fatal("expected error for negative price, got nil")
+    }
+}
+```
+
+## Testing Controllers
+
+Use `testutil.NewTestRouter` to create a Gin router configured for testing, and `testutil.MakeRequest` to send HTTP requests:
+
+```go
+package controllers_test
+
+import (
+    "net/http"
+    "testing"
+
+    testutil "github.com/gofastadev/gofasta/pkg/test-utilities"
+    "myapp/app/rest/controllers"
+    "myapp/app/repositories/mocks"
+    "myapp/app/services"
+)
+
+func TestProductController_FindAll(t *testing.T) {
+    mockRepo := &mocks.MockProductRepository{
+        FindAllFn: func(ctx context.Context, page, perPage int) ([]models.Product, int64, error) {
+            return []models.Product{
+                {Name: "Widget", Price: 9.99},
+            }, 1, nil
+        },
+    }
+
+    svc := services.NewProductService(mockRepo)
+    ctrl := controllers.NewProductController(svc)
+
+    router := testutil.NewTestRouter()
+    router.GET("/products", ctrl.FindAll)
+
+    resp := testutil.MakeRequest(t, router, "GET", "/products", nil)
+
+    testutil.AssertStatus(t, resp, http.StatusOK)
+    testutil.AssertJSONContains(t, resp, "success", true)
+}
+
+func TestProductController_Create(t *testing.T) {
+    mockRepo := &mocks.MockProductRepository{
+        CreateFn: func(ctx context.Context, product *models.Product) error {
+            product.ID = uuid.New()
+            return nil
+        },
+    }
+
+    svc := services.NewProductService(mockRepo)
+    ctrl := controllers.NewProductController(svc)
+
+    router := testutil.NewTestRouter()
+    router.POST("/products", ctrl.Create)
+
+    body := map[string]interface{}{
+        "name":  "Widget",
+        "price": 9.99,
+    }
+
+    resp := testutil.MakeRequest(t, router, "POST", "/products", body)
+
+    testutil.AssertStatus(t, resp, http.StatusCreated)
+}
+```
+
+### Test Utility Functions
+
+| Function | Description |
+|----------|-------------|
+| `testutil.SetupTestDB(t, models...)` | Create in-memory SQLite test database |
+| `testutil.SetupTestDBFromConfig(t, path, models...)` | Create test database from config file |
+| `testutil.NewTestRouter()` | Create a Gin router in test mode |
+| `testutil.MakeRequest(t, router, method, path, body)` | Send an HTTP request and return the response |
+| `testutil.MakeAuthRequest(t, router, method, path, body, token)` | Send an authenticated HTTP request |
+| `testutil.AssertStatus(t, resp, code)` | Assert response status code |
+| `testutil.AssertJSONContains(t, resp, key, value)` | Assert a key-value pair in the JSON response |
+| `testutil.AssertJSONArray(t, resp, key, length)` | Assert an array field has the expected length |
+| `testutil.GenerateTestJWT(userID, role, config)` | Generate a JWT token for testing |
+
+## Testing Repositories
+
+Repository tests use a real database (in-memory SQLite) to verify GORM queries:
+
+```go
+package repositories_test
+
+import (
+    "context"
+    "testing"
+
+    testutil "github.com/gofastadev/gofasta/pkg/test-utilities"
+    "myapp/app/models"
+    "myapp/app/repositories"
+)
+
+func TestProductRepository_Create(t *testing.T) {
+    db := testutil.SetupTestDB(t, &models.Product{})
+    repo := repositories.NewProductRepository(db)
+
+    product := &models.Product{
+        Name:  "Widget",
+        Price: 9.99,
+    }
+
+    err := repo.Create(context.Background(), product)
+    if err != nil {
+        t.Fatalf("expected no error, got %v", err)
+    }
+
+    if product.ID == uuid.Nil {
+        t.Error("expected product ID to be set")
+    }
+}
+
+func TestProductRepository_FindByID(t *testing.T) {
+    db := testutil.SetupTestDB(t, &models.Product{})
+    repo := repositories.NewProductRepository(db)
+
+    // Seed test data
+    product := &models.Product{Name: "Widget", Price: 9.99}
+    db.Create(product)
+
+    found, err := repo.FindByID(context.Background(), product.ID.String())
+    if err != nil {
+        t.Fatalf("expected no error, got %v", err)
+    }
+
+    if found.Name != "Widget" {
+        t.Errorf("expected name Widget, got %s", found.Name)
+    }
+}
+```
+
+## Testing with Authentication
+
+Use `testutil.GenerateTestJWT` and `testutil.MakeAuthRequest` for testing protected endpoints:
+
+```go
+func TestProductController_Create_Authenticated(t *testing.T) {
+    // ... setup controller ...
+
+    router := testutil.NewTestRouter()
+    router.Use(middleware.Auth(jwtConfig))
+    router.POST("/products", ctrl.Create)
+
+    token := testutil.GenerateTestJWT("user-123", "admin", jwtConfig)
+
+    body := map[string]interface{}{
+        "name":  "Widget",
+        "price": 9.99,
+    }
+
+    resp := testutil.MakeAuthRequest(t, router, "POST", "/products", body, token)
+    testutil.AssertStatus(t, resp, http.StatusCreated)
+}
+
+func TestProductController_Create_Unauthorized(t *testing.T) {
+    // ... setup controller ...
+
+    router := testutil.NewTestRouter()
+    router.Use(middleware.Auth(jwtConfig))
+    router.POST("/products", ctrl.Create)
+
+    body := map[string]interface{}{
+        "name":  "Widget",
+        "price": 9.99,
+    }
+
+    // No auth token
+    resp := testutil.MakeRequest(t, router, "POST", "/products", body)
+    testutil.AssertStatus(t, resp, http.StatusUnauthorized)
+}
+```
+
+## Running Tests
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with verbose output
+go test -v ./...
+
+# Run tests for a specific package
+go test ./app/services/...
+
+# Run a specific test function
+go test -run TestProductService_Create ./app/services/...
+
+# Run with coverage
+go test -cover ./...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+## Next Steps
+
+- [Deploy your application](/docs/guides/deployment)
+- [Configure your application](/docs/guides/configuration)
+- [Test Utilities API reference](/docs/api-reference/test-utilities)
