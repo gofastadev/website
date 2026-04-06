@@ -1,0 +1,60 @@
+---
+title: Introduction
+description: What is Gofasta and why use it.
+---
+
+# Introduction
+
+Gofasta is a Go web framework that provides production-ready building blocks for backend services. It handles the infrastructure plumbing — authentication, caching, database setup, email, logging, middleware, and more — so you can focus on writing business logic.
+
+Gofasta is split into two parts:
+
+- **[gofastadev/gofasta](https://github.com/gofastadev/gofasta)** — A Go library your project imports. Contains 27 packages under `pkg/` covering everything from JWT auth to WebSocket support.
+- **[gofastadev/cli](https://github.com/gofastadev/cli)** — A globally installed CLI tool that scaffolds new projects and generates code. It does not import the framework — it only manipulates files on disk.
+
+## What You Get
+
+When you run `gofasta new myapp`, the CLI creates a complete, ready-to-run project with:
+
+- **REST API** with controllers, routes, and middleware
+- **GraphQL** with schema files and auto-generated resolvers
+- **Database** with migrations, seeders, and multi-DB support (Postgres, MySQL, SQLite, SQL Server, ClickHouse)
+- **Authentication** with JWT tokens and role-based access control (Casbin)
+- **Dependency injection** with Google Wire (compile-time, no reflection)
+- **Background jobs** — cron scheduling and async task queues
+- **Email** — SMTP, SendGrid, and Brevo with HTML templates
+- **Observability** — Prometheus metrics and OpenTelemetry tracing
+- **Docker** — Dockerfile, Docker Compose, and Kubernetes manifests
+- **CI/CD** — GitHub Actions workflows for testing, releasing, and deploying
+
+A starter `User` resource is included so the project compiles and runs out of the box.
+
+## Architecture
+
+Your project has a one-way dependency on the framework:
+
+```
+Your Project (myapp)
+    └── imports → github.com/gofastadev/gofasta/pkg/*
+```
+
+The framework never imports your code. This means:
+
+- **No vendor lock-in** — you can replace any framework package with your own implementation
+- **No code generation at runtime** — Wire and gqlgen run at build time
+- **No reflection magic** — all wiring is explicit Go code
+
+## Who Is This For
+
+Gofasta is designed for Go developers who want to ship production backends quickly without assembling dozens of libraries manually. It is especially useful if you:
+
+- Want a full project structure from day one (not just a router)
+- Need both REST and GraphQL in the same project
+- Want code generation that stays out of your way
+- Value compile-time safety over runtime magic
+
+## Next Steps
+
+- [Install the CLI](/docs/getting-started/installation)
+- [Create your first project](/docs/getting-started/quick-start)
+- [Understand the project structure](/docs/getting-started/project-structure)

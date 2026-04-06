@@ -1,0 +1,137 @@
+---
+title: Project Structure
+description: Understand the directory layout of a Gofasta project.
+---
+
+# Project Structure
+
+When you run `gofasta new myapp`, the CLI creates the following structure:
+
+```
+myapp/
+├── app/                    # Your application code
+│   ├── main/main.go       # Entry point
+│   ├── models/             # Database models (User starter included)
+│   ├── dtos/               # Request/response types
+│   ├── repositories/       # Data access layer
+│   │   └── interfaces/     # Repository contracts
+│   ├── services/           # Business logic
+│   │   └── interfaces/     # Service contracts
+│   ├── rest/
+│   │   ├── controllers/    # HTTP handlers
+│   │   └── routes/         # Route definitions
+│   ├── graphql/
+│   │   ├── schema/         # GraphQL schema files (.gql)
+│   │   └── resolvers/      # GraphQL resolvers
+│   ├── validators/         # Input validation rules
+│   ├── di/                 # Dependency injection (Google Wire)
+│   │   ├── container.go    # Service container struct
+│   │   ├── wire.go         # Wire build configuration
+│   │   ├── wire_gen.go     # Generated Wire output
+│   │   └── providers/      # Wire provider sets
+│   └── jobs/               # Cron jobs
+├── cmd/                    # CLI commands for your app
+│   ├── root.go             # Cobra root command
+│   ├── serve.go            # Starts the HTTP server
+│   └── seed.go             # Runs database seeders
+├── db/
+│   ├── migrations/         # SQL migration files (up + down)
+│   └── seeds/              # Database seed functions
+├── configs/                # RBAC policies, feature flags
+├── deployments/            # Docker, Kubernetes, CI/CD, nginx, systemd
+├── templates/emails/       # HTML email templates
+├── locales/                # Translation files (i18n)
+├── config.yaml             # Application configuration
+├── compose.yaml            # Docker Compose (app + PostgreSQL)
+├── Dockerfile              # Production container image
+├── Makefile                # Development shortcuts
+└── gqlgen.yml              # GraphQL code generation config
+```
+
+## Key Directories
+
+### `app/` — Your Application Code
+
+This is where you spend most of your time. It follows a layered architecture:
+
+```
+Request → Controller → Service → Repository → Database
+```
+
+- **`models/`** — GORM database models. Each model embeds `models.BaseModelImpl` from the framework to get standard fields (ID, timestamps, soft delete, versioning).
+- **`dtos/`** — Data Transfer Objects for request parsing and response formatting. Keeps your API contract separate from your database models.
+- **`repositories/`** — Data access layer. Each repository has an interface in `interfaces/` and an implementation that uses GORM.
+- **`services/`** — Business logic layer. Receives DTOs, calls repositories, applies rules. This is where your domain logic goes.
+- **`rest/controllers/`** — HTTP handlers. Parse requests, call services, return responses. No business logic here.
+- **`rest/routes/`** — Route definitions. Maps HTTP methods and paths to controller methods.
+- **`graphql/`** — Schema files (`.gql`) and resolvers. gqlgen generates resolver stubs from your schema.
+- **`validators/`** — Custom validation rules and error messages for request validation.
+- **`di/`** — Google Wire dependency injection. `wire.go` defines how to build the container; `wire_gen.go` is the generated output.
+
+### `cmd/` — Project CLI Commands
+
+Your project has its own CLI built with Cobra:
+
+- **`serve.go`** — Starts the HTTP server. Initializes the DI container, registers routes, and listens on the configured port.
+- **`seed.go`** — Runs database seeders. Useful for populating test data.
+
+### `db/` — Database Files
+
+- **`migrations/`** — SQL migration files in pairs: `000001_create_users.up.sql` and `000001_create_users.down.sql`. Run with `gofasta migrate up` and `gofasta migrate down`.
+- **`seeds/`** — Go functions that insert test/default data into the database.
+
+### `deployments/` — Infrastructure
+
+Pre-configured deployment files for multiple targets:
+
+- **`ci/`** — GitHub Actions workflows (test, release, deploy to AWS/GCP/Azure/VPS)
+- **`docker/`** — Development Dockerfile, production compose file
+- **`k8s/`** — Kubernetes deployment, service, and ingress manifests
+- **`nginx/`** — Reverse proxy configuration
+- **`systemd/`** — Service file and deploy script for VPS deployments
+
+### `config.yaml` — Application Configuration
+
+Central configuration file for your app:
+
+```yaml
+app:
+  name: myapp
+  port: 8080
+  env: development
+
+database:
+  driver: postgres
+  host: localhost
+  port: 5432
+  name: myapp_db
+  user: postgres
+  password: postgres
+
+jwt:
+  secret: your-secret-key
+  expiration: 24h
+
+redis:
+  host: localhost
+  port: 6379
+```
+
+Settings can be overridden with environment variables using the pattern `MYAPP_SECTION_KEY` (e.g., `MYAPP_DATABASE_HOST=db`).
+
+## What the Framework Provides vs. What You Write
+
+| You write | The framework provides |
+|-----------|----------------------|
+| `app/models/product.model.go` | `pkg/models` — BaseModelImpl with UUID, timestamps, soft delete |
+| `app/services/product.service.go` | `pkg/validators` — Input validation, `pkg/utils` — Pagination |
+| `app/rest/controllers/product.controller.go` | `pkg/httputil` — Bind, Handle, JSON responses |
+| `app/rest/routes/product.routes.go` | `pkg/middleware` — CORS, logging, rate limiting |
+| `config.yaml` | `pkg/config` — LoadConfig(), SetupDB() |
+| `cmd/serve.go` | `pkg/health` — Health check endpoints |
+
+## Next Steps
+
+- [Build a REST API](/docs/guides/rest-api)
+- [Learn about code generation](/docs/guides/code-generation)
+- [Configure your database](/docs/guides/database-and-migrations)

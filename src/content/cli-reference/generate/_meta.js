@@ -1,0 +1,15 @@
+export default {
+  scaffold: "scaffold",
+  model: "model",
+  repository: "repository",
+  service: "service",
+  controller: "controller",
+  dto: "dto",
+  migration: "migration",
+  route: "route",
+  resolver: "resolver",
+  provider: "provider",
+  job: "job",
+  task: "task",
+  "email-template": "email-template",
+};

@@ -1,0 +1,139 @@
+---
+title: Quick Start
+description: Create your first Gofasta project in under 5 minutes.
+---
+
+# Quick Start
+
+This guide walks you through creating a new Gofasta project, starting the server, and generating your first resource.
+
+## Step 1: Create a Project
+
+```bash
+gofasta new myapp
+```
+
+Or with a full Go module path:
+
+```bash
+gofasta new github.com/myorg/myapp
+```
+
+This creates a complete project with ~78 files:
+
+```
+Creating project...
+Running go mod init...
+Copying 78 template files...
+Installing dependencies...
+Generating Wire DI code...
+Generating GraphQL resolvers...
+Done! Project created at ./myapp
+```
+
+## Step 2: Start the Server
+
+```bash
+cd myapp
+```
+
+**Option A: Docker (recommended)** — starts the app and PostgreSQL together:
+
+```bash
+make up
+```
+
+**Option B: Host machine** — requires a local PostgreSQL instance:
+
+```bash
+docker compose up db -d    # Start just the database
+make dev                   # Run with hot reload
+```
+
+Your app is now running:
+
+| Endpoint | URL |
+|----------|-----|
+| REST API | `http://localhost:8080/api/v1/` |
+| GraphQL | `http://localhost:8080/graphql` |
+| GraphQL Playground | `http://localhost:8080/graphql-playground` |
+| Health Check | `http://localhost:8080/health` |
+
+## Step 3: Generate a Resource
+
+Create a full `Product` resource with one command:
+
+```bash
+gofasta g scaffold Product name:string price:float
+```
+
+This generates **11 files** and patches 4 existing files:
+
+| Generated file | What it is |
+|---------------|-----------|
+| `app/models/product.model.go` | Database model |
+| `db/migrations/000006_create_products.up.sql` | Create table migration |
+| `db/migrations/000006_create_products.down.sql` | Drop table migration |
+| `app/repositories/interfaces/product_repository.go` | Repository interface |
+| `app/repositories/product.repository.go` | Repository implementation |
+| `app/services/interfaces/product_service.go` | Service interface |
+| `app/services/product.service.go` | Service implementation |
+| `app/dtos/product.dtos.go` | Request/response DTOs |
+| `app/di/providers/product.go` | Wire DI provider |
+| `app/rest/controllers/product.controller.go` | REST controller |
+| `app/rest/routes/product.routes.go` | Route definitions |
+
+It also automatically patches:
+- `app/di/container.go` — adds `ProductService` and `ProductController` fields
+- `app/di/wire.go` — adds `ProductSet` to the Wire build
+- `app/rest/routes/index.routes.go` — registers Product routes
+- `cmd/serve.go` — wires `ProductController` into the route config
+
+## Step 4: Run Migrations
+
+```bash
+gofasta migrate up
+```
+
+## Step 5: Test Your API
+
+```bash
+# Create a product
+curl -X POST http://localhost:8080/api/v1/products \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Widget", "price": 9.99}'
+
+# List all products
+curl http://localhost:8080/api/v1/products
+
+# Get a single product
+curl http://localhost:8080/api/v1/products/{id}
+
+# Update a product
+curl -X PUT http://localhost:8080/api/v1/products/{id} \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Updated Widget", "price": 19.99}'
+
+# Delete a product
+curl -X DELETE http://localhost:8080/api/v1/products/{id}
+```
+
+## Supported Field Types
+
+| Type | Go type | SQL type (Postgres) | GraphQL type |
+|------|---------|-------------------|-------------|
+| `string` | `string` | `VARCHAR(255)` | `String` |
+| `text` | `string` | `TEXT` | `String` |
+| `int` | `int` | `INTEGER` | `Int` |
+| `float` | `float64` | `DECIMAL(10,2)` | `Float` |
+| `bool` | `bool` | `BOOLEAN` | `Boolean` |
+| `uuid` | `uuid.UUID` | `UUID` | `ID` |
+| `time` | `time.Time` | `TIMESTAMP` | `DateTime` |
+
+SQL types are automatically adapted for MySQL, SQLite, SQL Server, and ClickHouse based on the `database.driver` in your `config.yaml`.
+
+## Next Steps
+
+- [Understand the project structure](/docs/getting-started/project-structure)
+- [Learn about code generation](/docs/guides/code-generation)
+- [Set up authentication](/docs/guides/authentication)
