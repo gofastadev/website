@@ -1,40 +1,52 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { Hero } from "./hero";
+
+// Mock next/navigation
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 
 describe("Hero", () => {
   it("renders the headline", () => {
     render(<Hero />);
-    expect(screen.getByText("lightning speed")).toBeInTheDocument();
+    expect(screen.getByText("Start shipping.")).toBeInTheDocument();
   });
 
   it("renders the Open Source badge", () => {
     render(<Hero />);
-    expect(screen.getByText("Open Source Go Framework")).toBeInTheDocument();
+    expect(screen.getByText("Open Source Go Toolkit")).toBeInTheDocument();
   });
 
   it("renders the subtitle", () => {
     render(<Hero />);
     expect(
-      screen.getByText(/Production-ready scaffolding/)
+      screen.getByText(/Gofasta generates production-ready Go backends/)
     ).toBeInTheDocument();
   });
 
-  it("renders the Get Started CTA", () => {
+  it("renders the Get Started CTA and navigates on click", () => {
     render(<Hero />);
     const cta = screen.getByText("Get Started");
     expect(cta).toBeInTheDocument();
-    expect(cta).toHaveAttribute("href", "/docs/getting-started/introduction");
+    expect(cta.tagName).toBe("BUTTON");
+    fireEvent.click(cta);
+    expect(mockPush).toHaveBeenCalledWith("/docs/getting-started/introduction");
   });
 
-  it("renders the View on GitHub CTA", () => {
+  it("renders the View on GitHub CTA and opens in new tab on click", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     render(<Hero />);
     const github = screen.getByText("View on GitHub");
-    expect(github).toHaveAttribute(
-      "href",
-      "https://github.com/gofastadev/gofasta"
+    expect(github).toBeInTheDocument();
+    expect(github.tagName).toBe("BUTTON");
+    fireEvent.click(github);
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://github.com/gofastadev/gofasta",
+      "_blank"
     );
-    expect(github).toHaveAttribute("target", "_blank");
+    openSpy.mockRestore();
   });
 
   it("renders the terminal block with gofasta command", () => {

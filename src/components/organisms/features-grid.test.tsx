@@ -5,18 +5,18 @@ import { FeaturesGrid } from "./features-grid";
 describe("FeaturesGrid", () => {
   it("renders the section heading", () => {
     render(<FeaturesGrid />);
-    expect(screen.getByText("Everything you need to ship")).toBeInTheDocument();
+    expect(screen.getByText("What you get out of the box")).toBeInTheDocument();
   });
 
   it("renders the section subtitle", () => {
     render(<FeaturesGrid />);
-    expect(screen.getByText(/27 production-ready packages/)).toBeInTheDocument();
+    expect(screen.getByText(/27 composable packages/)).toBeInTheDocument();
   });
 
   it("renders all 6 feature cards", () => {
     render(<FeaturesGrid />);
     expect(screen.getByText("Code Generation")).toBeInTheDocument();
-    expect(screen.getByText("REST + GraphQL")).toBeInTheDocument();
+    expect(screen.getByText("REST + Optional GraphQL")).toBeInTheDocument();
     expect(screen.getByText("Auth & RBAC")).toBeInTheDocument();
     expect(screen.getByText("Background Jobs")).toBeInTheDocument();
     expect(screen.getByText("Multi-Database")).toBeInTheDocument();
@@ -26,7 +26,7 @@ describe("FeaturesGrid", () => {
   it("renders descriptions for each feature", () => {
     render(<FeaturesGrid />);
     expect(screen.getByText(/Scaffold a full CRUD resource/)).toBeInTheDocument();
-    expect(screen.getByText(/Both REST and GraphQL endpoints/)).toBeInTheDocument();
+    expect(screen.getByText(/REST by default/)).toBeInTheDocument();
     expect(screen.getByText(/JWT authentication and role-based/)).toBeInTheDocument();
     expect(screen.getByText(/Cron scheduling and async task/)).toBeInTheDocument();
     expect(screen.getByText(/PostgreSQL, MySQL, SQLite/)).toBeInTheDocument();
