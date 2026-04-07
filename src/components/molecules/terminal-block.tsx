@@ -19,7 +19,7 @@ export function TerminalBlock({ children, className }: TerminalBlockProps) {
         <div className="h-3 w-3 rounded-full bg-green-500" />
         <span className="ml-2 text-xs text-gray-400">Terminal</span>
       </div>
-      <pre className="overflow-x-auto p-6 text-left font-mono text-sm leading-relaxed text-gray-300">
+      <pre className="overflow-x-auto whitespace-pre-wrap break-all p-4 text-left font-mono text-xs leading-relaxed text-gray-300 sm:break-normal sm:p-6 sm:text-sm">
         <code>{children}</code>
       </pre>
     </div>

@@ -1,6 +1,6 @@
 # Gofasta Website
 
-[![CI](https://github.com/gofastadev/website/actions/workflows/ci.yml/badge.svg)](https://github.com/gofastadev/website/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/gofastadev/website/blob/main/LICENSE) [![Next.js](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js)](https://nextjs.org) [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org) [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com) [![Nextra](https://img.shields.io/badge/Nextra-4-000?logo=nextra)](https://nextra.site) [![Coverage Status](https://coveralls.io/repos/github/gofastadev/website/badge.svg?branch=main)](https://coveralls.io/github/gofastadev/website?branch=main) [![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-black?logo=vercel)](https://gofasta.dev)
+[![CI](https://github.com/gofastadev/website/actions/workflows/ci.yml/badge.svg)](https://github.com/gofastadev/website/actions/workflows/ci.yml) [![Coverage Status](https://coveralls.io/repos/github/gofastadev/website/badge.svg?branch=main)](https://coveralls.io/github/gofastadev/website?branch=main) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/gofastadev/website/blob/main/LICENSE) [![Next.js](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js)](https://nextjs.org) [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org) [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com) [![Nextra](https://img.shields.io/badge/Nextra-4-000?logo=nextra)](https://nextra.site) [![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-black?logo=vercel)](https://gofasta.dev)
 
 The official documentation website for the [Gofasta](https://github.com/gofastadev/gofasta) Go web framework and its [CLI tool](https://github.com/gofastadev/cli). Live at **[gofasta.dev](https://gofasta.dev)**.
 
@@ -168,21 +168,6 @@ Nextra provides built-in components you can use in any MDX file without importin
 | Guides | `content/guides/` | 10 | REST, GraphQL, auth, database, deployment, etc. |
 | CLI Reference | `content/cli-reference/` | 21 | Every CLI command and generation subcommand |
 | Framework API | `content/api-reference/` | 26 | Package-by-package reference for all 27 `pkg/*` packages |
-
-## Deployment
-
-The site deploys to [Vercel](https://vercel.com) automatically via GitHub Actions:
-
-- **Push to `main`** — builds, lints, and deploys to production
-- **Pull request** — builds, lints, and deploys a preview URL (commented on the PR)
-
-Required GitHub secrets:
-
-| Secret | Description |
-|--------|-------------|
-| `VERCEL_TOKEN` | Vercel API token ([create one here](https://vercel.com/account/tokens)) |
-| `VERCEL_ORG_ID` | Your Vercel org/team ID (from `.vercel/project.json` after `vercel link`) |
-| `VERCEL_PROJECT_ID` | Your Vercel project ID (from `.vercel/project.json` after `vercel link`) |
 
 ## License
 
