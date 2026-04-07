@@ -51,6 +51,7 @@ body {
   font-family: var(--font-poppins), system-ui, sans-serif;
 }
 
+
 /* Nextra primary color override — Go cyan hue */
 :root {
   --nextra-primary-hue: 193deg;

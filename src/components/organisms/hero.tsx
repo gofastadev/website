@@ -1,7 +1,12 @@
-import Link from "next/link";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/atoms";
 import { TerminalBlock } from "@/components/molecules";
 
 export function Hero() {
+  const router = useRouter();
+
   return (
     <section className="flex flex-col items-center px-6 pt-24 pb-16 text-center sm:pt-32 sm:pb-20">
       <div className="mb-6 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary sm:px-4 sm:py-1.5 sm:text-sm">
@@ -20,20 +25,20 @@ export function Hero() {
       </p>
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-        <Link
-          href="/docs/getting-started/introduction"
-          className="rounded-lg bg-primary px-6 py-3 text-base font-semibold text-white shadow-lg shadow-primary/25 hover:bg-primary-dark hover:text-white transition-colors"
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={() => router.push("/docs/getting-started/introduction")}
         >
           Get Started
-        </Link>
-        <a
-          href="https://github.com/gofastadev/gofasta"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-lg border border-gray-300 bg-surface px-6 py-3 text-base font-semibold text-foreground hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
+        </Button>
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={() => window.open("https://github.com/gofastadev/gofasta", "_blank")}
         >
           View on GitHub
-        </a>
+        </Button>
       </div>
 
       <TerminalBlock className="mt-16 max-w-2xl">
