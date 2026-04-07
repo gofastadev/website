@@ -17,28 +17,38 @@ import "github.com/gofastadev/gofasta/pkg/config"
 
 ### AppConfig
 
-The root configuration struct that maps to your `config.yaml` file.
+The root configuration struct that maps to your `config.yaml` file. Internally, the config system uses [koanf](https://github.com/knadh/koanf) for loading YAML and environment variable overrides.
 
 ```go
 type AppConfig struct {
-    App      AppSettings      `yaml:"app"`
-    Database DatabaseConfig   `yaml:"database"`
-    Auth     AuthConfig       `yaml:"auth"`
-    Cache    CacheConfig      `yaml:"cache"`
-    Logger   LoggerConfig     `yaml:"logger"`
-    Mailer   MailerConfig     `yaml:"mailer"`
-    Storage  StorageConfig    `yaml:"storage"`
+    Server    ServerConfig    `koanf:"server"`
+    Database  DatabaseConfig  `koanf:"database"`
+    GraphQL   GraphQLConfig   `koanf:"graphql"`
+    Log       LogConfig       `koanf:"log"`
+    Email     EmailConfig     `koanf:"email"`
+    Jobs      []JobConfig     `koanf:"jobs"`
+    Auth      AuthConfig      `koanf:"auth"`
+    RateLimit RateLimitConfig `koanf:"rate_limit"`
+    Cache     CacheConfig     `koanf:"cache"`
+    Security  SecurityConfig  `koanf:"security"`
+    Storage       StorageConfig       `koanf:"storage"`
+    Queue         QueueConfig         `koanf:"queue"`
+    WebSocket     WebSocketConfig     `koanf:"websocket"`
+    I18n          I18nConfig          `koanf:"i18n"`
+    FeatureFlag   FeatureFlagConfig   `koanf:"feature_flag"`
+    Encryption    EncryptionConfig    `koanf:"encryption"`
+    Session       SessionConfig       `koanf:"session"`
+    Observability ObservabilityConfig `koanf:"observability"`
 }
 ```
 
-### AppSettings
+### ServerConfig
 
 ```go
-type AppSettings struct {
-    Name        string `yaml:"name" env:"APP_NAME"`
-    Port        int    `yaml:"port" env:"APP_PORT"`
-    Environment string `yaml:"environment" env:"APP_ENV"`
-    Debug       bool   `yaml:"debug" env:"APP_DEBUG"`
+type ServerConfig struct {
+    Port            string        `koanf:"port"`
+    ShutdownTimeout time.Duration `koanf:"shutdown_timeout"`
+    AllowedOrigins  []string      `koanf:"allowed_origins"`
 }
 ```
 
@@ -46,13 +56,16 @@ type AppSettings struct {
 
 ```go
 type DatabaseConfig struct {
-    Driver   string `yaml:"driver" env:"DB_DRIVER"`
-    Host     string `yaml:"host" env:"DB_HOST"`
-    Port     int    `yaml:"port" env:"DB_PORT"`
-    Name     string `yaml:"name" env:"DB_NAME"`
-    User     string `yaml:"user" env:"DB_USER"`
-    Password string `yaml:"password" env:"DB_PASSWORD"`
-    SSLMode  string `yaml:"sslmode" env:"DB_SSLMODE"`
+    Driver   string        `koanf:"driver"`
+    Host     string        `koanf:"host"`
+    Port     string        `koanf:"port"`
+    User     string        `koanf:"user"`
+    Password string        `koanf:"password"`
+    Name     string        `koanf:"name"`
+    SSLMode  string        `koanf:"sslmode"`
+    MaxIdle  int           `koanf:"max_idle"`
+    MaxOpen  int           `koanf:"max_open"`
+    MaxLife  time.Duration `koanf:"max_life"`
 }
 ```
 
@@ -60,7 +73,7 @@ type DatabaseConfig struct {
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `LoadConfig` | `func LoadConfig(path string) (*AppConfig, error)` | Loads configuration from a YAML file and applies environment variable overrides |
+| `LoadConfig` | `func LoadConfig() (*AppConfig, error)` | Loads configuration from `config.yaml` (if present) and applies `GOFASTA_`-prefixed environment variable overrides |
 | `SetupDB` | `func SetupDB(cfg DatabaseConfig) (*gorm.DB, error)` | Initializes a GORM database connection using the provided config |
 | `SetupDBWithMigrate` | `func SetupDBWithMigrate(cfg DatabaseConfig, models ...interface{}) (*gorm.DB, error)` | Sets up the database and runs auto-migration for the given models |
 
@@ -71,52 +84,55 @@ type DatabaseConfig struct {
 Create a `config.yaml` in your project root:
 
 ```yaml
-app:
-  name: my-service
-  port: 8080
-  environment: development
-  debug: true
+server:
+  port: "8080"
+  shutdown_timeout: 15s
+  allowed_origins:
+    - "*"
 
 database:
   driver: postgres
   host: localhost
-  port: 5432
+  port: "5432"
   name: mydb
   user: postgres
   password: secret
   sslmode: disable
+  max_idle: 10
+  max_open: 100
+  max_life: 1h
 ```
 
 Load it in your application:
 
 ```go
-cfg, err := config.LoadConfig("config.yaml")
+cfg, err := config.LoadConfig()
 if err != nil {
     log.Fatalf("failed to load config: %v", err)
 }
 
-fmt.Println(cfg.App.Name) // "my-service"
+fmt.Println(cfg.Server.Port) // "8080"
 ```
 
 ### Environment Variable Overrides
 
-Any field tagged with `env` can be overridden by setting the corresponding environment variable. Environment variables take precedence over YAML values.
+Any configuration field can be overridden by setting an environment variable with the `GOFASTA_` prefix. The prefix is stripped, and underscores map to nested keys (e.g., `GOFASTA_DATABASE_HOST` maps to `database.host`). Environment variables take precedence over YAML values.
 
 ```bash
-export APP_PORT=9090
-export DB_HOST=production-db.example.com
+export GOFASTA_SERVER_PORT=9090
+export GOFASTA_DATABASE_HOST=production-db.example.com
 ```
 
 ```go
-cfg, _ := config.LoadConfig("config.yaml")
-// cfg.App.Port is now 9090, not 8080
+cfg, _ := config.LoadConfig()
+// cfg.Server.Port is now "9090", not "8080"
 // cfg.Database.Host is now "production-db.example.com"
 ```
 
 ### Setting Up the Database
 
 ```go
-cfg, _ := config.LoadConfig("config.yaml")
+cfg, _ := config.LoadConfig()
 
 db, err := config.SetupDB(cfg.Database)
 if err != nil {

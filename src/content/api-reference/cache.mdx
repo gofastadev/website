@@ -32,15 +32,19 @@ type Cache interface {
 
 ### CacheConfig
 
+The cache configuration uses koanf struct tags and is part of the root `AppConfig`. Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_CACHE_DRIVER`).
+
 ```go
 type CacheConfig struct {
-    Driver   string        `yaml:"driver" env:"CACHE_DRIVER"`
-    Host     string        `yaml:"host" env:"CACHE_HOST"`
-    Port     int           `yaml:"port" env:"CACHE_PORT"`
-    Password string        `yaml:"password" env:"CACHE_PASSWORD"`
-    DB       int           `yaml:"db" env:"CACHE_DB"`
-    TTL      time.Duration `yaml:"ttl" env:"CACHE_TTL"`
-    Prefix   string        `yaml:"prefix" env:"CACHE_PREFIX"`
+    Driver string      `koanf:"driver"`
+    Redis  RedisConfig `koanf:"redis"`
+}
+
+type RedisConfig struct {
+    Host     string `koanf:"host"`
+    Port     string `koanf:"port"`
+    Password string `koanf:"password"`
+    DB       int    `koanf:"db"`
 }
 ```
 
@@ -59,8 +63,7 @@ type CacheConfig struct {
 
 ```go
 c := cache.NewMemoryCache(cache.CacheConfig{
-    TTL:    5 * time.Minute,
-    Prefix: "myapp",
+    Driver: "memory",
 })
 defer c.Close()
 
@@ -82,13 +85,13 @@ if err != nil {
 
 ```go
 c, err := cache.NewRedisCache(cache.CacheConfig{
-    Driver:   "redis",
-    Host:     "localhost",
-    Port:     6379,
-    Password: "",
-    DB:       0,
-    TTL:      15 * time.Minute,
-    Prefix:   "myapp",
+    Driver: "redis",
+    Redis: cache.RedisConfig{
+        Host:     "localhost",
+        Port:     "6379",
+        Password: "",
+        DB:       0,
+    },
 })
 if err != nil {
     log.Fatalf("failed to connect to Redis: %v", err)
@@ -143,13 +146,19 @@ err = c.Flush(ctx)
 
 ```yaml
 cache:
-  driver: redis
-  host: localhost
-  port: 6379
-  password: ""
-  db: 0
-  ttl: 15m
-  prefix: myapp
+  driver: redis       # "memory" or "redis"
+  redis:
+    host: localhost
+    port: "6379"
+    password: ""
+    db: 0
+```
+
+Environment variable overrides use the `GOFASTA_` prefix:
+
+```bash
+export GOFASTA_CACHE_DRIVER=redis
+export GOFASTA_CACHE_REDIS_HOST=redis.example.com
 ```
 
 ## Related Pages

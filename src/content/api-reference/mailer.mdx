@@ -61,19 +61,34 @@ type Attachment struct {
 }
 ```
 
-### MailerConfig
+### EmailConfig
+
+The email configuration uses koanf struct tags and is part of the root `AppConfig`. Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_EMAIL_PROVIDER`). Email templates use Go's `html/template` for rendering.
 
 ```go
-type MailerConfig struct {
-    Driver       string `yaml:"driver" env:"MAILER_DRIVER"`
-    Host         string `yaml:"host" env:"MAILER_HOST"`
-    Port         int    `yaml:"port" env:"MAILER_PORT"`
-    Username     string `yaml:"username" env:"MAILER_USERNAME"`
-    Password     string `yaml:"password" env:"MAILER_PASSWORD"`
-    APIKey       string `yaml:"api_key" env:"MAILER_API_KEY"`
-    FromName     string `yaml:"from_name" env:"MAILER_FROM_NAME"`
-    FromEmail    string `yaml:"from_email" env:"MAILER_FROM_EMAIL"`
-    TemplatePath string `yaml:"template_path" env:"MAILER_TEMPLATE_PATH"`
+type EmailConfig struct {
+    Provider    string         `koanf:"provider"`
+    FromName    string         `koanf:"from_name"`
+    FromAddress string         `koanf:"from_address"`
+    SMTP        SMTPConfig     `koanf:"smtp"`
+    SendGrid    SendGridConfig `koanf:"sendgrid"`
+    Brevo       BrevoConfig    `koanf:"brevo"`
+}
+
+type SMTPConfig struct {
+    Host     string `koanf:"host"`
+    Port     int    `koanf:"port"`
+    Username string `koanf:"username"`
+    Password string `koanf:"password"`
+    UseTLS   bool   `koanf:"use_tls"`
+}
+
+type SendGridConfig struct {
+    APIKey string `koanf:"api_key"`
+}
+
+type BrevoConfig struct {
+    APIKey string `koanf:"api_key"`
 }
 ```
 
@@ -163,12 +178,28 @@ err = m.Send(ctx, mailer.Message{
 ### Configuration via config.yaml
 
 ```yaml
-mailer:
-  driver: sendgrid   # "smtp", "sendgrid", or "brevo"
-  api_key: "SG.xxxxx"
+email:
+  provider: sendgrid   # "smtp", "sendgrid", or "brevo"
   from_name: "My App"
-  from_email: "noreply@myapp.com"
-  template_path: "templates/"
+  from_address: "noreply@myapp.com"
+  smtp:
+    host: smtp.gmail.com
+    port: 587
+    username: "user@gmail.com"
+    password: "app-password"
+    use_tls: true
+  sendgrid:
+    api_key: "SG.xxxxx"
+  brevo:
+    api_key: "xkeysib-xxxxx"
+```
+
+Environment variable overrides use the `GOFASTA_` prefix:
+
+```bash
+export GOFASTA_EMAIL_PROVIDER=sendgrid
+export GOFASTA_EMAIL_SENDGRID_API_KEY=SG.xxxxx
+export GOFASTA_EMAIL_FROM_ADDRESS=noreply@myapp.com
 ```
 
 ## Related Pages

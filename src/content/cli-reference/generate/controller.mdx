@@ -1,52 +1,64 @@
 ---
 title: gofasta g controller
-description: Generate a REST controller with CRUD handlers and Swagger annotations.
+description: Generate a REST controller with CRUD handlers and all prerequisite layers.
 ---
 
 # gofasta g controller
 
-Generates a REST controller for a given resource with full CRUD endpoint handlers. Each handler includes Swagger annotation comments for automatic API documentation generation. The controller delegates all business logic to the service layer.
+Generates a REST controller for a given resource with full CRUD endpoint handlers, along with all prerequisite layers (model, migration, repository, service, DTOs, Wire provider, and routes). The controller delegates all business logic to the service layer and uses gorilla/mux for HTTP routing with `httputil.Handle()` for error-returning handlers.
+
+**Aliases:** `ctrl`
 
 ## Usage
 
 ```bash
-gofasta g controller <ResourceName> [flags]
+gofasta g controller <Name> [field:type ...] [flags]
 ```
 
 ## Flags
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--methods` | `-m` | `all` | Comma-separated list of handlers to generate. Options: `create`, `findAll`, `findByID`, `update`, `delete` |
-| `--auth` | | `true` | Include authentication middleware annotations |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--graphql` | `false` | Also generate GraphQL schema and wire up the resolver |
+| `--gql` | `false` | Alias for `--graphql` |
 
 ## Examples
 
 Generate a controller with all CRUD handlers:
 
 ```bash
-gofasta g controller Product
+gofasta g controller Product name:string price:float
 ```
 
-Generate with only specific handlers:
+Generate with GraphQL support:
 
 ```bash
-gofasta g controller Product --methods create,findAll,findByID
-```
-
-Generate without authentication annotations:
-
-```bash
-gofasta g controller Product --auth=false
+gofasta g ctrl Product name:string price:float --graphql
 ```
 
 ## What It Generates
 
-Running `gofasta g controller Product` creates one file:
+Running `gofasta g controller Product name:string price:float` generates everything from the service generator plus:
 
-```
-app/rest/controllers/product.controller.go
-```
+| File | Description |
+|------|-------------|
+| `app/rest/controllers/product.controller.go` | REST controller with CRUD handlers |
+| `app/rest/routes/product.routes.go` | Route definitions |
+
+It also patches these existing files:
+
+| File | Change |
+|------|--------|
+| `app/di/container.go` | Adds `ProductService` and `ProductController` fields |
+| `app/di/wire.go` | Adds `ProductSet` to the Wire build |
+| `app/rest/routes/index.routes.go` | Registers Product routes |
+| `cmd/serve.go` | Wires `ProductController` into the route config |
+
+With `--graphql`, the controller generator additionally:
+
+- Generates a GraphQL schema file (`.gql`)
+- Patches `resolver.go` to add the service dependency
+- Runs `gqlgen generate`
 
 ### Generated Code
 
@@ -55,10 +67,12 @@ app/rest/controllers/product.controller.go
 package controllers
 
 import (
+    "encoding/json"
     "net/http"
     "strconv"
 
-    "github.com/gin-gonic/gin"
+    "github.com/gorilla/mux"
+    "github.com/go-playground/validator/v10"
     "myapp/app/dtos"
     svcInterfaces "myapp/app/services/interfaces"
 )
@@ -71,56 +85,53 @@ func NewProductController(service svcInterfaces.ProductService) *ProductControll
     return &ProductController{service: service}
 }
 
-// Create godoc
-// @Summary      Create a new product
-// @Description  Create a new product with the provided data
-// @Tags         Products
-// @Accept       json
-// @Produce      json
-// @Param        body  body      dtos.CreateProductRequest  true  "Product data"
-// @Success      201   {object}  dtos.ProductResponse
-// @Failure      400   {object}  dtos.ErrorResponse
-// @Failure      500   {object}  dtos.ErrorResponse
-// @Security     BearerAuth
-// @Router       /api/v1/products [post]
-func (c *ProductController) Create(ctx *gin.Context) {
+// Create handles POST /api/v1/products
+func (c *ProductController) Create(w http.ResponseWriter, r *http.Request) error {
     var req dtos.CreateProductRequest
-    if err := ctx.ShouldBindJSON(&req); err != nil {
-        ctx.JSON(http.StatusBadRequest, dtos.ErrorResponse{Error: err.Error()})
-        return
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        return err
     }
 
     result, err := c.service.Create(req)
     if err != nil {
-        ctx.JSON(http.StatusInternalServerError, dtos.ErrorResponse{Error: err.Error()})
-        return
+        return err
     }
 
-    ctx.JSON(http.StatusCreated, result)
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+    return json.NewEncoder(w).Encode(result)
 }
 
-// FindAll godoc
-// @Summary      List all products
-// @Description  Get a paginated list of products
-// @Tags         Products
-// @Produce      json
-// @Param        page   query     int  false  "Page number"  default(1)
-// @Param        limit  query     int  false  "Items per page"  default(10)
-// @Success      200    {object}  dtos.PaginatedProductResponse
-// @Failure      500    {object}  dtos.ErrorResponse
-// @Security     BearerAuth
-// @Router       /api/v1/products [get]
-func (c *ProductController) FindAll(ctx *gin.Context) {
-    page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
-    limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "10"))
+// FindAll handles GET /api/v1/products
+func (c *ProductController) FindAll(w http.ResponseWriter, r *http.Request) error {
+    page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+    limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+    if page < 1 {
+        page = 1
+    }
+    if limit < 1 {
+        limit = 10
+    }
 
     result, err := c.service.FindAll(page, limit)
     if err != nil {
-        ctx.JSON(http.StatusInternalServerError, dtos.ErrorResponse{Error: err.Error()})
-        return
+        return err
     }
 
-    ctx.JSON(http.StatusOK, result)
+    w.Header().Set("Content-Type", "application/json")
+    return json.NewEncoder(w).Encode(result)
+}
+
+// FindByID handles GET /api/v1/products/{id}
+func (c *ProductController) FindByID(w http.ResponseWriter, r *http.Request) error {
+    id := mux.Vars(r)["id"]
+    result, err := c.service.FindByID(id)
+    if err != nil {
+        return err
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    return json.NewEncoder(w).Encode(result)
 }
 ```
 
@@ -132,9 +143,9 @@ The generated controller handles these endpoints (when paired with generated rou
 |--------|------|---------|-------------|
 | `POST` | `/api/v1/products` | `Create` | Create a new product |
 | `GET` | `/api/v1/products` | `FindAll` | List all products (paginated) |
-| `GET` | `/api/v1/products/:id` | `FindByID` | Get a single product |
-| `PUT` | `/api/v1/products/:id` | `Update` | Update a product |
-| `DELETE` | `/api/v1/products/:id` | `Delete` | Delete a product |
+| `GET` | `/api/v1/products/{id}` | `FindByID` | Get a single product |
+| `PUT` | `/api/v1/products/{id}` | `Update` | Update a product |
+| `DELETE` | `/api/v1/products/{id}` | `Delete` | Delete a product |
 
 ## Architecture
 
@@ -144,14 +155,15 @@ The controller is the outermost layer in the application:
 HTTP Request --> Controller --> Service --> Repository --> Database
 ```
 
-- Controllers handle HTTP request/response concerns only
-- Request body parsing and validation happen in the controller
+- Controllers use standard `net/http` types (`http.ResponseWriter`, `*http.Request`)
+- Handler methods return `error` and are wrapped with `httputil.Handle()`
+- Route parameters are extracted via `mux.Vars(r)`
+- Request validation uses `go-playground/validator`
 - All business logic is delegated to the service layer
-- Swagger annotations enable automatic API documentation
 
 ## Related
 
 - [gofasta g service](/docs/cli-reference/generate/service) -- generate the service this controller calls
 - [gofasta g dto](/docs/cli-reference/generate/dto) -- generate the DTOs used in request/response
 - [gofasta g route](/docs/cli-reference/generate/route) -- generate route definitions for this controller
-- [gofasta swagger](/docs/cli-reference/swagger) -- generate Swagger docs from controller annotations
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers at once

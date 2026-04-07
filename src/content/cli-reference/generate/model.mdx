@@ -1,25 +1,21 @@
 ---
 title: gofasta g model
-description: Generate a GORM database model with typed fields.
+description: Generate a GORM database model with typed fields and a corresponding migration pair.
 ---
 
 # gofasta g model
 
-Generates a GORM database model file with the specified fields and types. The model includes standard fields (`ID`, `CreatedAt`, `UpdatedAt`, `DeletedAt`) automatically, plus any custom fields you define.
+Generates a GORM database model file and a SQL migration pair (up + down) with the specified fields and types. The model includes standard fields (`ID`, `CreatedAt`, `UpdatedAt`, `DeletedAt`) automatically, plus any custom fields you define.
 
-Use this command when you need only the model without the full scaffold. For a complete resource with all layers, use `gofasta g scaffold` instead.
+Use this command when you need only the model and migration without the full scaffold. For a complete resource with all layers, use `gofasta g scaffold` instead.
 
 ## Usage
 
 ```bash
-gofasta g model <ModelName> [field:type ...] [flags]
+gofasta g model <Name> [field:type ...]
 ```
 
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--table` | `-t` | pluralized model name | Override the database table name |
+This command has no flags.
 
 ## Field Types
 
@@ -32,6 +28,8 @@ gofasta g model <ModelName> [field:type ...] [flags]
 | `bool` | `bool` | `type:boolean;default:false` |
 | `uuid` | `uuid.UUID` | `type:uuid` |
 | `time` | `time.Time` | `type:timestamp` |
+
+The `datetime` alias can be used in place of `time`.
 
 ## Examples
 
@@ -47,19 +45,15 @@ Generate a model with multiple field types:
 gofasta g model Article title:string body:text published:bool view_count:int
 ```
 
-Generate with a custom table name:
-
-```bash
-gofasta g model UserProfile bio:text avatar_url:string --table profiles
-```
-
 ## What It Generates
 
-Running `gofasta g model Product name:string price:float` creates one file:
+Running `gofasta g model Product name:string price:float` creates three files:
 
-```
-app/models/product.model.go
-```
+| File | Description |
+|------|-------------|
+| `app/models/product.model.go` | GORM database model |
+| `db/migrations/000006_create_products.up.sql` | Create table migration |
+| `db/migrations/000006_create_products.down.sql` | Drop table migration |
 
 ### Generated Code
 
@@ -109,5 +103,5 @@ Field type mappings adapt automatically based on the database driver configured 
 ## Related
 
 - [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource
-- [gofasta g migration](/docs/cli-reference/generate/migration) -- generate migration files for this model
+- [gofasta g migration](/docs/cli-reference/generate/migration) -- generate migration files only
 - [gofasta g repository](/docs/cli-reference/generate/repository) -- generate a repository for this model

@@ -1,11 +1,11 @@
 ---
 title: Notifications
-description: Multi-channel notification dispatch with support for email, push, and custom notification channels.
+description: Multi-channel notification dispatch with support for email, database, Slack, push, and custom notification channels.
 ---
 
 # Notifications
 
-The `notifications` package provides a unified notification dispatch system that supports multiple channels including email, push notifications, and custom channels. It decouples notification logic from delivery mechanisms.
+The `notifications` package provides a unified notification dispatch system that supports multiple channels including email, database, Slack, push notifications, and custom channels. It uses the mailer package internally for the email channel. It decouples notification logic from delivery mechanisms.
 
 ## Import
 
@@ -62,9 +62,10 @@ type Recipient struct {
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `NewNotifier` | `func NewNotifier() Notifier` | Creates a new notifier instance |
-| `NewEmailChannel` | `func NewEmailChannel(m mailer.Mailer, templatePath string) Channel` | Creates an email delivery channel |
+| `NewEmailChannel` | `func NewEmailChannel(m mailer.Mailer, templatePath string) Channel` | Creates an email delivery channel (uses the mailer package internally) |
+| `NewDatabaseChannel` | `func NewDatabaseChannel(db *gorm.DB) Channel` | Creates a database-backed notification channel |
+| `NewSlackChannel` | `func NewSlackChannel(cfg SlackConfig) Channel` | Creates a Slack notification channel |
 | `NewPushChannel` | `func NewPushChannel(cfg PushConfig) Channel` | Creates a push notification channel (FCM/APNs) |
-| `NewWebhookChannel` | `func NewWebhookChannel(cfg WebhookConfig) Channel` | Creates a webhook delivery channel |
 
 ## Usage
 
@@ -73,9 +74,19 @@ type Recipient struct {
 ```go
 notifier := notifications.NewNotifier()
 
-// Register email channel
+// Register email channel (uses the mailer package internally)
 emailCh := notifications.NewEmailChannel(mailClient, "templates/notifications/")
 notifier.RegisterChannel("email", emailCh)
+
+// Register database channel
+dbCh := notifications.NewDatabaseChannel(db)
+notifier.RegisterChannel("database", dbCh)
+
+// Register Slack channel
+slackCh := notifications.NewSlackChannel(notifications.SlackConfig{
+    WebhookURL: "https://hooks.slack.com/services/...",
+})
+notifier.RegisterChannel("slack", slackCh)
 
 // Register push notification channel
 pushCh := notifications.NewPushChannel(notifications.PushConfig{
@@ -119,25 +130,21 @@ err := notifier.SendTo(ctx, notification, "push")
 Implement the `Channel` interface to add custom delivery mechanisms.
 
 ```go
-type SlackChannel struct {
-    webhookURL string
+type SMSChannel struct {
+    client *twilio.Client
 }
 
-func (s *SlackChannel) Name() string {
-    return "slack"
+func (s *SMSChannel) Name() string {
+    return "sms"
 }
 
-func (s *SlackChannel) Deliver(ctx context.Context, recipient Recipient, n Notification) error {
-    payload := map[string]string{
-        "text": fmt.Sprintf("*%s*\n%s", n.Title, n.Body),
-    }
-    body, _ := json.Marshal(payload)
-    _, err := http.Post(s.webhookURL, "application/json", bytes.NewReader(body))
-    return err
+func (s *SMSChannel) Deliver(ctx context.Context, recipient Recipient, n Notification) error {
+    phone := recipient.Meta["phone"]
+    return s.client.SendSMS(phone, n.Body)
 }
 
 // Register it
-notifier.RegisterChannel("slack", &SlackChannel{webhookURL: "https://hooks.slack.com/..."})
+notifier.RegisterChannel("sms", &SMSChannel{client: twilioClient})
 ```
 
 ### Notification in Service Layer

@@ -5,41 +5,33 @@ description: Generate a Google Wire dependency injection provider set for a reso
 
 # gofasta g provider
 
-Generates a [Google Wire](https://github.com/google/wire) provider set file that defines how a resource's dependencies are wired together. The provider set binds interfaces to implementations for the repository, service, and controller layers.
+Generates a [Google Wire](https://github.com/google/wire) provider set file that defines how a resource's dependencies are wired together. The provider set binds interfaces to implementations for the repository, service, and controller layers. It also patches `container.go` and `wire.go` to register the new provider.
 
 ## Usage
 
 ```bash
-gofasta g provider <ResourceName> [flags]
+gofasta g provider <Name>
 ```
 
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--layers` | `-l` | `all` | Comma-separated list of layers to include. Options: `repository`, `service`, `controller` |
+This command has no flags.
 
 ## Examples
 
-Generate a provider with all layers:
+Generate a provider for a Product resource:
 
 ```bash
 gofasta g provider Product
 ```
 
-Generate a provider for only the repository and service layers:
-
-```bash
-gofasta g provider Product --layers repository,service
-```
-
 ## What It Generates
 
-Running `gofasta g provider Product` creates one file:
+Running `gofasta g provider Product` creates one file and patches two:
 
-```
-app/di/providers/product.go
-```
+| File | Description |
+|------|-------------|
+| `app/di/providers/product.go` | Wire DI provider set (created) |
+| `app/di/container.go` | Adds resource fields (patched) |
+| `app/di/wire.go` | Adds `ProductSet` to Wire build (patched) |
 
 ### Generated Code
 
@@ -102,16 +94,6 @@ func InitializeContainer() (*Container, error) {
     return nil, nil
 }
 ```
-
-## Registration Steps
-
-When generating a provider standalone (not via scaffold), you need to manually:
-
-1. Add the provider set to `wire.Build()` in `app/di/wire.go`
-2. Add the corresponding fields to the `Container` struct in `app/di/container.go`
-3. Run `gofasta wire` to regenerate `wire_gen.go`
-
-When using `gofasta g scaffold`, all three steps are handled automatically.
 
 ## Related
 

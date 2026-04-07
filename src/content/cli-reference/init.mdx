@@ -5,25 +5,19 @@ description: Initialize a cloned or existing Gofasta project by installing depen
 
 # gofasta init
 
-Initializes an existing Gofasta project that was cloned from a repository or copied from another machine. This command installs Go dependencies, runs Google Wire dependency injection generation, and runs gqlgen GraphQL code generation to ensure the project is ready to build and run.
+Initializes an existing Gofasta project that was cloned from a repository or copied from another machine. This command creates the `.env` file, installs Go dependencies, runs Google Wire dependency injection generation, runs gqlgen GraphQL code generation, runs database migrations, and verifies the project builds successfully.
 
 Use this command instead of `gofasta new` when you already have the project source code and just need to set up the development environment.
 
 ## Usage
 
 ```bash
-gofasta init [flags]
+gofasta init
 ```
 
 Run this command from the root directory of your Gofasta project (the directory containing `go.mod`).
 
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--skip-deps` | | `false` | Skip running `go mod tidy` |
-| `--skip-wire` | | `false` | Skip running Wire DI code generation |
-| `--skip-gqlgen` | | `false` | Skip running gqlgen GraphQL code generation |
+This command takes no flags.
 
 ## Examples
 
@@ -35,37 +29,16 @@ cd myapp
 gofasta init
 ```
 
-Initialize but skip gqlgen (useful if you do not use GraphQL):
-
-```bash
-gofasta init --skip-gqlgen
-```
-
-Skip all code generation steps (only install dependencies):
-
-```bash
-gofasta init --skip-wire --skip-gqlgen
-```
-
 ## What It Does
 
 When you run `gofasta init`, the CLI performs the following steps in order:
 
-1. **Verify project structure** -- checks that the current directory contains a valid Gofasta project (looks for `go.mod` and `config/config.yaml`)
+1. **Create .env file** -- copies `.env.example` to `.env` so you have a working environment configuration
 2. **Install dependencies** -- runs `go mod tidy` to download and synchronize all Go module dependencies
-3. **Generate Wire code** -- runs `wire ./app/di/...` to generate the dependency injection container from your provider definitions
-4. **Generate GraphQL code** -- runs `gqlgen generate` to create Go types and resolvers from your `.graphqls` schema files
-5. **Verify build** -- confirms the project compiles successfully
-
-```
-$ gofasta init
-Verifying project structure...
-Running go mod tidy...
-Generating Wire DI code...
-Generating GraphQL resolvers...
-Build verified successfully.
-Project initialized!
-```
+3. **Generate Wire code** -- runs `go tool wire ./app/di/` to generate the dependency injection container from your provider definitions
+4. **Generate GraphQL code** -- runs `go tool gqlgen generate` to create Go types and resolvers from your `.graphqls` schema files
+5. **Run migrations** -- runs `migrate -path db/migrations -database <url> up` to apply all pending database migrations
+6. **Verify build** -- runs `go build ./...` to confirm the project compiles successfully
 
 ## When to Use
 
@@ -75,7 +48,6 @@ Project initialized!
 | Cloning an existing project from Git | `gofasta init` |
 | Pulling changes that modified `wire.go` or GraphQL schemas | `gofasta init` |
 | Setting up the project on a new machine | `gofasta init` |
-| CI/CD pipeline setup step | `gofasta init --skip-wire --skip-gqlgen` |
 
 ## Related
 

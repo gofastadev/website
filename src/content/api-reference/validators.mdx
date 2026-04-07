@@ -1,11 +1,11 @@
 ---
 title: Validators
-description: Input validation with built-in rules, custom validators, and structured error messages.
+description: Input validation built on go-playground/validator/v10 with custom validators registered via struct tags.
 ---
 
 # Validators
 
-The `validators` package provides input validation with a rich set of built-in rules, support for custom validators, and structured error messages that integrate with the `errors` package.
+The `validators` package provides input validation built on [go-playground/validator/v10](https://github.com/go-playground/validator). It uses struct tag-based validation with custom validators registered at startup, and produces translated error messages.
 
 ## Import
 
@@ -15,89 +15,61 @@ import "github.com/gofastadev/gofasta/pkg/validators"
 
 ## Key Types
 
-### Validator
+### AppValidator
 
 ```go
-type Validator struct {
-    errors []FieldError
+type AppValidator struct {
+    Validate *validator.Validate
+    Trans    ut.Translator
 }
-```
-
-### FieldError
-
-```go
-type FieldError struct {
-    Field   string `json:"field"`
-    Rule    string `json:"rule"`
-    Message string `json:"message"`
-}
-```
-
-### ValidationResult
-
-```go
-type ValidationResult struct {
-    Valid  bool         `json:"valid"`
-    Errors []FieldError `json:"errors,omitempty"`
-}
-```
-
-### Rule
-
-```go
-type Rule func(field string, value interface{}) *FieldError
 ```
 
 ## Key Functions
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `New` | `func New() *Validator` | Creates a new validator instance |
-| `Validate` | `func (v *Validator) Validate(field string, value interface{}, rules ...Rule) *Validator` | Validates a field against one or more rules |
-| `Result` | `func (v *Validator) Result() ValidationResult` | Returns the validation result |
-| `HasErrors` | `func (v *Validator) HasErrors() bool` | Returns true if any validation errors exist |
-| `ToAppError` | `func (v *Validator) ToAppError() *errors.AppError` | Converts validation errors to an AppError |
+| `NewAppValidator` | `func NewAppValidator(db *gorm.DB) *AppValidator` | Creates a validator with common validations registered |
+| `ValidateStruct` | `func (v *AppValidator) ValidateStruct(input interface{}) []*types.TCommonAPIErrorDto` | Validates the input struct and returns validation errors |
+| `RegisterCommonValidators` | `func RegisterCommonValidators(validate *validator.Validate, db *gorm.DB)` | Registers framework validators on an existing validator instance |
+| `RegisterTranslation` | `func RegisterTranslation(v *validator.Validate, trans ut.Translator, tag string, message string)` | Registers a custom validation error message |
 
-## Built-in Rules
+## Built-in Custom Validators
 
-| Rule | Description |
-|------|-------------|
-| `Required()` | Field must not be zero value |
-| `MinLength(n int)` | String must be at least n characters |
-| `MaxLength(n int)` | String must be at most n characters |
-| `Email()` | Must be a valid email address |
-| `URL()` | Must be a valid URL |
-| `Min(n float64)` | Numeric value must be at least n |
-| `Max(n float64)` | Numeric value must be at most n |
-| `Between(min, max float64)` | Numeric value must be within range |
-| `In(values ...string)` | Must be one of the specified values |
-| `UUID()` | Must be a valid UUID |
-| `Regex(pattern string)` | Must match the regular expression |
-| `Date(layout string)` | Must be a valid date in the given format |
-| `Alpha()` | Must contain only letters |
-| `AlphaNumeric()` | Must contain only letters and numbers |
-| `Unique(field string, db *gorm.DB, table string)` | Must be unique in the database table |
+These validators are registered automatically when using `NewAppValidator` and can be used as struct tags:
+
+| Tag | Description |
+|-----|-------------|
+| `uuid4_valid` | Must be a valid UUID v4 |
+| `is_record_deletable` | Record must be deletable (checks `is_deletable` column) |
+| `is_record_exist_by_name_for_conflict` | Name must not already exist in the specified table |
+| `does_record_exist_by_id_for_verification` | ID must exist in the specified table |
+| `is_valid_url` | Must be a valid HTTP or HTTPS URL |
+
+In addition, all standard `go-playground/validator` tags are available (`required`, `email`, `min`, `max`, `gte`, `lte`, etc.).
 
 ## Usage
 
-### Basic Validation
+### Setting Up the Validator
+
+The `AppValidator` is created once at startup and shared across your application:
 
 ```go
-v := validators.New()
+appValidator := validators.NewAppValidator(db)
+```
 
-v.Validate("name", input.Name, validators.Required(), validators.MinLength(2), validators.MaxLength(100))
-v.Validate("email", input.Email, validators.Required(), validators.Email())
-v.Validate("age", input.Age, validators.Min(18), validators.Max(120))
-v.Validate("role", input.Role, validators.Required(), validators.In("admin", "editor", "viewer"))
+### Defining Validation with Struct Tags
 
-if v.HasErrors() {
-    result := v.Result()
-    // result.Errors contains all field-level errors
-    return v.ToAppError()
+```go
+type CreateUserInput struct {
+    Name     string  `json:"name" validate:"required,min=2,max=100"`
+    Email    string  `json:"email" validate:"required,email"`
+    Password string  `json:"password" validate:"required,min=8"`
+    Role     string  `json:"role" validate:"required,oneof=admin editor viewer"`
+    Website  *string `json:"website" validate:"omitempty,is_valid_url"`
 }
 ```
 
-### Validation in a Controller
+### Validating in a Controller
 
 ```go
 func (c *UserController) Create(w http.ResponseWriter, r *http.Request) {
@@ -107,13 +79,11 @@ func (c *UserController) Create(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    v := validators.New()
-    v.Validate("name", input.Name, validators.Required(), validators.MinLength(2))
-    v.Validate("email", input.Email, validators.Required(), validators.Email())
-    v.Validate("password", input.Password, validators.Required(), validators.MinLength(8))
-
-    if v.HasErrors() {
-        httputil.Error(w, v.ToAppError())
+    if valErrs := c.validator.ValidateStruct(input); len(valErrs) > 0 {
+        httputil.JSON(w, http.StatusBadRequest, types.TCommonResponseDto{
+            Status: http.StatusBadRequest,
+            Errors: valErrs,
+        })
         return
     }
 
@@ -122,7 +92,7 @@ func (c *UserController) Create(w http.ResponseWriter, r *http.Request) {
         httputil.Error(w, err)
         return
     }
-    httputil.Created(w, "user created", user)
+    httputil.Created(w, user)
 }
 ```
 
@@ -130,57 +100,63 @@ The error response looks like:
 
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "validation failed",
-    "detail": "[{\"field\":\"email\",\"rule\":\"email\",\"message\":\"must be a valid email address\"}]"
-  }
+  "status": 400,
+  "errors": [
+    {"fieldName": "email", "message": "Email must be a valid email address"},
+    {"fieldName": "password", "message": "Password must be at least 8 characters in length"}
+  ]
 }
-```
-
-### Custom Validators
-
-Create custom rules by implementing the `Rule` function signature.
-
-```go
-func PasswordStrength() validators.Rule {
-    return func(field string, value interface{}) *validators.FieldError {
-        password, ok := value.(string)
-        if !ok {
-            return &validators.FieldError{Field: field, Rule: "password_strength", Message: "must be a string"}
-        }
-
-        hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(password)
-        hasLower := regexp.MustCompile(`[a-z]`).MatchString(password)
-        hasDigit := regexp.MustCompile(`[0-9]`).MatchString(password)
-
-        if !hasUpper || !hasLower || !hasDigit {
-            return &validators.FieldError{
-                Field:   field,
-                Rule:    "password_strength",
-                Message: "must contain uppercase, lowercase, and digit characters",
-            }
-        }
-        return nil
-    }
-}
-
-// Usage
-v.Validate("password", input.Password, validators.Required(), validators.MinLength(8), PasswordStrength())
 ```
 
 ### Database Uniqueness Check
 
+Use the `is_record_exist_by_name_for_conflict` tag with the table name as a parameter:
+
 ```go
-v.Validate("email", input.Email,
-    validators.Required(),
-    validators.Email(),
-    validators.Unique("email", db, "users"),
-)
+type CreateCategoryInput struct {
+    Name string `json:"name" validate:"required,is_record_exist_by_name_for_conflict=categories"`
+}
+```
+
+### Record Existence Verification
+
+```go
+type AssignRoleInput struct {
+    RoleID string `json:"roleId" validate:"required,uuid4_valid,does_record_exist_by_id_for_verification=roles"`
+}
+```
+
+### Registering Custom Validators
+
+Extend the validator by registering additional validations on the `Validate` field:
+
+```go
+appValidator := validators.NewAppValidator(db)
+
+// Register a custom validation
+appValidator.Validate.RegisterValidation("strong_password", func(fl validator.FieldLevel) bool {
+    password := fl.Field().String()
+    hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(password)
+    hasLower := regexp.MustCompile(`[a-z]`).MatchString(password)
+    hasDigit := regexp.MustCompile(`[0-9]`).MatchString(password)
+    return hasUpper && hasLower && hasDigit
+})
+
+// Register a translation for the custom validation
+validators.RegisterTranslation(appValidator.Validate, appValidator.Trans,
+    "strong_password", "{0} must contain uppercase, lowercase, and digit characters")
+```
+
+Then use it in struct tags:
+
+```go
+type ResetPasswordInput struct {
+    Password string `json:"password" validate:"required,min=8,strong_password"`
+}
 ```
 
 ## Related Pages
 
-- [Errors](/docs/api-reference/errors) -- Validation errors map to VALIDATION_ERROR code
+- [Errors](/docs/api-reference/errors) -- Validation errors map to structured error responses
 - [HTTP Utilities](/docs/api-reference/http-utilities) -- Bind and validate request input
-- [Types](/docs/api-reference/types) -- Shared input types used with validators
+- [Types](/docs/api-reference/types) -- Shared DTO types including TCommonAPIErrorDto

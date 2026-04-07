@@ -28,23 +28,19 @@ type Claims struct {
 
 ### AuthConfig
 
+The auth configuration uses koanf struct tags and is part of the root `AppConfig`. Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_AUTH_JWT_SECRET`).
+
 ```go
 type AuthConfig struct {
-    SecretKey     string        `yaml:"secret_key" env:"AUTH_SECRET_KEY"`
-    TokenExpiry   time.Duration `yaml:"token_expiry" env:"AUTH_TOKEN_EXPIRY"`
-    RefreshExpiry time.Duration `yaml:"refresh_expiry" env:"AUTH_REFRESH_EXPIRY"`
-    Issuer        string        `yaml:"issuer" env:"AUTH_ISSUER"`
+    JWTSecret          string        `koanf:"jwt_secret"`
+    AccessTokenExpiry  time.Duration `koanf:"access_token_expiry"`
+    RefreshTokenExpiry time.Duration `koanf:"refresh_token_expiry"`
+    RBACModelPath      string        `koanf:"rbac_model"`
+    RBACPolicyPath     string        `koanf:"rbac_policy"`
 }
 ```
 
-### RBACConfig
-
-```go
-type RBACConfig struct {
-    ModelPath  string `yaml:"model_path" env:"RBAC_MODEL_PATH"`
-    PolicyPath string `yaml:"policy_path" env:"RBAC_POLICY_PATH"`
-}
-```
+Casbin RBAC configuration files (`rbac_model.conf` and `rbac_policy.csv`) are scaffolded in the `configs/` directory by default.
 
 ## Key Functions
 
@@ -63,10 +59,11 @@ type RBACConfig struct {
 
 ```go
 cfg := auth.AuthConfig{
-    SecretKey:     "my-secret-key",
-    TokenExpiry:   24 * time.Hour,
-    RefreshExpiry: 7 * 24 * time.Hour,
-    Issuer:        "my-service",
+    JWTSecret:          "my-secret-key",
+    AccessTokenExpiry:  15 * time.Minute,
+    RefreshTokenExpiry: 7 * 24 * time.Hour,
+    RBACModelPath:      "configs/rbac_model.conf",
+    RBACPolicyPath:     "configs/rbac_policy.csv",
 }
 
 claims := auth.Claims{
@@ -135,12 +132,12 @@ g, alice, admin
 g, bob, editor
 ```
 
-Initialize the enforcer:
+Initialize the enforcer (paths default to `configs/rbac_model.conf` and `configs/rbac_policy.csv`):
 
 ```go
-enforcer, err := auth.NewEnforcer(auth.RBACConfig{
-    ModelPath:  "rbac_model.conf",
-    PolicyPath: "rbac_policy.csv",
+enforcer, err := auth.NewEnforcer(auth.AuthConfig{
+    RBACModelPath:  "configs/rbac_model.conf",
+    RBACPolicyPath: "configs/rbac_policy.csv",
 })
 if err != nil {
     log.Fatalf("failed to create enforcer: %v", err)

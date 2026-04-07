@@ -5,57 +5,43 @@ description: Start the Gofasta production HTTP server.
 
 # gofasta serve
 
-Starts the HTTP server in production mode. Unlike `gofasta dev`, this command runs the compiled binary directly without hot reload or file watching. Use this command when deploying your application or when you do not need live reloading.
+Starts the HTTP server by delegating to `go run ./app/main serve`. Unlike `gofasta dev`, this command does not include hot reload or file watching.
 
 ## Usage
-
-```bash
-gofasta serve [flags]
-```
-
-Run this command from the root directory of your Gofasta project after building.
-
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--port` | `-p` | `8080` | Port number for the HTTP server |
-| `--host` | `-H` | `0.0.0.0` | Host address to bind to |
-| `--env` | `-e` | `production` | Environment configuration to load |
-
-## Examples
-
-Start the production server with defaults:
 
 ```bash
 gofasta serve
 ```
 
-Start on a custom port:
+Run this command from the root directory of your Gofasta project.
+
+This command takes no flags.
+
+## Examples
+
+Start the server:
 
 ```bash
-gofasta serve --port 3000
+gofasta serve
 ```
 
-Start with a specific environment configuration:
+## How It Works
+
+The `gofasta serve` command simply delegates to:
 
 ```bash
-gofasta serve --env staging
+go run ./app/main serve
 ```
 
-Bind to localhost only:
-
-```bash
-gofasta serve --host 127.0.0.1 -p 9090
-```
+All server configuration (port, host, environment, etc.) is controlled through `config.yaml` and environment variables, not through CLI flags.
 
 ## Production Deployment
 
 For production, you typically build the binary first and then run it:
 
 ```bash
-go build -o server ./cmd/serve.go
-./server
+go build -o server ./app/main
+./server serve
 ```
 
 Or use the provided Docker setup:
@@ -64,27 +50,6 @@ Or use the provided Docker setup:
 docker build -t myapp .
 docker run -p 8080:8080 myapp
 ```
-
-The included `Dockerfile` uses a multi-stage build to produce a minimal production image:
-
-```dockerfile
-# Build stage
-FROM golang:1.23-alpine AS builder
-WORKDIR /app
-COPY . .
-RUN go build -o server ./cmd/serve.go
-
-# Runtime stage
-FROM alpine:3.19
-COPY --from=builder /app/server /server
-COPY --from=builder /app/config /config
-EXPOSE 8080
-CMD ["/server"]
-```
-
-## Environment Configuration
-
-The `--env` flag determines which configuration to load from `config/config.yaml`. This controls database connections, JWT secrets, SMTP settings, and other environment-specific values.
 
 ## Available Endpoints
 

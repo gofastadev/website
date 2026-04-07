@@ -211,7 +211,7 @@ func TestProductService_Create_InvalidPrice(t *testing.T) {
 
 ## Testing Controllers
 
-Use `testutil.NewTestRouter` to create a Gin router configured for testing, and `testutil.MakeRequest` to send HTTP requests:
+Use `testutil.NewTestRouter` to create a gorilla/mux router configured for testing, and `testutil.MakeRequest` to send HTTP requests:
 
 ```go
 package controllers_test
@@ -221,12 +221,13 @@ import (
     "testing"
 
     testutil "github.com/gofastadev/gofasta/pkg/test-utilities"
+    "github.com/gofastadev/gofasta/pkg/httputil"
     "myapp/app/rest/controllers"
     "myapp/app/repositories/mocks"
     "myapp/app/services"
 )
 
-func TestProductController_FindAll(t *testing.T) {
+func TestProductController_List(t *testing.T) {
     mockRepo := &mocks.MockProductRepository{
         FindAllFn: func(ctx context.Context, page, perPage int) ([]models.Product, int64, error) {
             return []models.Product{
@@ -239,7 +240,7 @@ func TestProductController_FindAll(t *testing.T) {
     ctrl := controllers.NewProductController(svc)
 
     router := testutil.NewTestRouter()
-    router.GET("/products", ctrl.FindAll)
+    router.HandleFunc("/products", httputil.Handle(ctrl.List)).Methods("GET")
 
     resp := testutil.MakeRequest(t, router, "GET", "/products", nil)
 
@@ -259,7 +260,7 @@ func TestProductController_Create(t *testing.T) {
     ctrl := controllers.NewProductController(svc)
 
     router := testutil.NewTestRouter()
-    router.POST("/products", ctrl.Create)
+    router.HandleFunc("/products", httputil.Handle(ctrl.Create)).Methods("POST")
 
     body := map[string]interface{}{
         "name":  "Widget",
@@ -278,7 +279,7 @@ func TestProductController_Create(t *testing.T) {
 |----------|-------------|
 | `testutil.SetupTestDB(t, models...)` | Create in-memory SQLite test database |
 | `testutil.SetupTestDBFromConfig(t, path, models...)` | Create test database from config file |
-| `testutil.NewTestRouter()` | Create a Gin router in test mode |
+| `testutil.NewTestRouter()` | Create a gorilla/mux router in test mode |
 | `testutil.MakeRequest(t, router, method, path, body)` | Send an HTTP request and return the response |
 | `testutil.MakeAuthRequest(t, router, method, path, body, token)` | Send an authenticated HTTP request |
 | `testutil.AssertStatus(t, resp, code)` | Assert response status code |
@@ -350,7 +351,7 @@ func TestProductController_Create_Authenticated(t *testing.T) {
 
     router := testutil.NewTestRouter()
     router.Use(middleware.Auth(jwtConfig))
-    router.POST("/products", ctrl.Create)
+    router.HandleFunc("/products", httputil.Handle(ctrl.Create)).Methods("POST")
 
     token := testutil.GenerateTestJWT("user-123", "admin", jwtConfig)
 
@@ -368,7 +369,7 @@ func TestProductController_Create_Unauthorized(t *testing.T) {
 
     router := testutil.NewTestRouter()
     router.Use(middleware.Auth(jwtConfig))
-    router.POST("/products", ctrl.Create)
+    router.HandleFunc("/products", httputil.Handle(ctrl.Create)).Methods("POST")
 
     body := map[string]interface{}{
         "name":  "Widget",

@@ -1,11 +1,11 @@
 ---
 title: Encryption
-description: AES encryption and decryption, password hashing, HMAC signing, and key management utilities.
+description: AES-256-GCM encryption and decryption for securing sensitive data.
 ---
 
 # Encryption
 
-The `encryption` package provides cryptographic utilities including AES-256-GCM encryption/decryption, bcrypt password hashing, HMAC signing, and key generation helpers for securing sensitive data.
+The `encryption` package provides AES-256-GCM encryption and decryption for securing sensitive data. Ciphertext is base64-encoded for safe storage and transport.
 
 ## Import
 
@@ -15,23 +15,11 @@ import "github.com/gofastadev/gofasta/pkg/encryption"
 
 ## Key Types
 
-### Encryptor
+### Encrypter
 
 ```go
-type Encryptor interface {
-    Encrypt(plaintext []byte) ([]byte, error)
-    Decrypt(ciphertext []byte) ([]byte, error)
-    EncryptString(plaintext string) (string, error)
-    DecryptString(ciphertext string) (string, error)
-}
-```
-
-### EncryptionConfig
-
-```go
-type EncryptionConfig struct {
-    Key       string `yaml:"key" env:"ENCRYPTION_KEY"`
-    Algorithm string `yaml:"algorithm" env:"ENCRYPTION_ALGORITHM"`
+type Encrypter struct {
+    gcm cipher.AEAD
 }
 ```
 
@@ -39,37 +27,28 @@ type EncryptionConfig struct {
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `NewEncryptor` | `func NewEncryptor(cfg EncryptionConfig) (Encryptor, error)` | Creates an AES-256-GCM encryptor with the given key |
-| `GenerateKey` | `func GenerateKey(bits int) (string, error)` | Generates a random encryption key (128, 192, or 256 bits) |
-| `HashPassword` | `func HashPassword(password string) (string, error)` | Hashes a password with bcrypt |
-| `CheckPassword` | `func CheckPassword(hash, password string) bool` | Compares a bcrypt hash to a plaintext password |
-| `HMAC` | `func HMAC(key, data []byte) []byte` | Computes an HMAC-SHA256 signature |
-| `VerifyHMAC` | `func VerifyHMAC(key, data, signature []byte) bool` | Verifies an HMAC-SHA256 signature |
-| `SHA256` | `func SHA256(data []byte) string` | Returns the SHA-256 hex digest of the data |
-| `RandomBytes` | `func RandomBytes(n int) ([]byte, error)` | Generates n cryptographically random bytes |
-| `RandomString` | `func RandomString(n int) (string, error)` | Generates an n-character random alphanumeric string |
+| `NewEncrypter` | `func NewEncrypter(key string) (*Encrypter, error)` | Creates an AES-256-GCM encrypter with a 32-byte key |
+| `Encrypt` | `func (e *Encrypter) Encrypt(plaintext string) (string, error)` | Encrypts plaintext and returns a base64-encoded ciphertext |
+| `Decrypt` | `func (e *Encrypter) Decrypt(encoded string) (string, error)` | Decrypts a base64-encoded ciphertext back to plaintext |
 
 ## Usage
 
-### AES Encryption and Decryption
+### AES-256-GCM Encryption and Decryption
 
 ```go
-enc, err := encryption.NewEncryptor(encryption.EncryptionConfig{
-    Key:       "a-32-byte-secret-key-for-aes256", // must be 32 bytes for AES-256
-    Algorithm: "aes-256-gcm",
-})
+enc, err := encryption.NewEncrypter("a-32-byte-secret-key-for-aes256") // must be exactly 32 bytes
 if err != nil {
-    log.Fatalf("failed to create encryptor: %v", err)
+    log.Fatalf("failed to create encrypter: %v", err)
 }
 
 // Encrypt
-ciphertext, err := enc.EncryptString("sensitive data")
+ciphertext, err := enc.Encrypt("sensitive data")
 if err != nil {
     log.Fatalf("encryption failed: %v", err)
 }
 
 // Decrypt
-plaintext, err := enc.DecryptString(ciphertext)
+plaintext, err := enc.Decrypt(ciphertext)
 if err != nil {
     log.Fatalf("decryption failed: %v", err)
 }
@@ -80,60 +59,11 @@ fmt.Println(plaintext) // "sensitive data"
 
 ```go
 data, _ := json.Marshal(creditCard)
-encrypted, err := enc.Encrypt(data)
+encrypted, err := enc.Encrypt(string(data))
 if err != nil {
     return err
 }
-// Store encrypted bytes in the database
-```
-
-### Password Hashing
-
-```go
-hash, err := encryption.HashPassword("user-password-123")
-if err != nil {
-    return err
-}
-// Store hash in the database
-
-// Later, verify the password
-ok := encryption.CheckPassword(hash, "user-password-123")
-fmt.Println(ok) // true
-```
-
-### HMAC Signing
-
-```go
-key := []byte("webhook-secret")
-payload := []byte(`{"event":"order.created","order_id":"123"}`)
-
-signature := encryption.HMAC(key, payload)
-
-// Verify incoming webhook
-incomingSig := r.Header.Get("X-Signature")
-valid := encryption.VerifyHMAC(key, payload, []byte(incomingSig))
-```
-
-### Key Generation
-
-```go
-// Generate a 256-bit key for AES-256
-key, err := encryption.GenerateKey(256)
-if err != nil {
-    log.Fatalf("key generation failed: %v", err)
-}
-fmt.Println(key) // base64-encoded 32-byte key
-```
-
-### Random String Generation
-
-```go
-// Generate a random token
-token, err := encryption.RandomString(32)
-if err != nil {
-    return err
-}
-fmt.Println(token) // e.g., "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+// Store encrypted string in the database
 ```
 
 ### Configuration via config.yaml
@@ -141,8 +71,13 @@ fmt.Println(token) // e.g., "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
 ```yaml
 encryption:
   key: "your-32-byte-secret-key-here!!"
-  algorithm: aes-256-gcm
 ```
+
+Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_ENCRYPTION_KEY`).
+
+## Note on Password Hashing and HMAC
+
+Password hashing (bcrypt) and HMAC signing are handled in the `auth` and `session` packages respectively, not in this package. The `encryption` package focuses solely on AES-256-GCM symmetric encryption.
 
 ## Related Pages
 

@@ -5,20 +5,17 @@ description: Generate an HTML email template for transactional emails.
 
 # gofasta g email-template
 
-Generates an HTML email template file for sending transactional emails such as welcome messages, password resets, order confirmations, and notifications. Templates use Go's `html/template` package for dynamic content rendering.
+Generates an HTML email template file for sending transactional emails such as welcome messages, password resets, order confirmations, and notifications. Templates use Go's `html/template` package with a base layout for dynamic content rendering.
+
+**Aliases:** `email`
 
 ## Usage
 
 ```bash
-gofasta g email-template <TemplateName> [flags]
+gofasta g email-template <Name>
 ```
 
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--subject` | `-s` | derived from name | Default email subject line |
-| `--layout` | `-l` | `default` | Base layout to extend. Options: `default`, `minimal`, `none` |
+This command has no flags.
 
 ## Examples
 
@@ -28,22 +25,16 @@ Generate a welcome email template:
 gofasta g email-template Welcome
 ```
 
-Generate a password reset template with a custom subject:
+Generate a password reset template:
 
 ```bash
-gofasta g email-template PasswordReset --subject "Reset Your Password"
+gofasta g email-template PasswordReset
 ```
 
-Generate an order confirmation template with a minimal layout:
+Generate an order confirmation template:
 
 ```bash
-gofasta g email-template OrderConfirmation --layout minimal
-```
-
-Generate a template without any base layout:
-
-```bash
-gofasta g email-template CustomNotification --layout none
+gofasta g email OrderConfirmation
 ```
 
 ## What It Generates
@@ -51,13 +42,13 @@ gofasta g email-template CustomNotification --layout none
 Running `gofasta g email-template Welcome` creates one file:
 
 ```
-app/emails/welcome.email.html
+templates/emails/welcome.html
 ```
 
 ### Generated Code
 
 ```html
-<!-- app/emails/welcome.email.html -->
+<!-- templates/emails/welcome.html -->
 {{"{{"}}define "subject"{{"}}"}}Welcome to {{"{{"}} .AppName {{"}}"}}!{{"{{"}}end{{"}}"}}
 
 {{"{{"}}define "content"{{"}}"}}
@@ -89,6 +80,8 @@ app/emails/welcome.email.html
 </table>
 {{"{{"}}end{{"}}"}}
 ```
+
+The template uses Go's `html/template` with a base layout. The `subject` block defines the email subject line, and the `content` block defines the email body that is rendered within the base layout.
 
 ## Template Data
 
@@ -138,16 +131,6 @@ email:
   from_address: noreply@example.com
 ```
 
-## Layout System
-
-The `default` layout wraps your template content with a standard email structure including header, footer, and responsive styling. The available layouts:
-
-| Layout | Description |
-|--------|-------------|
-| `default` | Full layout with header logo, footer with unsubscribe link, responsive design |
-| `minimal` | Simple wrapper with basic styling, no header/footer |
-| `none` | Raw template with no layout wrapping |
-
 ## Best Practices
 
 - Use inline styles for email compatibility across email clients
@@ -159,5 +142,5 @@ The `default` layout wraps your template content with a standard email structure
 ## Related
 
 - [gofasta g job](/docs/cli-reference/generate/job) -- generate a background job to send emails asynchronously
-- [gofasta g task](/docs/cli-reference/generate/task) -- generate a scheduled task for digest emails
+- [gofasta g task](/docs/cli-reference/generate/task) -- generate an async task for sending emails
 - [gofasta new](/docs/cli-reference/new) -- create a project with email support configured

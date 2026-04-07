@@ -82,7 +82,7 @@ The CLI generates idiomatic Go code that the developer owns completely. Generate
 
 ### 2.3 Standard Library Compatibility
 
-Framework packages build on Go's standard interfaces wherever possible. HTTP middleware uses the `func(http.Handler) http.Handler` signature. Configuration uses struct tags and environment variables. Logging follows structured logging patterns compatible with `slog`. Database access uses GORM, which builds on `database/sql`. None of these choices prevent using the standard library directly.
+Framework packages build on Go's standard interfaces wherever possible. HTTP routing uses gorilla/mux, which implements `http.Handler` and works with standard `net/http` middleware (`func(http.Handler) http.Handler`). Configuration uses struct tags and environment variables. Logging uses `slog` from the standard library. Database access uses GORM, which builds on `database/sql`. None of these choices prevent using the standard library directly.
 
 ### 2.4 Compile-Time Safety
 
@@ -151,7 +151,7 @@ The request flow is linear and traceable:
 
 ```
 HTTP Request
-  → Router (Gin)
+  → Router (gorilla/mux)
     → Middleware (auth, CORS, logging, rate limiting)
       → Controller (parses request, calls service)
         → Service (business logic, calls repository)
@@ -225,13 +225,7 @@ This command:
 6. Generates GraphQL resolvers via gqlgen
 7. Includes a starter `User` resource so the project compiles and runs immediately
 
-**Flags:**
-- `--driver | -d` — Database driver: `postgres` (default), `mysql`, `sqlite`, `sqlserver`, `clickhouse`
-- `--module | -m` — Go module path (e.g., `github.com/myorg/myapp`)
-- `--skip-git` — Skip Git initialization
-- `--skip-deps` — Skip `go mod tidy`
-- `--skip-wire` — Skip Wire code generation
-- `--skip-gqlgen` — Skip GraphQL code generation
+The command accepts a project name or a full Go module path (e.g., `github.com/myorg/myapp`). If the argument contains `/`, it is used as the module path; otherwise the project name is used as both. The database driver defaults to PostgreSQL and is configured in `config.yaml` after project creation.
 
 ### 4.4 Scaffold Generation
 
@@ -396,7 +390,7 @@ log:
   format: json
 ```
 
-Every value can be overridden via environment variables using the pattern `{APP_NAME}_{SECTION}_{KEY}` (e.g., `MYAPP_DATABASE_HOST=db`). This allows committing safe development defaults while managing production secrets through the environment.
+Every value can be overridden via environment variables using the prefix `GOFASTA_` with dot-separated keys mapped to underscores (e.g., `GOFASTA_DATABASE_HOST=db`). This allows committing safe development defaults while managing production secrets through the environment.
 
 ---
 
@@ -569,94 +563,85 @@ gofasta seed --file roles # Run a specific seed
 
 ### 9.1 Routing
 
-Gofasta uses [Gin](https://github.com/gin-gonic/gin) as its HTTP router. Routes are registered explicitly in Go code:
+Gofasta uses [gorilla/mux](https://github.com/gorilla/mux) as its HTTP router, which builds on Go's standard `net/http` interfaces. Routes are registered explicitly in Go code:
 
 ```go
-func RegisterProductRoutes(
-    router *gin.RouterGroup,
-    controller *controllers.ProductController,
-    authMiddleware *middlewares.AuthMiddleware,
-) {
-    products := router.Group("/products")
-    products.Use(authMiddleware.Authenticate())
-    {
-        products.POST("/", controller.Create)
-        products.GET("/", controller.FindAll)
-        products.GET("/:id", controller.FindByID)
-        products.PUT("/:id", controller.Update)
-        products.DELETE("/:id", controller.Delete)
-    }
+func ProductRoutes(api *mux.Router, ctrl *controllers.ProductController) {
+    r := api.PathPrefix("/products").Subrouter()
+    r.HandleFunc("", httputil.Handle(ctrl.List)).Methods("GET")
+    r.HandleFunc("", httputil.Handle(ctrl.Create)).Methods("POST")
+    r.HandleFunc("/{id}", httputil.Handle(ctrl.GetByID)).Methods("GET")
+    r.HandleFunc("/{id}", httputil.Handle(ctrl.Update)).Methods("PUT")
+    r.HandleFunc("/{id}", httputil.Handle(ctrl.Archive)).Methods("DELETE")
 }
 ```
 
-Every route is visible in the source code. There is no auto-discovery based on file names or struct methods.
+Every route is visible in the source code. There is no auto-discovery based on file names or struct methods. The `httputil.Handle()` wrapper adapts error-returning controller methods to standard `http.HandlerFunc`.
 
 ### 9.2 Controllers
 
-Controllers parse HTTP requests, call services, and return responses. They contain no business logic:
+Controllers return errors instead of writing responses directly on failure. The `httputil.Handle()` wrapper converts returned errors to appropriate HTTP responses:
 
 ```go
-func (c *ProductController) Create(ctx *gin.Context) {
+func (c *ProductController) Create(w http.ResponseWriter, r *http.Request) error {
     var req dtos.CreateProductRequest
-    if err := ctx.ShouldBindJSON(&req); err != nil {
-        httputil.BadRequest(ctx, err.Error())
-        return
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        return apperrors.BadRequest("invalid request body")
     }
-    result, err := c.service.Create(req)
+    result, err := c.service.Create(r.Context(), req)
     if err != nil {
-        httputil.HandleError(ctx, err)
-        return
+        return err
     }
-    httputil.Created(ctx, result)
+    return httputil.Created(w, result)
 }
 ```
+
+Path parameters are extracted via `mux.Vars(r)["id"]`. Request context is available via `r.Context()`.
 
 ### 9.3 DTOs
 
 Request and response types are separated from database models via DTOs:
 
 ```go
-type CreateProductRequest struct {
-    Name  string  `json:"name" binding:"required"`
-    Price float64 `json:"price" binding:"required"`
+type TCreateProductDto struct {
+    Name  string  `json:"name" validate:"required"`
+    Price float64 `json:"price" validate:"required"`
 }
 
-type UpdateProductRequest struct {
+type TUpdateProductDto struct {
     Name  *string  `json:"name,omitempty"`
     Price *float64 `json:"price,omitempty"`
 }
 
 type ProductResponse struct {
-    ID        string    `json:"id"`
-    Name      string    `json:"name"`
-    Price     float64   `json:"price"`
-    CreatedAt time.Time `json:"created_at"`
-    UpdatedAt time.Time `json:"updated_at"`
+    ID            string    `json:"id"`
+    Name          string    `json:"name"`
+    Price         float64   `json:"price"`
+    RecordVersion int       `json:"recordVersion"`
+    IsActive      bool      `json:"isActive"`
+    CreatedAt     time.Time `json:"createdAt"`
+    UpdatedAt     time.Time `json:"updatedAt"`
 }
 ```
 
-Update DTOs use pointer fields to distinguish between "not provided" (nil) and "set to zero value."
+Update DTOs use pointer fields to distinguish between "not provided" (nil) and "set to zero value." Validation uses `go-playground/validator/v10` struct tags.
 
 ### 9.4 Response Helpers
 
-The `httputil` package provides consistent JSON response formatting:
+The `httputil` package provides consistent JSON response formatting using standard `http.ResponseWriter`:
 
 ```go
-httputil.OK(ctx, data)           // 200
-httputil.Created(ctx, data)      // 201
-httputil.NoContent(ctx)          // 204
-httputil.BadRequest(ctx, msg)    // 400
-httputil.Unauthorized(ctx, msg)  // 401
-httputil.Forbidden(ctx, msg)     // 403
-httputil.NotFound(ctx, msg)      // 404
-httputil.HandleError(ctx, err)   // Auto-detects AppError and maps to HTTP status
+httputil.OK(w, data)           // 200
+httputil.Created(w, data)      // 201
+httputil.NoContent(w)          // 204
+httputil.Handle(handlerFn)     // Wraps error-returning handlers into http.HandlerFunc
 ```
 
-Pagination is supported via `httputil.ParsePaginationParams()` and `httputil.PaginatedJSON()`.
+Pagination is supported via `utils.PreparePaginating()` and paginated response DTOs.
 
 ### 9.5 Middleware
 
-The `middleware` package provides standard HTTP middleware:
+The `middleware` package provides standard HTTP middleware using the `func(http.Handler) http.Handler` signature:
 
 | Middleware | Function |
 |-----------|----------|
@@ -756,31 +741,28 @@ Cron expressions follow standard syntax (`* * * * *`) and support shortcuts like
 
 ### 11.2 Async Task Queues
 
-The `queue` package provides background job processing with retry support:
+The task queue is built on [hibiken/asynq](https://github.com/hibiken/asynq), a Redis-based distributed task queue. Generated task handlers follow asynq's patterns:
 
 ```go
-q := queue.NewQueue(queue.QueueConfig{
-    Driver:       "redis",
-    Workers:      5,
-    MaxRetries:   3,
-    RetryDelay:   5 * time.Second,
-})
-q.RegisterHandler("send_welcome_email", emailHandler)
-q.Start(ctx)
+const TaskSendWelcomeEmail = "send_welcome_email"
+
+type SendWelcomeEmailPayload struct {
+    ID string `json:"id"`
+}
+
+func HandleSendWelcomeEmail(ctx context.Context, t *asynq.Task) error {
+    var payload SendWelcomeEmailPayload
+    if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+        return err
+    }
+    // Process the task
+    return nil
+}
 ```
 
-Jobs are dispatched from application code:
+Tasks are dispatched from application code using generated `Enqueue` helpers. Failed tasks are retried automatically by asynq with configurable retry policies.
 
-```go
-q.Enqueue(ctx, queue.Job{
-    Type:    "send_welcome_email",
-    Payload: map[string]interface{}{"user_id": user.ID, "email": user.Email},
-})
-```
-
-Failed jobs are retried up to the configured maximum. After exhausting retries, jobs are moved to a dead-letter queue for manual inspection.
-
-**Backends:** in-memory (development) and Redis (production).
+**Backend:** Redis (via asynq).
 
 ---
 
@@ -1088,7 +1070,7 @@ Gofasta occupies a specific niche: it provides more structure than a router libr
 
 ### 16.2 Comparison Matrix
 
-| Capability | Gin/Echo/Chi | go-blueprint | Buffalo | Gofasta |
+| Capability | mux/chi/Gin/Echo | go-blueprint | Buffalo | Gofasta |
 |-----------|-------------|-------------|---------|---------|
 | HTTP routing | Yes | Yes | Yes | Yes |
 | Project scaffolding | No | Yes | Yes | Yes |
@@ -1108,7 +1090,7 @@ Gofasta occupies a specific niche: it provides more structure than a router libr
 
 ### 16.3 Key Differentiators
 
-**vs. Gin/Echo/Chi:** These are HTTP routers. Gofasta uses Gin as its router but adds project structure, code generation, database management, authentication, background processing, and 27 utility packages. A developer using Gin still needs to set all of this up manually.
+**vs. gorilla/mux, chi, Gin, Echo:** These are HTTP routers. Gofasta uses gorilla/mux (which builds on `net/http`) as its router but adds project structure, code generation, database management, authentication, background processing, and 27 utility packages. A developer using any router still needs to set all of this up manually.
 
 **vs. go-blueprint:** go-blueprint generates project scaffolding with a choice of router and database driver. Gofasta goes further with resource-level code generation (`gofasta g scaffold`), a library of production packages, and generated deployment manifests. go-blueprint generates the starting point; Gofasta generates the starting point and the ongoing CRUD boilerplate.
 
@@ -1167,11 +1149,16 @@ Gofasta is open source under the [MIT License](https://opensource.org/licenses/M
 1. Go Developer Survey 2024 Results — The Go Blog, https://go.dev/blog/survey2024-h2-results
 2. Google Wire — Compile-time Dependency Injection for Go, https://github.com/google/wire
 3. GORM — The fantastic ORM library for Go, https://gorm.io
-4. Gin — HTTP web framework written in Go, https://github.com/gin-gonic/gin
+4. gorilla/mux — HTTP request multiplexer for Go, https://github.com/gorilla/mux
 5. gqlgen — Go library for building GraphQL servers, https://gqlgen.com
-6. Casbin — Authorization library, https://casbin.org
-7. OpenTelemetry Go — Observability framework, https://opentelemetry.io/docs/languages/go/
-8. Air — Live reload for Go apps, https://github.com/air-verse/air
+6. go-playground/validator — Struct and field validation for Go, https://github.com/go-playground/validator
+7. hibiken/asynq — Distributed task queue for Go, https://github.com/hibiken/asynq
+8. golang-migrate — Database migrations for Go, https://github.com/golang-migrate/migrate
+9. Casbin — Authorization library, https://casbin.org
+10. OpenTelemetry Go — Observability framework, https://opentelemetry.io/docs/languages/go/
+11. Air — Live reload for Go apps, https://github.com/air-verse/air
+12. Cobra — CLI library for Go, https://github.com/spf13/cobra
+13. swaggo/swag — Swagger documentation generator for Go, https://github.com/swaggo/swag
 
 ---
 

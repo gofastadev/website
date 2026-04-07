@@ -1,11 +1,11 @@
 ---
 title: i18n
-description: Internationalization with translation loading, locale detection, message formatting, and pluralization.
+description: Internationalization with YAML locale files, message translation, and Accept-Language header detection.
 ---
 
 # i18n
 
-The `i18n` package provides internationalization support including translation file loading, locale detection from HTTP requests, message formatting with parameter interpolation, and pluralization rules.
+The `i18n` package provides internationalization support using [go-i18n/v2](https://github.com/nicksnyder/go-i18n). It loads YAML locale files, translates messages with template data, and detects the preferred language from HTTP request headers.
 
 ## Import
 
@@ -15,33 +15,12 @@ import "github.com/gofastadev/gofasta/pkg/i18n"
 
 ## Key Types
 
-### I18n
+### I18nService
 
 ```go
-type I18n interface {
-    T(locale string, key string, params ...interface{}) string
-    TPlural(locale string, key string, count int, params ...interface{}) string
-    HasLocale(locale string) bool
-    Locales() []string
-    SetFallback(locale string)
-}
-```
-
-### I18nConfig
-
-```go
-type I18nConfig struct {
-    DefaultLocale string `yaml:"default_locale" env:"I18N_DEFAULT_LOCALE"`
-    FallbackLocale string `yaml:"fallback_locale" env:"I18N_FALLBACK_LOCALE"`
-    TranslationDir string `yaml:"translation_dir" env:"I18N_TRANSLATION_DIR"`
-}
-```
-
-### LocaleDetector
-
-```go
-type LocaleDetector interface {
-    Detect(r *http.Request) string
+type I18nService struct {
+    bundle      *i18n.Bundle
+    defaultLang string
 }
 ```
 
@@ -49,45 +28,41 @@ type LocaleDetector interface {
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `New` | `func New(cfg I18nConfig) (I18n, error)` | Creates a new i18n instance and loads translation files |
-| `NewLocaleDetector` | `func NewLocaleDetector(cfg I18nConfig) LocaleDetector` | Creates a detector that reads Accept-Language headers |
-| `Middleware` | `func Middleware(i I18n, detector LocaleDetector) func(http.Handler) http.Handler` | Injects the detected locale into the request context |
-| `LocaleFromContext` | `func LocaleFromContext(ctx context.Context) string` | Retrieves the detected locale from context |
+| `NewI18nService` | `func NewI18nService(localesDir string, defaultLang string) *I18nService` | Loads locale YAML files from the given directory |
+| `T` | `func (s *I18nService) T(lang, messageID string, data map[string]interface{}) string` | Translates a message ID using the given language |
+| `LangFromRequest` | `func (s *I18nService) LangFromRequest(r *http.Request) string` | Extracts the preferred language from the Accept-Language header |
+| `CreateDefaultLocaleFile` | `func CreateDefaultLocaleFile(localesDir string)` | Creates a default English locale file if none exists |
 
 ## Translation Files
 
-Create JSON translation files in your translations directory. Each file is named by its locale code.
+Create YAML translation files in your locales directory. Each file is named by its locale code.
 
-`translations/en.json`:
+`locales/en.yaml`:
 
-```json
-{
-  "greeting": "Hello, {name}!",
-  "items_count": {
-    "one": "You have {count} item",
-    "other": "You have {count} items"
-  },
-  "errors": {
-    "not_found": "The {resource} was not found",
-    "unauthorized": "You must be logged in to perform this action"
-  }
-}
+```yaml
+welcome:
+  other: "Welcome, {{.Name}}!"
+not_found:
+  other: "Resource not found"
+unauthorized:
+  other: "Authentication required"
+forbidden:
+  other: "You don't have permission to access this resource"
+validation_failed:
+  other: "Validation failed"
+internal_error:
+  other: "An internal error occurred"
 ```
 
-`translations/fr.json`:
+`locales/fr.yaml`:
 
-```json
-{
-  "greeting": "Bonjour, {name} !",
-  "items_count": {
-    "one": "Vous avez {count} article",
-    "other": "Vous avez {count} articles"
-  },
-  "errors": {
-    "not_found": "Le {resource} n'a pas ete trouve",
-    "unauthorized": "Vous devez etre connecte pour effectuer cette action"
-  }
-}
+```yaml
+welcome:
+  other: "Bienvenue, {{.Name}} !"
+not_found:
+  other: "Ressource introuvable"
+unauthorized:
+  other: "Authentification requise"
 ```
 
 ## Usage
@@ -95,75 +70,60 @@ Create JSON translation files in your translations directory. Each file is named
 ### Basic Translation
 
 ```go
-translator, err := i18n.New(i18n.I18nConfig{
-    DefaultLocale:  "en",
-    FallbackLocale: "en",
-    TranslationDir: "translations/",
-})
-if err != nil {
-    log.Fatalf("failed to load translations: %v", err)
-}
+translator := i18n.NewI18nService("locales/", "en")
 
-msg := translator.T("en", "greeting", "name", "Jane")
-// -> "Hello, Jane!"
+msg := translator.T("en", "welcome", map[string]interface{}{"Name": "Jane"})
+// -> "Welcome, Jane!"
 
-msg = translator.T("fr", "greeting", "name", "Jane")
-// -> "Bonjour, Jane !"
+msg = translator.T("fr", "welcome", map[string]interface{}{"Name": "Jane"})
+// -> "Bienvenue, Jane !"
 ```
 
-### Pluralization
+### Fallback to Default Language
+
+When a message is not found in the requested language, the service falls back to the default language:
 
 ```go
-msg := translator.TPlural("en", "items_count", 1, "count", 1)
-// -> "You have 1 item"
-
-msg = translator.TPlural("en", "items_count", 5, "count", 5)
-// -> "You have 5 items"
+// If "internal_error" is not in fr.yaml, falls back to en.yaml
+msg := translator.T("fr", "internal_error", nil)
+// -> "An internal error occurred"
 ```
 
-### Nested Keys
-
-```go
-msg := translator.T("en", "errors.not_found", "resource", "user")
-// -> "The user was not found"
-```
-
-### Locale Detection Middleware
-
-```go
-detector := i18n.NewLocaleDetector(i18n.I18nConfig{
-    DefaultLocale: "en",
-})
-
-mux.Handle("/api/", i18n.Middleware(translator, detector)(apiHandler))
-```
-
-### Using Locale in Handlers
+### Language Detection from Request
 
 ```go
 func (c *UserController) Create(w http.ResponseWriter, r *http.Request) {
-    locale := i18n.LocaleFromContext(r.Context())
+    lang := c.translator.LangFromRequest(r)
 
     user, err := c.service.Create(r.Context(), input)
     if err != nil {
-        msg := c.translator.T(locale, "errors.creation_failed")
+        msg := c.translator.T(lang, "internal_error", nil)
         httputil.Error(w, errors.BadRequest(msg))
         return
     }
 
-    msg := c.translator.T(locale, "user_created")
+    msg := c.translator.T(lang, "welcome", map[string]interface{}{"Name": user.Name})
     httputil.Created(w, msg, user)
 }
+```
+
+### Creating Default Locale Files
+
+On first run, generate a default English locale file:
+
+```go
+i18n.CreateDefaultLocaleFile("locales/")
 ```
 
 ### Configuration via config.yaml
 
 ```yaml
 i18n:
-  default_locale: en
-  fallback_locale: en
-  translation_dir: translations/
+  default_language: en
+  locales_dir: locales/
 ```
+
+Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_I18N_DEFAULT_LANGUAGE`).
 
 ## Related Pages
 

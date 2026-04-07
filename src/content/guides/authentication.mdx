@@ -31,8 +31,8 @@ jwt:
 Override in production with environment variables:
 
 ```bash
-MYAPP_JWT_SECRET=your-production-secret
-MYAPP_JWT_EXPIRATION=1h
+GOFASTA_JWT_SECRET=your-production-secret
+GOFASTA_JWT_EXPIRATION=1h
 ```
 
 ## Registration and Login Flow
@@ -204,37 +204,38 @@ The `github.com/gofastadev/gofasta/pkg/auth` package provides these functions:
 The auth middleware from `github.com/gofastadev/gofasta/pkg/middleware` validates JWT tokens and sets user information on the request context.
 
 ```go
-import "github.com/gofastadev/gofasta/pkg/middleware"
+import (
+    "github.com/gorilla/mux"
+    "github.com/gofastadev/gofasta/pkg/middleware"
+)
 
 // Apply to a route group
-protected := router.Group("/api/v1")
+protected := api.PathPrefix("/api/v1").Subrouter()
 protected.Use(middleware.Auth(jwtConfig))
-{
-    // All routes in this group require a valid JWT
-    protected.GET("/profile", userController.GetProfile)
-    protected.PUT("/profile", userController.UpdateProfile)
-}
+// All routes in this group require a valid JWT
+protected.HandleFunc("/profile", httputil.Handle(userController.GetProfile)).Methods("GET")
+protected.HandleFunc("/profile", httputil.Handle(userController.UpdateProfile)).Methods("PUT")
 ```
 
-The middleware:
+The middleware uses the standard `func(http.Handler) http.Handler` signature and:
 1. Extracts the `Authorization: Bearer <token>` header
 2. Validates the token signature and expiration
-3. Sets `user_id` and `role` on the Gin context
+3. Sets claims in the request context (accessed via `r.Context()`)
 4. Returns 401 if the token is missing or invalid
 
 Access user info in controllers:
 
 ```go
-func (c *UserController) GetProfile(ctx *gin.Context) {
-    userID := ctx.GetString("user_id")
-    role := ctx.GetString("role")
+func (c *UserController) GetProfile(w http.ResponseWriter, r *http.Request) error {
+    claims := auth.ClaimsFromContext(r.Context())
+    userID := claims.UserID
+    role := claims.Role
 
-    user, err := c.service.FindByID(ctx, userID)
+    user, err := c.service.FindByID(r.Context(), userID)
     if err != nil {
-        httputil.HandleError(ctx, err)
-        return
+        return err
     }
-    httputil.OK(ctx, user)
+    return httputil.OK(w, user)
 }
 ```
 
@@ -250,10 +251,10 @@ RBAC policies are defined in `configs/rbac_policy.csv`:
 p, admin, /api/v1/*, *
 p, admin, /api/v1/admin/*, *
 p, user, /api/v1/products, GET
-p, user, /api/v1/products/:id, GET
+p, user, /api/v1/products/{id}, GET
 p, user, /api/v1/profile, (GET)|(PUT)
 p, moderator, /api/v1/products, *
-p, moderator, /api/v1/products/:id, *
+p, moderator, /api/v1/products/{id}, *
 ```
 
 Each line defines a policy rule: `p, role, resource, action`.
@@ -282,23 +283,24 @@ m = g(r.sub, p.sub) && keyMatch2(r.obj, p.obj) && regexMatch(r.act, p.act)
 Stack the RBAC middleware after the auth middleware:
 
 ```go
-import "github.com/gofastadev/gofasta/pkg/middleware"
+import (
+    "github.com/gorilla/mux"
+    "github.com/gofastadev/gofasta/pkg/middleware"
+)
 
 // Load the Casbin enforcer
 enforcer := middleware.NewCasbinEnforcer("configs/rbac_model.conf", "configs/rbac_policy.csv")
 
 // Admin routes require both authentication and admin role
-admin := router.Group("/api/v1/admin")
+admin := api.PathPrefix("/api/v1/admin").Subrouter()
 admin.Use(middleware.Auth(jwtConfig))
 admin.Use(middleware.RBAC(enforcer))
-{
-    admin.GET("/users", adminController.ListUsers)
-    admin.DELETE("/users/:id", adminController.DeleteUser)
-}
+admin.HandleFunc("/users", httputil.Handle(adminController.ListUsers)).Methods("GET")
+admin.HandleFunc("/users/{id}", httputil.Handle(adminController.DeleteUser)).Methods("DELETE")
 ```
 
-The RBAC middleware:
-1. Reads the `role` from the Gin context (set by the auth middleware)
+The RBAC middleware uses the standard `func(http.Handler) http.Handler` signature and:
+1. Reads the `role` from the request context (set by the auth middleware)
 2. Checks the Casbin policy to see if the role can access the requested path with the given HTTP method
 3. Returns 403 Forbidden if the policy denies access
 
@@ -335,19 +337,19 @@ allowed, _ := enforcer.Enforce("user", "/api/v1/products", "GET")
 package dtos
 
 type RegisterRequest struct {
-    Email     string `json:"email" binding:"required,email"`
-    Password  string `json:"password" binding:"required,min=8"`
-    FirstName string `json:"first_name" binding:"required"`
-    LastName  string `json:"last_name" binding:"required"`
+    Email     string `json:"email" validate:"required,email"`
+    Password  string `json:"password" validate:"required,min=8"`
+    FirstName string `json:"first_name" validate:"required"`
+    LastName  string `json:"last_name" validate:"required"`
 }
 
 type LoginRequest struct {
-    Email    string `json:"email" binding:"required,email"`
-    Password string `json:"password" binding:"required"`
+    Email    string `json:"email" validate:"required,email"`
+    Password string `json:"password" validate:"required"`
 }
 
 type RefreshRequest struct {
-    RefreshToken string `json:"refresh_token" binding:"required"`
+    RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 type AuthResponse struct {

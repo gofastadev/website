@@ -63,9 +63,10 @@ The CLI itself only needs Go. But the projects it generates use these tools (ins
 
 | Tool | Purpose | Installed via |
 |------|---------|---------------|
-| [Wire](https://github.com/google/wire) | Compile-time dependency injection | `go install` (as a Go tool) |
-| [gqlgen](https://github.com/99designs/gqlgen) | GraphQL code generation | `go install` (as a Go tool) |
-| [Air](https://github.com/air-verse/air) | Hot reload during development | `go install` (as a Go tool) |
+| [Wire](https://github.com/google/wire) | Compile-time dependency injection | `go get` + `go mod edit -tool` |
+| [gqlgen](https://github.com/99designs/gqlgen) | GraphQL code generation | `go get` + `go mod edit -tool` |
+| [Air](https://github.com/air-verse/air) | Hot reload during development | `go get` + `go mod edit -tool` |
+| [swag](https://github.com/swaggo/swag) | Swagger/OpenAPI doc generation | `go get` + `go mod edit -tool` |
 | [Docker](https://www.docker.com/) | Run the app + PostgreSQL locally | Manual install |
 
 Docker is optional — you can run the app directly on your machine if you have a local PostgreSQL instance.
