@@ -25,7 +25,7 @@ export default async function DocsLayout({
       }
       footer={
         <Footer>
-          MIT {new Date().getFullYear()} &copy; Gofasta Authors.
+          &copy; 2025–{new Date().getFullYear()} Gofasta Authors — MIT License
         </Footer>
       }
       docsRepositoryBase="https://github.com/gofastadev/website/tree/main"
