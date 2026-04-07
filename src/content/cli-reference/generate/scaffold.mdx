@@ -21,7 +21,7 @@ gofasta g scaffold <Name> [field:type ...] [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--graphql` | `false` | Also generate GraphQL schema and wire up the resolver |
+| `--graphql` | `false` | Also generate GraphQL schema and wire up the resolver for this resource. This is separate from the `--graphql` flag on `gofasta new`, which enables GraphQL for the entire project. Your project must have been created with `gofasta new --graphql` for this flag to work. |
 | `--gql` | `false` | Alias for `--graphql` |
 
 ## Field Types

@@ -16,8 +16,8 @@ Gofasta is split into two parts:
 
 When you run `gofasta new myapp`, the CLI creates a complete, ready-to-run project with:
 
-- **REST API** with controllers, routes, and middleware
-- **GraphQL** with schema files and auto-generated resolvers
+- **REST API** with controllers, routes, and middleware (default)
+- **GraphQL** with schema files and auto-generated resolvers (opt-in via `--graphql` flag)
 - **Database** with migrations, seeders, and multi-DB support (Postgres, MySQL, SQLite, SQL Server, ClickHouse)
 - **Authentication** with JWT tokens and role-based access control (Casbin)
 - **Dependency injection** with Google Wire (compile-time, no reflection)
@@ -41,7 +41,7 @@ Your Project (myapp)
 The framework never imports your code. This means:
 
 - **No vendor lock-in** — you can replace any framework package with your own implementation
-- **No code generation at runtime** — Wire and gqlgen run at build time
+- **No code generation at runtime** — Wire (and gqlgen, if GraphQL is enabled) run at build time
 - **No reflection magic** — all wiring is explicit Go code
 
 ## Who Is This For
@@ -49,7 +49,7 @@ The framework never imports your code. This means:
 Gofasta is designed for Go developers who want to ship production backends quickly without assembling dozens of libraries manually. It is especially useful if you:
 
 - Want a full project structure from day one (not just a router)
-- Need both REST and GraphQL in the same project
+- Need REST, or both REST and GraphQL (via `--graphql`), in the same project
 - Want code generation that stays out of your way
 - Value compile-time safety over runtime magic
 

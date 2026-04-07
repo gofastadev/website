@@ -7,6 +7,8 @@ description: Patch the GraphQL resolver to add a service dependency for a resour
 
 Patches the GraphQL resolver to add a service dependency for the given resource. This is used when you want to wire an existing service into the GraphQL layer.
 
+> **Note:** This command requires a GraphQL-enabled project (created with `gofasta new --graphql`). If your project was created without the `--graphql` flag, the `app/graphql/` directory and `gqlgen.yml` will not exist, and this command will have nothing to patch.
+
 ## Usage
 
 ```bash

@@ -30,7 +30,7 @@ gofasta dev
 The `gofasta dev` command performs the following steps:
 
 1. **Run migrations** -- if a database is available, pending migrations are applied automatically
-2. **Print endpoint URLs** -- displays the URLs for REST API, GraphQL, Swagger UI, and other endpoints
+2. **Print endpoint URLs** -- displays the REST API URL and other endpoints. If `gqlgen.yml` exists in the project (i.e., the project was created with `--graphql`), the GraphQL and GraphQL Playground URLs are also displayed. Otherwise, only REST endpoints are shown.
 3. **Start Air** -- runs `go tool air` to watch for file changes and hot reload the server
 
 The Air configuration is stored in `.air.toml` at the project root. You can customize watched directories, excluded paths, build commands, and delay settings by editing this file.
@@ -51,10 +51,15 @@ Once the dev server is running, the following endpoints are available:
 | Endpoint | URL |
 |----------|-----|
 | REST API | `http://localhost:8080/api/v1/` |
-| GraphQL | `http://localhost:8080/graphql` |
-| GraphQL Playground | `http://localhost:8080/graphql-playground` |
 | Health Check | `http://localhost:8080/health` |
 | Swagger UI | `http://localhost:8080/swagger/index.html` |
+
+If the project was created with `--graphql` (i.e., `gqlgen.yml` exists), these additional endpoints are available:
+
+| Endpoint | URL |
+|----------|-----|
+| GraphQL | `http://localhost:8080/graphql` |
+| GraphQL Playground | `http://localhost:8080/graphql-playground` |
 
 Replace `8080` with your configured port if different.
 

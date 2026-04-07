@@ -5,7 +5,7 @@ description: Initialize a cloned or existing Gofasta project by installing depen
 
 # gofasta init
 
-Initializes an existing Gofasta project that was cloned from a repository or copied from another machine. This command creates the `.env` file, installs Go dependencies, runs Google Wire dependency injection generation, runs gqlgen GraphQL code generation, runs database migrations, and verifies the project builds successfully.
+Initializes an existing Gofasta project that was cloned from a repository or copied from another machine. This command creates the `.env` file, installs Go dependencies, runs Google Wire dependency injection generation, conditionally runs gqlgen GraphQL code generation (if `gqlgen.yml` exists), runs database migrations, and verifies the project builds successfully.
 
 Use this command instead of `gofasta new` when you already have the project source code and just need to set up the development environment.
 
@@ -36,7 +36,7 @@ When you run `gofasta init`, the CLI performs the following steps in order:
 1. **Create .env file** -- copies `.env.example` to `.env` so you have a working environment configuration
 2. **Install dependencies** -- runs `go mod tidy` to download and synchronize all Go module dependencies
 3. **Generate Wire code** -- runs `go tool wire ./app/di/` to generate the dependency injection container from your provider definitions
-4. **Generate GraphQL code** -- runs `go tool gqlgen generate` to create Go types and resolvers from your `.graphqls` schema files
+4. **Generate GraphQL code** *(only if `gqlgen.yml` exists)* -- runs `go tool gqlgen generate` to create Go types and resolvers from your `.graphqls` schema files. This step is automatically skipped for REST-only projects that were created without `--graphql`.
 5. **Run migrations** -- runs `migrate -path db/migrations -database <url> up` to apply all pending database migrations
 6. **Verify build** -- runs `go build ./...` to confirm the project compiles successfully
 

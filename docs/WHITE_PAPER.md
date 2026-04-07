@@ -117,7 +117,7 @@ myapp/
 │   ├── rest/
 │   │   ├── controllers/        # HTTP handlers
 │   │   └── routes/             # Route registration
-│   ├── graphql/
+│   ├── graphql/                    # Only with --graphql
 │   │   ├── schema/             # .gql schema files
 │   │   └── resolvers/          # GraphQL resolvers
 │   ├── validators/             # Input validation rules
@@ -142,7 +142,7 @@ myapp/
 ├── compose.yaml                # Docker Compose
 ├── Dockerfile                  # Production image
 ├── Makefile                    # Development shortcuts
-└── gqlgen.yml                  # GraphQL code generation config
+└── gqlgen.yml                  # GraphQL code generation config (only with --graphql)
 ```
 
 ### 3.2 Request Flow
@@ -161,9 +161,15 @@ HTTP Request
 
 Each layer depends only on the layer below it via interfaces. Controllers never access the database directly. Services never parse HTTP requests. Repositories never contain business logic.
 
-### 3.3 Dual API Support
+### 3.3 Optional GraphQL Support
 
-Every Gofasta project supports both REST and GraphQL from the same codebase. Both API styles share the same services and repositories — they differ only in the entry point (controllers vs. resolvers). This avoids logic duplication and ensures consistency between APIs.
+Gofasta projects are REST-first by default. GraphQL support can be added at project creation with `gofasta new myapp --graphql`, which generates gqlgen schema files, resolvers, and mounts the `/graphql` endpoint alongside the REST API. Both API styles share the same services and repositories — they differ only in the entry point (controllers vs. resolvers). This avoids logic duplication and ensures consistency between APIs.
+
+When GraphQL is enabled, the project includes:
+- `app/graphql/schema/` — GraphQL schema files (`.gql`)
+- `app/graphql/resolvers/` — Resolver implementations
+- `gqlgen.yml` — gqlgen code generation configuration
+- `/graphql` and `/graphql-playground` HTTP endpoints
 
 ---
 
@@ -189,7 +195,7 @@ brew install gofastadev/tap/gofasta
 | Command | Description |
 |---------|-------------|
 | `gofasta new <name>` | Create a new project (~78 files) |
-| `gofasta init` | Initialize a cloned project (install deps, generate Wire/gqlgen) |
+| `gofasta init` | Initialize a cloned project (install deps, generate Wire, detect and generate GraphQL if present) |
 | `gofasta dev` | Start development server with hot reload (Air) |
 | `gofasta serve` | Start production server |
 | `gofasta migrate up\|down\|status` | Run or roll back SQL migrations |
@@ -219,13 +225,19 @@ gofasta new myapp
 This command:
 1. Creates the project directory with the full structure
 2. Runs `go mod init`
-3. Copies ~78 template files
+3. Copies ~92 template files (REST-only by default)
 4. Installs dependencies (`go mod tidy`)
 5. Generates Wire dependency injection code
-6. Generates GraphQL resolvers via gqlgen
-7. Includes a starter `User` resource so the project compiles and runs immediately
+6. Includes a starter `User` resource so the project compiles and runs immediately
 
 The command accepts a project name or a full Go module path (e.g., `github.com/myorg/myapp`). If the argument contains `/`, it is used as the module path; otherwise the project name is used as both. The database driver defaults to PostgreSQL and is configured in `config.yaml` after project creation.
+
+**Flag:** `--graphql` (or `--gql`) — adds GraphQL support alongside REST. When passed, the project also includes gqlgen configuration, schema files, resolvers, and the `/graphql` endpoint. GraphQL is additive — REST controllers and routes are always present regardless of this flag.
+
+```bash
+gofasta new myapp              # REST-only
+gofasta new myapp --graphql    # REST + GraphQL
+```
 
 ### 4.4 Scaffold Generation
 
@@ -655,9 +667,9 @@ The `middleware` package provides standard HTTP middleware using the `func(http.
 | `middleware.Timeout(duration)` | Request timeout |
 | `middleware.Chain(...)` | Compose multiple middleware |
 
-### 9.6 GraphQL
+### 9.6 GraphQL (Opt-In)
 
-GraphQL support is provided via [gqlgen](https://gqlgen.com). Schema files live in `app/graphql/schema/`, and resolvers are generated from the schema. Resolvers call the same services used by REST controllers, ensuring logic consistency:
+GraphQL support is available when a project is created with `gofasta new myapp --graphql`. It is powered by [gqlgen](https://gqlgen.com) and is additive — REST controllers and routes remain fully functional. Schema files live in `app/graphql/schema/`, and resolvers are generated from the schema. Resolvers call the same services used by REST controllers, ensuring logic consistency:
 
 ```go
 func (r *queryResolver) Products(ctx context.Context, page *int, limit *int) (*dtos.PaginatedProductResponse, error) {
@@ -1077,7 +1089,7 @@ Gofasta occupies a specific niche: it provides more structure than a router libr
 | Resource code generation | No | No | Yes | Yes |
 | Compile-time DI | No | No | No | Yes (Wire) |
 | Database migrations | No | No | Yes (Pop) | Yes (SQL files) |
-| GraphQL support | No | No | No | Yes (gqlgen) |
+| GraphQL support | No | No | No | Yes (opt-in, gqlgen) |
 | Background jobs | No | No | Yes | Yes |
 | Email support | No | No | No | Yes |
 | Resilience patterns | No | No | No | Yes |

@@ -5,17 +5,24 @@ description: Create a new Gofasta project with a complete Go web application sca
 
 # gofasta new
 
-Creates a brand-new Gofasta project from scratch. This command generates approximately 92 files that give you a fully working Go web application with REST API, GraphQL, database migrations, authentication, dependency injection, background jobs, email support, Docker configuration, and CI/CD pipelines.
+Creates a brand-new Gofasta project from scratch. By default, this generates a REST-only project with database migrations, authentication, dependency injection, background jobs, email support, Docker configuration, and CI/CD pipelines. Pass `--graphql` to also include GraphQL support (gqlgen schema, resolvers, `/graphql` endpoint, and playground).
 
 ## Usage
 
 ```bash
-gofasta new <name>
+gofasta new <name> [flags]
 ```
 
 The `<name>` can be a simple name like `myapp` or a full Go module path like `github.com/myorg/myapp`. When a simple name is used (no `/` in the argument), the module path defaults to the project name. When a full path is provided, it is used as the Go module path and the last segment becomes the project directory name.
 
-This command takes no flags.
+## Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--graphql` | `false` | Include GraphQL support (gqlgen schema, resolvers, `/graphql` endpoint, playground) |
+| `--gql` | `false` | Alias for `--graphql` |
+
+Without `--graphql`, the generated project is REST-only -- no GraphQL files, no gqlgen dependency, and no `/graphql` routes.
 
 ## Examples
 
@@ -31,23 +38,29 @@ Create a project with a full Go module path:
 gofasta new github.com/myorg/myapp
 ```
 
+Create a project with GraphQL support:
+
+```bash
+gofasta new myapp --graphql
+```
+
 ## What It Does
 
 When you run `gofasta new myapp`, the CLI performs the following steps in order:
 
 1. **Create project directory** -- creates the `myapp/` directory
 2. **Initialize Go module** -- runs `go mod init` with the appropriate module path
-3. **Copy skeleton files** -- writes approximately 92 template files into the project, including a starter User resource
+3. **Copy skeleton files** -- writes template files into the project, including a starter User resource
 4. **Install Gofasta and Cobra** -- runs `go get` to add the gofasta framework and cobra CLI dependencies
-5. **Install tools** -- runs `go get` to add tool dependencies (gqlgen, wire, air, swag) and `go mod edit -tool` for each
+5. **Install tools** -- runs `go get` to add tool dependencies (wire, air, swag) and `go mod edit -tool` for each. If `--graphql` is passed, gqlgen is also installed.
 6. **Tidy modules** -- runs `go mod tidy` to synchronize dependencies
 7. **Generate Wire DI code** -- runs `go tool wire ./app/di/` to generate the dependency injection container
-8. **Generate GraphQL code** -- runs `go tool gqlgen generate` to create Go types and resolvers from the GraphQL schema
+8. **Generate GraphQL code** *(only with `--graphql`)* -- runs `go tool gqlgen generate` to create Go types and resolvers from the GraphQL schema
 9. **Initialize Git** -- runs `git init` and creates an initial commit
 
 ## What It Generates
 
-Running `gofasta new myapp` produces the following project structure with approximately 92 files:
+Running `gofasta new myapp` produces the following project structure. Items marked *(--graphql only)* are only included when the `--graphql` flag is passed:
 
 ```
 myapp/
@@ -86,7 +99,7 @@ myapp/
       providers/
         user.go
         auth.go
-    graphql/                        # GraphQL schema and resolvers
+    graphql/                        # GraphQL schema and resolvers (--graphql only)
       schema.graphqls
       resolver.go
       generated.go
@@ -105,7 +118,7 @@ myapp/
     workflows/                      # CI/CD pipeline definitions
   .air.toml                         # Air hot reload configuration
   .env.example                      # Environment variable template
-  gqlgen.yml                        # gqlgen GraphQL configuration
+  gqlgen.yml                        # gqlgen GraphQL configuration (--graphql only)
   go.mod
   go.sum
 ```

@@ -64,10 +64,12 @@ The CLI itself only needs Go. But the projects it generates use these tools (ins
 | Tool | Purpose | Installed via |
 |------|---------|---------------|
 | [Wire](https://github.com/google/wire) | Compile-time dependency injection | `go get` + `go mod edit -tool` |
-| [gqlgen](https://github.com/99designs/gqlgen) | GraphQL code generation | `go get` + `go mod edit -tool` |
+| [gqlgen](https://github.com/99designs/gqlgen) | GraphQL code generation | `go get` + `go mod edit -tool` (only when using `--graphql`) |
 | [Air](https://github.com/air-verse/air) | Hot reload during development | `go get` + `go mod edit -tool` |
 | [swag](https://github.com/swaggo/swag) | Swagger/OpenAPI doc generation | `go get` + `go mod edit -tool` |
 | [Docker](https://www.docker.com/) | Run the app + PostgreSQL locally | Manual install |
+
+gqlgen is only installed as a tool dependency when you create a project with `gofasta new myapp --graphql`. REST-only projects do not require or include gqlgen.
 
 Docker is optional — you can run the app directly on your machine if you have a local PostgreSQL instance.
 

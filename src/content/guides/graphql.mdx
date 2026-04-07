@@ -5,7 +5,15 @@ description: Building GraphQL APIs with gqlgen in Gofasta -- schemas, resolvers,
 
 # GraphQL
 
-Gofasta includes GraphQL support powered by [gqlgen](https://gqlgen.com/), a type-safe Go GraphQL server library. Your project ships with a working GraphQL endpoint alongside the REST API, both sharing the same services and repositories.
+Gofasta includes GraphQL support powered by [gqlgen](https://gqlgen.com/), a type-safe Go GraphQL server library. When enabled, your project ships with a working GraphQL endpoint alongside the REST API, both sharing the same services and repositories.
+
+> **Prerequisite:** GraphQL support is opt-in. You must create your project with the `--graphql` flag to include GraphQL files, the gqlgen dependency, and the `/graphql` endpoint:
+>
+> ```bash
+> gofasta new myapp --graphql
+> ```
+>
+> If you created a REST-only project (without `--graphql`), the `app/graphql/` directory, `gqlgen.yml`, and GraphQL routes will not be present.
 
 ## How It Works
 
