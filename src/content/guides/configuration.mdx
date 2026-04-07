@@ -149,26 +149,24 @@ features:
 
 ## Environment Variable Overrides
 
-Every config value can be overridden with an environment variable. The pattern is:
+Every config value can be overridden with an environment variable. The prefix is always `GOFASTA_`, followed by the section and key in uppercase, joined with underscores:
 
 ```
-{APP_NAME}_{SECTION}_{KEY}
+GOFASTA_{SECTION}_{KEY}
 ```
-
-The app name is uppercased from `app.name` in your config. Nested keys are joined with underscores.
 
 | Config Path | Environment Variable |
 |------------|---------------------|
-| `app.port` | `MYAPP_APP_PORT` |
-| `app.env` | `MYAPP_APP_ENV` |
-| `database.host` | `MYAPP_DATABASE_HOST` |
-| `database.password` | `MYAPP_DATABASE_PASSWORD` |
-| `jwt.secret` | `MYAPP_JWT_SECRET` |
-| `jwt.expiration` | `MYAPP_JWT_EXPIRATION` |
-| `redis.host` | `MYAPP_REDIS_HOST` |
-| `redis.port` | `MYAPP_REDIS_PORT` |
-| `mail.driver` | `MYAPP_MAIL_DRIVER` |
-| `mail.sendgrid.api_key` | `MYAPP_MAIL_SENDGRID_API_KEY` |
+| `app.port` | `GOFASTA_APP_PORT` |
+| `app.env` | `GOFASTA_APP_ENV` |
+| `database.host` | `GOFASTA_DATABASE_HOST` |
+| `database.password` | `GOFASTA_DATABASE_PASSWORD` |
+| `jwt.secret` | `GOFASTA_JWT_SECRET` |
+| `jwt.expiration` | `GOFASTA_JWT_EXPIRATION` |
+| `redis.host` | `GOFASTA_REDIS_HOST` |
+| `redis.port` | `GOFASTA_REDIS_PORT` |
+| `mail.driver` | `GOFASTA_MAIL_DRIVER` |
+| `mail.sendgrid.api_key` | `GOFASTA_MAIL_SENDGRID_API_KEY` |
 
 Environment variables always take precedence over `config.yaml` values.
 
@@ -255,7 +253,7 @@ jwt:
 For production, always set the secret via environment variable:
 
 ```bash
-MYAPP_JWT_SECRET=$(openssl rand -hex 32)
+GOFASTA_JWT_SECRET=$(openssl rand -hex 32)
 ```
 
 ## Redis Configuration
@@ -337,22 +335,22 @@ A common pattern is to have a base `config.yaml` for development and override va
 **Staging** -- override with environment variables in your deployment:
 
 ```bash
-MYAPP_APP_ENV=staging
-MYAPP_DATABASE_HOST=staging-db.internal
-MYAPP_JWT_SECRET=staging-secret
+GOFASTA_APP_ENV=staging
+GOFASTA_DATABASE_HOST=staging-db.internal
+GOFASTA_JWT_SECRET=staging-secret
 ```
 
 **Production** -- override all sensitive values:
 
 ```bash
-MYAPP_APP_ENV=production
-MYAPP_APP_DEBUG=false
-MYAPP_DATABASE_HOST=prod-db.internal
-MYAPP_DATABASE_PASSWORD=prod-password
-MYAPP_JWT_SECRET=prod-secret
-MYAPP_REDIS_HOST=prod-redis.internal
-MYAPP_MAIL_DRIVER=sendgrid
-MYAPP_MAIL_SENDGRID_API_KEY=SG.prod-key
+GOFASTA_APP_ENV=production
+GOFASTA_APP_DEBUG=false
+GOFASTA_DATABASE_HOST=prod-db.internal
+GOFASTA_DATABASE_PASSWORD=prod-password
+GOFASTA_JWT_SECRET=prod-secret
+GOFASTA_REDIS_HOST=prod-redis.internal
+GOFASTA_MAIL_DRIVER=sendgrid
+GOFASTA_MAIL_SENDGRID_API_KEY=SG.prod-key
 ```
 
 This approach keeps your `config.yaml` safe to commit to version control (it only contains development defaults) while production secrets are managed through environment variables or secret managers.

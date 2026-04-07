@@ -1,63 +1,25 @@
 ---
 title: Feature Flags
-description: Feature flag evaluation, flag providers, percentage rollouts, and feature toggling.
+description: Feature flag evaluation with file-based YAML provider and user-targeted flag checks.
 ---
 
 # Feature Flags
 
-The `featureflags` package provides feature flag evaluation with support for boolean flags, percentage-based rollouts, user targeting, and multiple flag providers. It enables safe, incremental feature releases.
+The `featureflag` package provides feature flag evaluation using [go-feature-flag](https://github.com/thomaspoignant/go-feature-flag). It supports file-based (YAML) flag providers with periodic polling, user-targeted evaluation, and boolean flag variations.
 
 ## Import
 
 ```go
-import "github.com/gofastadev/gofasta/pkg/featureflags"
+import "github.com/gofastadev/gofasta/pkg/featureflag"
 ```
 
 ## Key Types
 
-### FlagManager
+### FeatureFlagService
 
 ```go
-type FlagManager interface {
-    IsEnabled(ctx context.Context, flag string) bool
-    IsEnabledFor(ctx context.Context, flag string, userID string) bool
-    GetVariant(ctx context.Context, flag string, userID string) string
-    AllFlags(ctx context.Context) map[string]Flag
-    Refresh(ctx context.Context) error
-}
-```
-
-### Flag
-
-```go
-type Flag struct {
-    Name        string     `json:"name"`
-    Enabled     bool       `json:"enabled"`
-    Description string     `json:"description"`
-    Percentage  float64    `json:"percentage,omitempty"`
-    Variants    []Variant  `json:"variants,omitempty"`
-    AllowList   []string   `json:"allow_list,omitempty"`
-    DenyList    []string   `json:"deny_list,omitempty"`
-}
-```
-
-### Variant
-
-```go
-type Variant struct {
-    Name       string  `json:"name"`
-    Weight     float64 `json:"weight"`
-}
-```
-
-### FlagConfig
-
-```go
-type FlagConfig struct {
-    Provider    string        `yaml:"provider" env:"FLAGS_PROVIDER"`
-    FilePath    string        `yaml:"file_path" env:"FLAGS_FILE_PATH"`
-    RefreshRate time.Duration `yaml:"refresh_rate" env:"FLAGS_REFRESH_RATE"`
-    Endpoint    string        `yaml:"endpoint" env:"FLAGS_ENDPOINT"`
+type FeatureFlagService struct {
+    logger *slog.Logger
 }
 ```
 
@@ -65,84 +27,67 @@ type FlagConfig struct {
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `NewFlagManager` | `func NewFlagManager(cfg FlagConfig) (FlagManager, error)` | Creates a flag manager using the configured provider |
-| `NewFileFlagProvider` | `func NewFileFlagProvider(path string) (FlagManager, error)` | Loads flags from a JSON/YAML file |
-| `NewHTTPFlagProvider` | `func NewHTTPFlagProvider(endpoint string, refreshRate time.Duration) (FlagManager, error)` | Loads flags from a remote HTTP endpoint |
-| `Middleware` | `func Middleware(fm FlagManager) func(http.Handler) http.Handler` | Injects the flag manager into the request context |
-| `FromContext` | `func FromContext(ctx context.Context) FlagManager` | Retrieves the flag manager from context |
+| `NewFeatureFlagService` | `func NewFeatureFlagService(configPath string, logger *slog.Logger) (*FeatureFlagService, error)` | Initializes the feature flag system from a YAML config file |
+| `IsEnabled` | `func (s *FeatureFlagService) IsEnabled(flagKey string, userID string, attributes map[string]interface{}) bool` | Checks if a feature flag is enabled for a given user context |
+| `Close` | `func (s *FeatureFlagService) Close()` | Shuts down the feature flag client |
 
 ## Flag Definition File
+
+Flags are defined in a YAML file that follows the [go-feature-flag format](https://gofeatureflag.org/docs/):
 
 `flags.yaml`:
 
 ```yaml
-flags:
-  new_dashboard:
+new-dashboard:
+  variations:
     enabled: true
-    description: "New dashboard UI"
-    percentage: 50
-    allow_list:
-      - "user-123"
-      - "user-456"
+    disabled: false
+  targeting:
+    - query: key eq "user-123"
+      variation: enabled
+  defaultRule:
+    percentage:
+      enabled: 50
+      disabled: 50
 
-  dark_mode:
+dark-mode:
+  variations:
     enabled: true
-    description: "Dark mode support"
-
-  checkout_v2:
-    enabled: true
-    description: "New checkout flow"
-    variants:
-      - name: control
-        weight: 50
-      - name: variant_a
-        weight: 30
-      - name: variant_b
-        weight: 20
+    disabled: false
+  defaultRule:
+    variation: enabled
 ```
 
 ## Usage
 
-### Basic Flag Checking
+### Initializing the Service
 
 ```go
-fm, err := featureflags.NewFlagManager(featureflags.FlagConfig{
-    Provider: "file",
-    FilePath: "flags.yaml",
-})
+ffService, err := featureflag.NewFeatureFlagService("flags.yaml", logger)
 if err != nil {
     log.Fatalf("failed to load flags: %v", err)
 }
+defer ffService.Close()
+```
 
-if fm.IsEnabled(ctx, "dark_mode") {
+### Basic Flag Checking
+
+```go
+if ffService.IsEnabled("dark-mode", userID, nil) {
     // serve dark mode UI
 }
 ```
 
-### User-Targeted Flags
+### User-Targeted Flags with Attributes
 
 ```go
-// Percentage rollout -- deterministic per user
-if fm.IsEnabledFor(ctx, "new_dashboard", userID) {
-    // show new dashboard
+attributes := map[string]interface{}{
+    "plan":    "premium",
+    "country": "US",
 }
 
-// Users in the allow_list always see the feature
-// fm.IsEnabledFor(ctx, "new_dashboard", "user-123") -> true
-```
-
-### A/B Testing with Variants
-
-```go
-variant := fm.GetVariant(ctx, "checkout_v2", userID)
-
-switch variant {
-case "variant_a":
-    // show variant A
-case "variant_b":
-    // show variant B
-default:
-    // show control
+if ffService.IsEnabled("new-dashboard", userID, attributes) {
+    // show new dashboard
 }
 ```
 
@@ -150,10 +95,9 @@ default:
 
 ```go
 func (c *DashboardController) Index(w http.ResponseWriter, r *http.Request) {
-    fm := featureflags.FromContext(r.Context())
     claims := auth.ClaimsFromContext(r.Context())
 
-    if fm.IsEnabledFor(r.Context(), "new_dashboard", claims.UserID) {
+    if c.ffService.IsEnabled("new-dashboard", claims.UserID, nil) {
         httputil.JSON(w, http.StatusOK, newDashboardData)
         return
     }
@@ -161,25 +105,18 @@ func (c *DashboardController) Index(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-### Refreshing Flags
-
-Flags loaded from an HTTP provider are refreshed automatically at the configured interval. You can also trigger a manual refresh.
-
-```go
-err := fm.Refresh(ctx)
-```
-
 ### Configuration via config.yaml
 
 ```yaml
-feature_flags:
-  provider: file        # "file" or "http"
-  file_path: flags.yaml
-  refresh_rate: 30s
+feature_flag:
+  enabled: true
+  config_path: flags.yaml
 ```
+
+Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_FEATURE_FLAG_ENABLED`, `GOFASTA_FEATURE_FLAG_CONFIG_PATH`).
 
 ## Related Pages
 
 - [Config](/docs/api-reference/config) -- Feature flag configuration
-- [Middleware](/docs/api-reference/middleware) -- Inject flag manager into request context
+- [Middleware](/docs/api-reference/middleware) -- Inject flag service into request context
 - [Observability](/docs/api-reference/observability) -- Track flag evaluation metrics

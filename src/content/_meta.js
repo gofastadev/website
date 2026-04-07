@@ -4,4 +4,5 @@ export default {
   guides: "Guides",
   "cli-reference": "CLI Reference",
   "api-reference": "Framework API",
+  "white-paper": "White Paper",
 };

@@ -5,7 +5,7 @@ description: Cron-based job scheduling with job registration, schedule expressio
 
 # Scheduler
 
-The `scheduler` package provides cron-based job scheduling for recurring tasks. It supports standard cron expressions, job registration, overlapping execution control, and graceful shutdown.
+The `scheduler` package provides cron-based job scheduling for recurring tasks. It uses [robfig/cron/v3](https://github.com/robfig/cron) under the hood with second-precision support, job registration, and graceful shutdown.
 
 ## Import
 
@@ -15,44 +15,23 @@ import "github.com/gofastadev/gofasta/pkg/scheduler"
 
 ## Key Types
 
+### Job
+
+The `Job` interface must be implemented by every cron job.
+
+```go
+type Job interface {
+    Name() string
+    Run()
+}
+```
+
 ### Scheduler
 
 ```go
-type Scheduler interface {
-    Register(name string, schedule string, fn JobFunc) error
-    Start(ctx context.Context) error
-    Stop(ctx context.Context) error
-    IsRunning() bool
-    Jobs() []JobInfo
-}
-```
-
-### JobFunc
-
-```go
-type JobFunc func(ctx context.Context) error
-```
-
-### JobInfo
-
-```go
-type JobInfo struct {
-    Name       string    `json:"name"`
-    Schedule   string    `json:"schedule"`
-    LastRun    time.Time `json:"last_run"`
-    NextRun    time.Time `json:"next_run"`
-    RunCount   int64     `json:"run_count"`
-    ErrorCount int64     `json:"error_count"`
-}
-```
-
-### SchedulerConfig
-
-```go
-type SchedulerConfig struct {
-    AllowOverlap bool          `yaml:"allow_overlap"`
-    Timezone     string        `yaml:"timezone"`
-    Logger       logger.Logger
+type Scheduler struct {
+    cron   *cron.Cron
+    logger *slog.Logger
 }
 ```
 
@@ -60,92 +39,108 @@ type SchedulerConfig struct {
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `New` | `func New(cfg SchedulerConfig) Scheduler` | Creates a new scheduler instance |
-| `Register` | `func (s *Scheduler) Register(name string, schedule string, fn JobFunc) error` | Registers a named job with a cron expression |
-| `Start` | `func (s *Scheduler) Start(ctx context.Context) error` | Starts the scheduler (non-blocking) |
-| `Stop` | `func (s *Scheduler) Stop(ctx context.Context) error` | Gracefully stops the scheduler |
+| `New` | `func New(logger *slog.Logger) *Scheduler` | Creates a new scheduler with second-precision cron support |
+| `Register` | `func (s *Scheduler) Register(schedule string, job Job) error` | Registers a job with a cron schedule expression |
+| `Start` | `func (s *Scheduler) Start()` | Starts the scheduler (non-blocking) |
+| `Stop` | `func (s *Scheduler) Stop()` | Waits for running jobs to finish, then stops the scheduler |
 
 ## Schedule Expressions
 
-The scheduler supports standard cron expressions and predefined shortcuts.
+The scheduler supports standard cron expressions (with an optional seconds field) and predefined shortcuts.
 
 | Expression | Description |
 |------------|-------------|
-| `* * * * *` | Every minute |
-| `0 * * * *` | Every hour |
-| `0 0 * * *` | Every day at midnight |
-| `0 0 * * 0` | Every Sunday at midnight |
-| `*/5 * * * *` | Every 5 minutes |
+| `0 * * * * *` | Every minute (with seconds field) |
+| `0 0 * * * *` | Every hour |
+| `0 0 0 * * *` | Every day at midnight |
+| `0 */5 * * *` | Every 5 minutes (standard 5-field) |
+| `0 0 */6 * * *` | Every 6 hours (with seconds field) |
 | `0 9 * * 1-5` | Weekdays at 9:00 AM |
-| `@every 30s` | Every 30 seconds |
-| `@every 5m` | Every 5 minutes |
-| `@hourly` | Every hour |
-| `@daily` | Every day at midnight |
-| `@weekly` | Every Sunday at midnight |
+
+## Configuration
+
+Job schedules are defined in `config.yaml` under the `jobs:` section:
+
+```yaml
+jobs:
+  - name: cleanup-sessions
+    schedule: "*/5 * * * *"
+    enabled: true
+  - name: generate-reports
+    schedule: "0 2 * * *"
+    enabled: true
+  - name: health-ping
+    schedule: "*/30 * * * * *"
+    enabled: false
+```
+
+The corresponding config type:
+
+```go
+type JobConfig struct {
+    Name     string `koanf:"name"`
+    Schedule string `koanf:"schedule"`
+    Enabled  bool   `koanf:"enabled"`
+}
+```
 
 ## Usage
 
-### Basic Scheduling
+### Implementing a Job
 
 ```go
-sched := scheduler.New(scheduler.SchedulerConfig{
-    Timezone: "UTC",
-    Logger:   log,
-})
+type CleanupSessionsJob struct {
+    sessionStore *sessions.Store
+    logger       *slog.Logger
+}
 
-// Run every 5 minutes
-sched.Register("cleanup-sessions", "*/5 * * * *", func(ctx context.Context) error {
-    log.Info("cleaning up expired sessions")
-    return sessionStore.Cleanup(ctx)
-})
+func (j *CleanupSessionsJob) Name() string { return "cleanup-sessions" }
 
-// Run daily at 2:00 AM
-sched.Register("generate-reports", "0 2 * * *", func(ctx context.Context) error {
-    log.Info("generating daily reports")
-    return reportService.GenerateDaily(ctx)
-})
+func (j *CleanupSessionsJob) Run() {
+    j.logger.Info("cleaning up expired sessions")
+    if err := j.sessionStore.Cleanup(); err != nil {
+        j.logger.Error("session cleanup failed", "error", err)
+    }
+}
+```
 
-// Run every 30 seconds
-sched.Register("health-ping", "@every 30s", func(ctx context.Context) error {
-    return healthChecker.Ping(ctx)
+### Setting Up the Scheduler
+
+The scheduler is typically configured in `cmd/serve.go`:
+
+```go
+sched := scheduler.New(logger)
+
+// Register jobs
+err := sched.Register("*/5 * * * *", &CleanupSessionsJob{
+    sessionStore: sessionStore,
+    logger:       logger,
 })
+if err != nil {
+    log.Fatalf("failed to register job: %v", err)
+}
+
+err = sched.Register("0 2 * * *", &GenerateReportsJob{
+    reportService: reportService,
+    logger:        logger,
+})
+if err != nil {
+    log.Fatalf("failed to register job: %v", err)
+}
 ```
 
 ### Starting and Stopping
 
 ```go
 // Start the scheduler (non-blocking)
-if err := sched.Start(ctx); err != nil {
-    log.Fatal("failed to start scheduler", logger.Err(err))
-}
+sched.Start()
 
 // Graceful shutdown
 quit := make(chan os.Signal, 1)
 signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 <-quit
 
-shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-defer cancel()
-sched.Stop(shutdownCtx)
-```
-
-### Listing Registered Jobs
-
-```go
-for _, job := range sched.Jobs() {
-    fmt.Printf("Job: %s, Schedule: %s, Last Run: %s, Next Run: %s\n",
-        job.Name, job.Schedule, job.LastRun, job.NextRun)
-}
-```
-
-### Preventing Overlapping Execution
-
-By default, a job will not start a new execution if the previous one is still running. Set `AllowOverlap` to change this behavior.
-
-```go
-sched := scheduler.New(scheduler.SchedulerConfig{
-    AllowOverlap: false, // default: jobs do not overlap
-})
+sched.Stop()
 ```
 
 ## Related Pages

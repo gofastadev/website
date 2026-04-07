@@ -1,44 +1,45 @@
 ---
 title: gofasta g repository
-description: Generate a repository interface and implementation for database access.
+description: Generate a model, migration, repository interface, and repository implementation for database access.
 ---
 
 # gofasta g repository
 
-Generates a repository interface and its GORM-based implementation for a given resource. The repository layer handles all database operations (CRUD queries) and is the only layer that interacts directly with the database.
+Generates a model, migration pair, repository interface, and GORM-based repository implementation for a given resource. The repository layer handles all database operations (CRUD queries) and is the only layer that interacts directly with the database.
+
+**Aliases:** `repo`
 
 ## Usage
 
 ```bash
-gofasta g repository <ResourceName> [flags]
+gofasta g repository <Name> [field:type ...]
 ```
 
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--methods` | `-m` | `all` | Comma-separated list of CRUD methods to generate. Options: `create`, `findAll`, `findByID`, `update`, `delete` |
+This command has no flags.
 
 ## Examples
 
 Generate a repository with all CRUD methods:
 
 ```bash
-gofasta g repository Product
+gofasta g repository Product name:string price:float
 ```
 
-Generate with only specific methods:
+Generate a repository for an article:
 
 ```bash
-gofasta g repository Product --methods create,findAll,findByID
+gofasta g repo Article title:string body:text published:bool
 ```
 
 ## What It Generates
 
-Running `gofasta g repository Product` creates two files:
+Running `gofasta g repository Product name:string price:float` creates the following files:
 
 | File | Description |
 |------|-------------|
+| `app/models/product.model.go` | GORM database model |
+| `db/migrations/000006_create_products.up.sql` | Create table migration |
+| `db/migrations/000006_create_products.down.sql` | Drop table migration |
 | `app/repositories/interfaces/product_repository.go` | Repository interface |
 | `app/repositories/product.repository.go` | GORM implementation |
 

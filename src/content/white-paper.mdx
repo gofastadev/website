@@ -1,0 +1,1184 @@
+---
+title: "Technical White Paper"
+description: "Gofasta technical white paper — design principles, architecture, code generation strategy, dependency injection with Google Wire, database layer with GORM, HTTP routing with gorilla/mux, authentication, background processing, observability, resilience patterns, and deployment for Go web services."
+---
+
+# Gofasta: Batteries-Included Tooling for Go Web Services
+
+**Technical Whitepaper**
+
+*Version 3.0.0 — April 2026*
+
+*Published by the Gofasta Authors — MIT License*
+
+---
+
+## Abstract
+
+Go is an excellent language for building backend services, but starting a new production project still involves significant repetitive setup: wiring routers, configuring databases, setting up authentication, writing CRUD boilerplate, organizing project structure, and preparing deployment manifests. Each team reinvents these patterns independently, leading to inconsistency and wasted effort.
+
+Gofasta is an open-source toolkit that eliminates this setup overhead. It consists of two components: a **CLI tool** (`gofastadev/cli`) that scaffolds projects and generates idiomatic Go code, and a **library** (`gofastadev/gofasta`) of production-ready packages covering common backend concerns. Generated code is plain Go — no custom syntax, no transpilation, no runtime magic. Developers own every line of output and can modify or replace any component independently.
+
+This paper describes the technical architecture, design principles, and feature set of Gofasta, and explains how it fits into the Go ecosystem.
+
+---
+
+## Table of Contents
+
+1. [Introduction](#1-introduction)
+2. [Design Principles](#2-design-principles)
+3. [Architecture](#3-architecture)
+4. [The CLI Tool](#4-the-cli-tool)
+5. [The Framework Library](#5-the-framework-library)
+6. [Code Generation Strategy](#6-code-generation-strategy)
+7. [Dependency Injection](#7-dependency-injection)
+8. [Database Layer](#8-database-layer)
+9. [HTTP and API Layer](#9-http-and-api-layer)
+10. [Authentication and Authorization](#10-authentication-and-authorization)
+11. [Background Processing](#11-background-processing)
+12. [Observability](#12-observability)
+13. [Resilience](#13-resilience)
+14. [Testing](#14-testing)
+15. [Deployment](#15-deployment)
+16. [Comparison with Existing Tools](#16-comparison-with-existing-tools)
+17. [Roadmap](#17-roadmap)
+18. [Contributing](#18-contributing)
+
+---
+
+## 1. Introduction
+
+### 1.1 The Problem
+
+Go's standard library and ecosystem provide excellent building blocks for backend services. However, assembling these blocks into a production-ready application requires decisions and boilerplate that every team repeats:
+
+- **Project structure.** Go does not prescribe a project layout. Teams must decide where to put models, handlers, services, and configuration — and these decisions vary across projects within the same organization.
+- **Wiring.** Connecting routers, middleware, database connections, authentication, logging, and health checks requires hundreds of lines of setup code that looks nearly identical across projects.
+- **CRUD boilerplate.** For each resource, developers write a model, migration, repository, service, DTO, controller, and route registration file. The pattern is the same every time; only the field names change.
+- **Deployment scaffolding.** Dockerfiles, Kubernetes manifests, CI/CD workflows, and reverse proxy configurations are needed before the first deploy, and they follow predictable patterns.
+
+These are not language deficiencies — they are inherent costs of starting any non-trivial project. Gofasta reduces these costs by generating the repetitive parts and providing well-tested library packages for the common concerns.
+
+### 1.2 What Gofasta Is
+
+Gofasta is two things:
+
+1. **A CLI tool** (`github.com/gofastadev/cli`) installed globally via `go install`. It creates new projects, generates resource code (models, services, controllers, migrations), runs migrations, manages seeds, and regenerates dependency injection wiring. It does not import the framework library; it only manipulates files on disk.
+
+2. **A Go library** (`github.com/gofastadev/gofasta`) containing multiple packages under `pkg/`. These packages provide configuration loading, structured logging, error handling, HTTP utilities, middleware, authentication, caching, storage, email, notifications, WebSockets, scheduling, queues, resilience patterns, validation, internationalization, observability, feature flags, encryption, health checks, and test utilities. Each package is independently importable and has no side effects.
+
+### 1.3 What Gofasta Is Not
+
+- **Not a custom language.** All generated code is standard Go. There is no custom syntax, no transpiler, no preprocessor, and no special file extensions.
+- **Not a runtime framework.** There is no global application object, no lifecycle hooks, and no inversion-of-control container at runtime. Dependency wiring happens at compile time via Google Wire.
+- **Not a lock-in.** Every generated file is owned by the developer. Any framework package can be replaced with a third-party alternative or a custom implementation. The CLI generates code once; it does not manage or update generated code after the fact.
+
+---
+
+## 2. Design Principles
+
+### 2.1 Explicit Over Implicit
+
+All behavior in a Gofasta project is visible in the source code. There is no convention-based discovery, no auto-registration, no struct-tag-driven routing, and no runtime reflection for dependency injection. If a route exists, there is a line of code registering it. If a dependency is injected, there is a Wire provider set declaring it. A developer reading the code can trace the full request path without knowing any framework conventions.
+
+### 2.2 Generate, Then Own
+
+The CLI generates idiomatic Go code that the developer owns completely. Generated files are committed to version control and can be modified freely. The CLI does not maintain hidden state or require re-running to keep generated code in sync. After generation, the code is yours — modify it, delete it, refactor it. Gofasta gets out of the way.
+
+### 2.3 Standard Library Compatibility
+
+Framework packages build on Go's standard interfaces wherever possible. HTTP routing uses gorilla/mux, which implements `http.Handler` and works with standard `net/http` middleware (`func(http.Handler) http.Handler`). Configuration uses struct tags and environment variables. Logging uses `slog` from the standard library. Database access uses GORM, which builds on `database/sql`. None of these choices prevent using the standard library directly.
+
+### 2.4 Compile-Time Safety
+
+Gofasta prefers compile-time checks over runtime checks. Dependency injection is resolved at compile time by Google Wire. Type mismatches, missing providers, and circular dependencies are caught by the Go compiler, not at application startup. Generated code uses concrete types and interfaces — not `interface{}` or reflection.
+
+### 2.5 Composable Packages
+
+The packages in `pkg/` are independently importable. A project can use `pkg/cache` without `pkg/mailer`, or `pkg/resilience` without `pkg/queue`. There is no central "framework" import that pulls in everything. Each package declares its own dependencies, and they are minimal.
+
+### 2.6 No Shortcuts
+
+Gofasta does not optimize for the shortest possible demo. It optimizes for codebases that remain readable and maintainable after six months of active development by a team. Patterns like interface-based repositories, separate DTOs, and explicit route registration add a small amount of initial code but pay dividends in testability, clarity, and flexibility.
+
+---
+
+## 3. Architecture
+
+### 3.1 Project Structure
+
+A Gofasta project follows a layered architecture with clear separation of concerns:
+
+```
+myapp/
+├── app/                        # Application code
+│   ├── main/main.go            # Entry point
+│   ├── models/                 # GORM database models
+│   ├── dtos/                   # Request/response data transfer objects
+│   ├── repositories/           # Data access layer
+│   │   └── interfaces/         # Repository contracts
+│   ├── services/               # Business logic layer
+│   │   └── interfaces/         # Service contracts
+│   ├── rest/
+│   │   ├── controllers/        # HTTP handlers
+│   │   └── routes/             # Route registration
+│   ├── graphql/                    # Only with --graphql
+│   │   ├── schema/             # .gql schema files
+│   │   └── resolvers/          # GraphQL resolvers
+│   ├── validators/             # Input validation rules
+│   ├── di/                     # Dependency injection (Google Wire)
+│   │   ├── container.go        # Container struct
+│   │   ├── wire.go             # Wire build configuration
+│   │   ├── wire_gen.go         # Generated wiring (do not edit)
+│   │   └── providers/          # Provider sets per resource
+│   └── jobs/                   # Background jobs and scheduled tasks
+├── cmd/                        # CLI commands (Cobra)
+│   ├── root.go
+│   ├── serve.go                # HTTP server startup
+│   └── seed.go                 # Database seeding
+├── db/
+│   ├── migrations/             # SQL migration pairs (.up.sql / .down.sql)
+│   └── seeds/                  # Seed data functions
+├── configs/                    # RBAC policies, feature flag definitions
+├── deployments/                # Docker, Kubernetes, CI/CD, nginx, systemd
+├── templates/emails/           # HTML email templates
+├── locales/                    # Translation files (i18n)
+├── config.yaml                 # Application configuration
+├── compose.yaml                # Docker Compose
+├── Dockerfile                  # Production image
+├── Makefile                    # Development shortcuts
+└── gqlgen.yml                  # GraphQL code generation config (only with --graphql)
+```
+
+### 3.2 Request Flow
+
+The request flow is linear and traceable:
+
+```
+HTTP Request
+  → Router (gorilla/mux)
+    → Middleware (auth, CORS, logging, rate limiting)
+      → Controller (parses request, calls service)
+        → Service (business logic, calls repository)
+          → Repository (data access via GORM)
+            → Database
+```
+
+Each layer depends only on the layer below it via interfaces. Controllers never access the database directly. Services never parse HTTP requests. Repositories never contain business logic.
+
+### 3.3 Optional GraphQL Support
+
+Gofasta projects are REST-first by default. GraphQL support can be added at project creation with `gofasta new myapp --graphql`, which generates gqlgen schema files, resolvers, and mounts the `/graphql` endpoint alongside the REST API. Both API styles share the same services and repositories — they differ only in the entry point (controllers vs. resolvers). This avoids logic duplication and ensures consistency between APIs.
+
+When GraphQL is enabled, the project includes:
+- `app/graphql/schema/` — GraphQL schema files (`.gql`)
+- `app/graphql/resolvers/` — Resolver implementations
+- `gqlgen.yml` — gqlgen code generation configuration
+- `/graphql` and `/graphql-playground` HTTP endpoints
+
+---
+
+## 4. The CLI Tool
+
+### 4.1 Installation
+
+```bash
+# Option A: Go install (recommended)
+go install github.com/gofastadev/cli/cmd/gofasta@latest
+
+# Option B: Shell script
+curl -fsSL https://raw.githubusercontent.com/gofastadev/cli/main/dist/install.sh | sh
+
+# Option C: Homebrew
+brew install gofastadev/tap/gofasta
+```
+
+**Requirement:** Go 1.24 or later.
+
+### 4.2 Commands
+
+| Command | Description |
+|---------|-------------|
+| `gofasta new <name>` | Create a new project (~78 files) |
+| `gofasta init` | Initialize a cloned project (install deps, generate Wire, detect and generate GraphQL if present) |
+| `gofasta dev` | Start development server with hot reload (Air) |
+| `gofasta serve` | Start production server |
+| `gofasta migrate up\|down\|status` | Run or roll back SQL migrations |
+| `gofasta seed` | Populate database with seed data |
+| `gofasta wire` | Regenerate Wire dependency injection code |
+| `gofasta swagger` | Generate OpenAPI/Swagger documentation |
+| `gofasta g scaffold <Name> [fields]` | Generate a complete CRUD resource (11 files) |
+| `gofasta g model <Name> [fields]` | Generate a database model and migration |
+| `gofasta g service <Name>` | Generate a service interface and implementation |
+| `gofasta g controller <Name>` | Generate a REST controller |
+| `gofasta g repository <Name>` | Generate a repository interface and implementation |
+| `gofasta g dto <Name> [fields]` | Generate request/response DTOs |
+| `gofasta g migration <Name>` | Generate an empty migration pair |
+| `gofasta g route <Name>` | Generate route registration |
+| `gofasta g resolver <Name>` | Regenerate GraphQL resolver stubs |
+| `gofasta g provider <Name>` | Generate a Wire provider set |
+| `gofasta g job <Name>` | Generate a background job |
+| `gofasta g task <Name>` | Generate a scheduled task |
+| `gofasta g email-template <Name>` | Generate an HTML email template |
+
+### 4.3 Project Creation
+
+```bash
+gofasta new myapp
+```
+
+This command:
+1. Creates the project directory with the full structure
+2. Runs `go mod init`
+3. Copies ~92 template files (REST-only by default)
+4. Installs dependencies (`go mod tidy`)
+5. Generates Wire dependency injection code
+6. Includes a starter `User` resource so the project compiles and runs immediately
+
+The command accepts a project name or a full Go module path (e.g., `github.com/myorg/myapp`). If the argument contains `/`, it is used as the module path; otherwise the project name is used as both. The database driver defaults to PostgreSQL and is configured in `config.yaml` after project creation.
+
+**Flag:** `--graphql` (or `--gql`) — adds GraphQL support alongside REST. When passed, the project also includes gqlgen configuration, schema files, resolvers, and the `/graphql` endpoint. GraphQL is additive — REST controllers and routes are always present regardless of this flag.
+
+```bash
+gofasta new myapp              # REST-only
+gofasta new myapp --graphql    # REST + GraphQL
+```
+
+### 4.4 Scaffold Generation
+
+```bash
+gofasta g scaffold Product name:string price:float description:text active:bool
+```
+
+This single command generates 11 new files and patches 4 existing files, producing a complete CRUD resource:
+
+**Generated files:**
+- Database model with UUID primary key, timestamps, and soft delete
+- Up and down SQL migrations
+- Repository interface and GORM implementation
+- Service interface and implementation
+- Request/response DTOs with validation tags
+- REST controller with Swagger annotations
+- Route registration
+- Wire provider set
+
+**Patched files:**
+- `app/di/container.go` — Adds service and controller fields
+- `app/di/wire.go` — Adds provider set to Wire build
+- `app/rest/routes/index.routes.go` — Registers routes
+- `cmd/serve.go` — Wires controller into route configuration
+
+**Supported field types:**
+
+| Type | Go Type | Postgres | MySQL | SQLite | GraphQL |
+|------|---------|----------|-------|--------|---------|
+| `string` | `string` | `VARCHAR(255)` | `VARCHAR(255)` | `TEXT` | `String` |
+| `text` | `string` | `TEXT` | `LONGTEXT` | `TEXT` | `String` |
+| `int` | `int` | `INTEGER` | `INT` | `INTEGER` | `Int` |
+| `float` | `float64` | `DECIMAL(10,2)` | `DECIMAL(10,2)` | `REAL` | `Float` |
+| `bool` | `bool` | `BOOLEAN` | `TINYINT(1)` | `INTEGER` | `Boolean` |
+| `uuid` | `uuid.UUID` | `UUID` | `CHAR(36)` | `TEXT` | `ID` |
+| `time` | `time.Time` | `TIMESTAMP` | `DATETIME` | `DATETIME` | `DateTime` |
+
+SQL types are automatically adapted per database driver.
+
+After generation, run `gofasta wire` to regenerate the DI container and `gofasta migrate up` to create the table.
+
+---
+
+## 5. The Framework Library
+
+The library (`github.com/gofastadev/gofasta`) provides packages under `pkg/`. Each package is independently importable.
+
+| Package | Purpose |
+|---------|---------|
+| `pkg/config` | YAML configuration loading with environment variable overrides |
+| `pkg/logger` | Structured logging (JSON/text) with log levels and context propagation |
+| `pkg/errors` | Typed application errors with HTTP status codes |
+| `pkg/models` | Base model with UUID, timestamps, soft delete, optimistic locking |
+| `pkg/httputil` | JSON binding, response helpers, pagination utilities |
+| `pkg/middleware` | CORS, rate limiting, logging, recovery, request ID, timeout |
+| `pkg/auth` | JWT generation/validation, bcrypt password hashing, Casbin RBAC |
+| `pkg/cache` | In-memory and Redis caching with a unified interface |
+| `pkg/storage` | Local filesystem and S3-compatible storage with signed URLs |
+| `pkg/mailer` | Email delivery via SMTP, SendGrid, or Brevo with HTML templates |
+| `pkg/notifications` | Multi-channel notifications (email, database, Slack, push) |
+| `pkg/websocket` | WebSocket hub with rooms, broadcast, and direct messaging |
+| `pkg/sessions` | Cookie and Redis session management |
+| `pkg/scheduler` | Cron-based job scheduling with concurrency control |
+| `pkg/queue` | Async task queues with Redis or in-memory backends |
+| `pkg/resilience` | Circuit breaker, retry with backoff, bulkhead, timeout |
+| `pkg/validators` | Chainable field validation with built-in rules |
+| `pkg/i18n` | Internationalization with JSON translation files and plural forms |
+| `pkg/observability` | Prometheus metrics and OpenTelemetry distributed tracing |
+| `pkg/feature-flags` | File-based or HTTP-based feature flags with percentage rollouts |
+| `pkg/encryption` | AES-256-GCM encryption, HMAC, SHA-256, random generation |
+| `pkg/seeds` | Database seeding with ordered execution and environment filtering |
+| `pkg/types` | Generic interfaces for Repository, Service, pagination, API responses |
+| `pkg/utils` | Pagination math, string helpers, generic slice/map operations |
+| `pkg/health` | Health check endpoints for Kubernetes liveness/readiness probes |
+| `pkg/test-utilities` | Test database setup, HTTP test client, fixtures, assertions |
+
+### 5.1 Interface-Driven Design
+
+Every package that admits multiple implementations defines an interface. This enables swapping implementations without changing consuming code:
+
+```go
+// pkg/cache defines the interface
+type Cache interface {
+    Get(ctx context.Context, key string, dest interface{}) error
+    Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+    Delete(ctx context.Context, key string) error
+    Exists(ctx context.Context, key string) (bool, error)
+    Flush(ctx context.Context) error
+    Close() error
+}
+
+// Two implementations are provided
+cache.NewMemoryCache(cfg)   // In-memory
+cache.NewRedisCache(cfg)    // Redis
+```
+
+The same pattern applies to `Storage` (local/S3), `Mailer` (SMTP/SendGrid/Brevo), `Queue` (memory/Redis), `Sessions` (cookie/Redis), and `FlagManager` (file/HTTP).
+
+### 5.2 Configuration
+
+All packages read configuration from a central `config.yaml` file with environment variable overrides:
+
+```yaml
+app:
+  name: myapp
+  port: 8080
+  env: development
+
+database:
+  driver: postgres
+  host: localhost
+  port: 5432
+  name: myapp_db
+  user: postgres
+  password: postgres
+  ssl_mode: disable
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+
+jwt:
+  secret: change-me-in-production
+  expiration: 24h
+  refresh_expiration: 168h
+  issuer: myapp
+
+cache:
+  driver: memory
+  ttl: 5m
+
+mail:
+  driver: smtp
+  from_name: MyApp
+  from_address: noreply@myapp.com
+
+queue:
+  driver: memory
+  workers: 5
+  retry_attempts: 3
+  retry_delay: 30s
+
+storage:
+  driver: local
+  local:
+    path: ./uploads
+
+observability:
+  metrics:
+    enabled: true
+    path: /metrics
+  tracing:
+    enabled: false
+    exporter: jaeger
+
+rate_limit:
+  enabled: true
+  max: 100
+  window: 1m
+
+log:
+  level: info
+  format: json
+```
+
+Every value can be overridden via environment variables using the prefix `GOFASTA_` with dot-separated keys mapped to underscores (e.g., `GOFASTA_DATABASE_HOST=db`). This allows committing safe development defaults while managing production secrets through the environment.
+
+---
+
+## 6. Code Generation Strategy
+
+### 6.1 Philosophy
+
+Gofasta's code generation follows a principle common among well-accepted Go tools like `sqlc`, `Wire`, `oapi-codegen`, and `go-blueprint`: **generate readable Go code, then get out of the way.**
+
+The generated output is:
+- **Standard Go** — no custom syntax, no build tags (except Wire's `wireinject` tag), no preprocessing
+- **Readable** — generated code looks like code a developer would write by hand
+- **Committed** — generated files are checked into version control
+- **Editable** — developers can and should modify generated code to fit their needs
+- **Independent** — after generation, the CLI is not needed to build or run the project
+
+### 6.2 What Gets Generated
+
+The CLI uses Go's `text/template` package to produce source files. Templates are embedded in the CLI binary. The generation process is deterministic: the same input always produces the same output.
+
+| Generator | Input | Output |
+|-----------|-------|--------|
+| `new` | Project name, module path, driver | ~78 files: full project structure |
+| `scaffold` | Resource name, field definitions | 11 new files + 4 patched files |
+| `model` | Resource name, field definitions | Model struct + migration pair |
+| `migration` | Migration name, optional fields | SQL migration pair (up/down) |
+| `service` | Resource name | Interface + implementation |
+| `controller` | Resource name | REST controller with Swagger annotations |
+| `repository` | Resource name | Interface + GORM implementation |
+| `dto` | Resource name, field definitions | Create/Update/Response/Paginated DTOs |
+| `route` | Resource name | Route registration function |
+| `resolver` | Resource name | GraphQL schema + resolver stubs |
+| `provider` | Resource name | Wire provider set |
+| `job` | Job name | Background job with queue support |
+| `task` | Task name | Scheduled task with cron expression |
+| `email-template` | Template name | Responsive HTML email template |
+
+### 6.3 Name Conventions
+
+The CLI automatically converts resource names across naming conventions:
+
+| Input | PascalCase | snake_case | camelCase | Plural |
+|-------|-----------|------------|-----------|--------|
+| `Product` | `Product` | `product` | `product` | `products` |
+| `OrderItem` | `OrderItem` | `order_item` | `orderItem` | `order_items` |
+
+This ensures consistent naming across Go types (PascalCase), database tables (snake_case), JSON fields (camelCase), and URL paths (plural snake_case).
+
+---
+
+## 7. Dependency Injection
+
+### 7.1 Google Wire
+
+Gofasta uses [Google Wire](https://github.com/google/wire) for compile-time dependency injection. Wire generates concrete Go code that wires all dependencies — there is no runtime container, no reflection, and no service locator pattern.
+
+### 7.2 How It Works
+
+Each resource defines a **provider set** that declares how to construct its components:
+
+```go
+// app/di/providers/product.go
+var ProductSet = wire.NewSet(
+    repositories.NewProductRepository,
+    wire.Bind(new(repoInterfaces.ProductRepository), new(*repositories.ProductRepositoryImpl)),
+    services.NewProductService,
+    wire.Bind(new(svcInterfaces.ProductService), new(*services.ProductServiceImpl)),
+    controllers.NewProductController,
+)
+```
+
+An **injector function** in `app/di/wire.go` assembles all provider sets:
+
+```go
+//go:build wireinject
+
+func InitializeContainer(cfg *config.AppConfig, db *gorm.DB) (*Container, error) {
+    wire.Build(
+        providers.UserSet,
+        providers.AuthSet,
+        providers.ProductSet,
+        wire.Struct(new(Container), "*"),
+    )
+    return nil, nil
+}
+```
+
+Running `gofasta wire` (which invokes `wire ./app/di/...`) produces `wire_gen.go` — a concrete function that constructs the entire dependency graph. If any dependency is missing or circular, the Go compiler reports it as a build error.
+
+### 7.3 Why Wire
+
+- **Compile-time resolution.** Missing dependencies are caught at build time, not at startup.
+- **No reflection.** The generated code is plain Go function calls.
+- **Readable output.** `wire_gen.go` shows exactly how every dependency is constructed.
+- **No framework coupling.** Wire is a standalone tool maintained by the Go team at Google.
+
+---
+
+## 8. Database Layer
+
+### 8.1 GORM
+
+Gofasta uses [GORM](https://gorm.io) as its database abstraction. GORM provides an active-record-style ORM with support for multiple database drivers.
+
+**Supported databases:** PostgreSQL, MySQL, SQLite, SQL Server, ClickHouse.
+
+### 8.2 Base Model
+
+All models embed `models.BaseModelImpl` from the framework library, which provides:
+
+- **UUID primary key** — auto-generated via database functions (`gen_random_uuid()` on Postgres)
+- **Timestamps** — `CreatedAt` and `UpdatedAt`, managed automatically by GORM
+- **Soft delete** — `DeletedAt` field; deleted records are excluded from queries by default
+- **Optimistic locking** — `Version` field incremented on each update for concurrent write safety
+
+```go
+type Product struct {
+    models.BaseModelImpl
+    Name   string  `gorm:"type:varchar(255);not null" json:"name"`
+    Price  float64 `gorm:"type:decimal(10,2);not null" json:"price"`
+}
+```
+
+### 8.3 Migrations
+
+Migrations are plain SQL files in `db/migrations/`, organized as numbered pairs:
+
+```
+db/migrations/
+├── 000001_create_users.up.sql
+├── 000001_create_users.down.sql
+├── 000002_create_products.up.sql
+└── 000002_create_products.down.sql
+```
+
+The `up` file applies the change; the `down` file reverses it. Migrations are run with `gofasta migrate up` and rolled back with `gofasta migrate down`. Migration status is tracked in the database.
+
+SQL files are generated with correct types for each database driver. For example, a `uuid` field generates `UUID` on Postgres, `CHAR(36)` on MySQL, and `TEXT` on SQLite.
+
+### 8.4 Repository Pattern
+
+Data access is abstracted behind repository interfaces:
+
+```go
+// app/repositories/interfaces/product_repository.go
+type ProductRepository interface {
+    Create(ctx context.Context, product *models.Product) error
+    FindAll(ctx context.Context, page, perPage int) ([]models.Product, int64, error)
+    FindByID(ctx context.Context, id string) (*models.Product, error)
+    Update(ctx context.Context, product *models.Product) error
+    Delete(ctx context.Context, id string) error
+}
+```
+
+The implementation uses GORM directly. This separation allows mocking the repository in service tests without a database connection.
+
+### 8.5 Seeds
+
+Database seeds in `db/seeds/` populate initial data (default roles, admin users, test data). Seeds implement a `Seeder` interface with `Seed()` and `Order()` methods, and can be scoped to specific environments.
+
+```bash
+gofasta seed              # Run all seeds
+gofasta seed --fresh      # Drop tables, re-migrate, then seed
+gofasta seed --file roles # Run a specific seed
+```
+
+---
+
+## 9. HTTP and API Layer
+
+### 9.1 Routing
+
+Gofasta uses [gorilla/mux](https://github.com/gorilla/mux) as its HTTP router, which builds on Go's standard `net/http` interfaces. Routes are registered explicitly in Go code:
+
+```go
+func ProductRoutes(api *mux.Router, ctrl *controllers.ProductController) {
+    r := api.PathPrefix("/products").Subrouter()
+    r.HandleFunc("", httputil.Handle(ctrl.List)).Methods("GET")
+    r.HandleFunc("", httputil.Handle(ctrl.Create)).Methods("POST")
+    r.HandleFunc("/{id}", httputil.Handle(ctrl.GetByID)).Methods("GET")
+    r.HandleFunc("/{id}", httputil.Handle(ctrl.Update)).Methods("PUT")
+    r.HandleFunc("/{id}", httputil.Handle(ctrl.Archive)).Methods("DELETE")
+}
+```
+
+Every route is visible in the source code. There is no auto-discovery based on file names or struct methods. The `httputil.Handle()` wrapper adapts error-returning controller methods to standard `http.HandlerFunc`.
+
+### 9.2 Controllers
+
+Controllers return errors instead of writing responses directly on failure. The `httputil.Handle()` wrapper converts returned errors to appropriate HTTP responses:
+
+```go
+func (c *ProductController) Create(w http.ResponseWriter, r *http.Request) error {
+    var req dtos.CreateProductRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        return apperrors.BadRequest("invalid request body")
+    }
+    result, err := c.service.Create(r.Context(), req)
+    if err != nil {
+        return err
+    }
+    return httputil.Created(w, result)
+}
+```
+
+Path parameters are extracted via `mux.Vars(r)["id"]`. Request context is available via `r.Context()`.
+
+### 9.3 DTOs
+
+Request and response types are separated from database models via DTOs:
+
+```go
+type TCreateProductDto struct {
+    Name  string  `json:"name" validate:"required"`
+    Price float64 `json:"price" validate:"required"`
+}
+
+type TUpdateProductDto struct {
+    Name  *string  `json:"name,omitempty"`
+    Price *float64 `json:"price,omitempty"`
+}
+
+type ProductResponse struct {
+    ID            string    `json:"id"`
+    Name          string    `json:"name"`
+    Price         float64   `json:"price"`
+    RecordVersion int       `json:"recordVersion"`
+    IsActive      bool      `json:"isActive"`
+    CreatedAt     time.Time `json:"createdAt"`
+    UpdatedAt     time.Time `json:"updatedAt"`
+}
+```
+
+Update DTOs use pointer fields to distinguish between "not provided" (nil) and "set to zero value." Validation uses `go-playground/validator/v10` struct tags.
+
+### 9.4 Response Helpers
+
+The `httputil` package provides consistent JSON response formatting using standard `http.ResponseWriter`:
+
+```go
+httputil.OK(w, data)           // 200
+httputil.Created(w, data)      // 201
+httputil.NoContent(w)          // 204
+httputil.Handle(handlerFn)     // Wraps error-returning handlers into http.HandlerFunc
+```
+
+Pagination is supported via `utils.PreparePaginating()` and paginated response DTOs.
+
+### 9.5 Middleware
+
+The `middleware` package provides standard HTTP middleware using the `func(http.Handler) http.Handler` signature:
+
+| Middleware | Function |
+|-----------|----------|
+| `middleware.Logger()` | Structured request logging with duration |
+| `middleware.Recovery()` | Panic recovery with stack trace logging |
+| `middleware.CORS(config)` | Cross-origin resource sharing |
+| `middleware.RateLimit(config)` | Per-IP rate limiting |
+| `middleware.Auth(config)` | JWT token verification |
+| `middleware.RBAC(enforcer)` | Casbin role-based access control |
+| `middleware.RequestID()` | Unique request ID per request |
+| `middleware.Timeout(duration)` | Request timeout |
+| `middleware.Chain(...)` | Compose multiple middleware |
+
+### 9.6 GraphQL (Opt-In)
+
+GraphQL support is available when a project is created with `gofasta new myapp --graphql`. It is powered by [gqlgen](https://gqlgen.com) and is additive — REST controllers and routes remain fully functional. Schema files live in `app/graphql/schema/`, and resolvers are generated from the schema. Resolvers call the same services used by REST controllers, ensuring logic consistency:
+
+```go
+func (r *queryResolver) Products(ctx context.Context, page *int, limit *int) (*dtos.PaginatedProductResponse, error) {
+    return r.productService.FindAll(*page, *limit)
+}
+```
+
+Available endpoints:
+- `/graphql` — GraphQL endpoint
+- `/graphql-playground` — Interactive GraphQL explorer (development only)
+
+### 9.7 Swagger
+
+Controllers include Swagger annotation comments. Running `gofasta swagger` generates OpenAPI spec files (`docs/swagger.json`, `docs/swagger.yaml`) and a Swagger UI endpoint at `/swagger/index.html`.
+
+---
+
+## 10. Authentication and Authorization
+
+### 10.1 JWT Authentication
+
+The `auth` package provides JWT token management:
+
+```go
+auth.GenerateToken(cfg, claims)         // Create signed JWT
+auth.ValidateToken(cfg, tokenString)    // Parse and validate
+auth.GenerateRefreshToken(cfg, userID)  // Long-lived refresh token
+auth.HashPassword(password)             // Bcrypt hashing
+auth.CheckPassword(hashed, password)    // Bcrypt comparison
+```
+
+Configuration via `config.yaml`:
+
+```yaml
+jwt:
+  secret: change-me-in-production
+  expiration: 24h
+  refresh_expiration: 168h
+  issuer: myapp
+```
+
+Generated projects include pre-built auth endpoints: register (`POST /api/v1/auth/register`), login (`POST /api/v1/auth/login`), and token refresh (`POST /api/v1/auth/refresh`).
+
+### 10.2 RBAC with Casbin
+
+Role-based access control uses [Casbin](https://casbin.org) with policy files:
+
+```csv
+# configs/rbac_policy.csv
+p, admin, /api/v1/*, *
+p, user, /api/v1/products, GET
+p, user, /api/v1/profile, (GET)|(PUT)
+g, admin, moderator
+g, moderator, user
+```
+
+The `middleware.RBAC(enforcer)` middleware checks permissions on each request. Policies can also be modified at runtime via the Casbin enforcer API.
+
+---
+
+## 11. Background Processing
+
+### 11.1 Scheduled Tasks
+
+The `scheduler` package runs cron-based recurring tasks:
+
+```go
+s := scheduler.New(scheduler.SchedulerConfig{
+    Timezone:     "UTC",
+    AllowOverlap: false,
+    Logger:       log,
+})
+s.Register("cleanup-tokens", "0 0 * * *", func(ctx context.Context) error {
+    return tokenRepo.DeleteExpired(ctx)
+})
+s.Start(ctx)
+defer s.Stop(ctx)
+```
+
+Cron expressions follow standard syntax (`* * * * *`) and support shortcuts like `@every 5m`, `@hourly`, and `@daily`.
+
+### 11.2 Async Task Queues
+
+The task queue is built on [hibiken/asynq](https://github.com/hibiken/asynq), a Redis-based distributed task queue. Generated task handlers follow asynq's patterns:
+
+```go
+const TaskSendWelcomeEmail = "send_welcome_email"
+
+type SendWelcomeEmailPayload struct {
+    ID string `json:"id"`
+}
+
+func HandleSendWelcomeEmail(ctx context.Context, t *asynq.Task) error {
+    var payload SendWelcomeEmailPayload
+    if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+        return err
+    }
+    // Process the task
+    return nil
+}
+```
+
+Tasks are dispatched from application code using generated `Enqueue` helpers. Failed tasks are retried automatically by asynq with configurable retry policies.
+
+**Backend:** Redis (via asynq).
+
+---
+
+## 12. Observability
+
+### 12.1 Prometheus Metrics
+
+The `observability` package exposes Prometheus metrics at a configurable path (default `/metrics`):
+
+- `http_requests_total` — Counter by method, path, status
+- `http_request_duration_seconds` — Histogram by method, path
+- `http_response_size_bytes` — Histogram
+- `active_connections` — Gauge
+- `db_query_duration_seconds` — Histogram by operation
+- `cache_hits_total`, `cache_misses_total` — Counters by cache name
+- `queue_jobs_processed_total` — Counter by job type and status
+
+### 12.2 Distributed Tracing
+
+OpenTelemetry tracing is integrated with support for OTLP, Jaeger, and stdout exporters:
+
+```go
+shutdown, err := observability.InitTracer(observability.TracingConfig{
+    Enabled:      true,
+    Exporter:     "otlp",
+    Endpoint:     "localhost:4317",
+    ServiceName:  "myapp",
+    SamplingRate: 1.0,
+})
+defer shutdown(ctx)
+```
+
+Custom spans can be created within application code:
+
+```go
+ctx, span := observability.StartSpan(ctx, "process-payment")
+defer span.End()
+```
+
+### 12.3 Structured Logging
+
+The `logger` package provides structured logging with levels, context propagation, and JSON/text output:
+
+```go
+log := logger.New(logger.LoggerConfig{
+    Level:  "info",
+    Format: "json",
+    Output: "stdout",
+})
+log.Info("order created",
+    logger.F("order_id", order.ID),
+    logger.F("total", order.Total),
+)
+```
+
+### 12.4 Health Checks
+
+The `health` package provides Kubernetes-compatible health endpoints:
+
+```go
+checker := health.NewChecker()
+checker.AddCheck("database", health.DatabaseCheck(db))
+checker.AddCheck("redis", health.RedisCheck(redisClient))
+
+mux.Handle("/health", checker.Handler())
+mux.Handle("/health/ready", checker.ReadinessHandler())
+mux.Handle("/health/live", checker.LivenessHandler())
+```
+
+Response format:
+
+```json
+{
+  "status": "up",
+  "timestamp": "2026-04-07T10:00:00Z",
+  "uptime": "72h30m15s",
+  "checks": {
+    "database": { "status": "up", "latency": "2ms" },
+    "redis": { "status": "up", "latency": "1ms" }
+  }
+}
+```
+
+---
+
+## 13. Resilience
+
+The `resilience` package provides composable fault tolerance patterns as plain Go functions — no annotations, no decorators, no middleware required.
+
+### 13.1 Circuit Breaker
+
+```go
+cb := resilience.NewCircuitBreaker("payment-gateway", resilience.CircuitBreakerConfig{
+    MaxFailures: 5,
+    Timeout:     30 * time.Second,
+    HalfOpenMax: 3,
+    OnStateChange: func(from, to resilience.State) {
+        log.Info("circuit breaker state change", logger.F("from", from), logger.F("to", to))
+    },
+})
+
+err := cb.Execute(func() error {
+    return paymentClient.Charge(ctx, amount)
+})
+```
+
+**States:** Closed (normal) → Open (fail-fast after `MaxFailures`) → Half-Open (test recovery with limited requests).
+
+### 13.2 Retry with Backoff
+
+```go
+err := resilience.Retry(resilience.RetryConfig{
+    MaxAttempts: 3,
+    InitialWait: 100 * time.Millisecond,
+    MaxWait:     5 * time.Second,
+    Multiplier:  2.0,
+    Jitter:      true,
+}, func() error {
+    return emailClient.Send(ctx, msg)
+})
+```
+
+### 13.3 Bulkhead
+
+```go
+bh := resilience.NewBulkhead(resilience.BulkheadConfig{
+    MaxConcurrent: 10,
+    MaxWait:       5 * time.Second,
+})
+
+err := bh.Execute(func() error {
+    return externalAPI.Call(ctx, req)
+})
+```
+
+### 13.4 Timeout
+
+```go
+err := resilience.WithTimeout(ctx, 5*time.Second, func(ctx context.Context) error {
+    return slowService.Process(ctx, data)
+})
+```
+
+These patterns compose naturally:
+
+```go
+err := cb.Execute(func() error {
+    return resilience.Retry(retryCfg, func() error {
+        return resilience.WithTimeout(ctx, 5*time.Second, func(ctx context.Context) error {
+            return client.Call(ctx, req)
+        })
+    })
+})
+```
+
+---
+
+## 14. Testing
+
+### 14.1 Test Utilities
+
+The `testutil` package provides helpers for common testing patterns:
+
+```go
+// Set up an in-memory SQLite database with auto-migration
+db := testutil.SetupTestDB(t, &models.Product{}, &models.Category{})
+
+// Create an HTTP test client
+client := testutil.NewTestClient(handler)
+client = client.WithToken(testutil.GenerateToken(t, auth.Claims{UserID: "user-123", Roles: []string{"admin"}}))
+
+// Make requests
+resp := client.Post(t, "/api/v1/products", dtos.CreateProductRequest{
+    Name:  "Widget",
+    Price: 9.99,
+})
+
+// Assert results
+testutil.AssertStatus(t, resp, http.StatusCreated)
+testutil.AssertJSON(t, resp, "name", "Widget")
+testutil.AssertDBHas(t, db.DB, "products", map[string]interface{}{"name": "Widget"})
+```
+
+### 14.2 Unit Testing Services
+
+Services depend on repository interfaces, making them easy to mock:
+
+```go
+func TestProductService_Create(t *testing.T) {
+    mock := &MockProductRepository{
+        CreateFn: func(ctx context.Context, product *models.Product) error {
+            product.ID = "generated-uuid"
+            return nil
+        },
+    }
+    svc := services.NewProductService(mock)
+
+    result, err := svc.Create(dtos.CreateProductRequest{Name: "Widget", Price: 9.99})
+
+    assert.NoError(t, err)
+    assert.Equal(t, "Widget", result.Name)
+}
+```
+
+### 14.3 Integration Testing
+
+For integration tests against a real database:
+
+```go
+func TestProductRepository_Postgres(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping integration test")
+    }
+    db := testutil.SetupTestDBFromConfig(t, "config.test.yaml", &models.Product{})
+    repo := repositories.NewProductRepository(db.DB)
+
+    // Test against real database
+    err := repo.Create(ctx, &models.Product{Name: "Widget", Price: 9.99})
+    assert.NoError(t, err)
+}
+```
+
+Run unit tests with `go test -short ./...` and integration tests with `go test ./...`.
+
+### 14.4 Fixtures
+
+Test data can be loaded from JSON fixture files:
+
+```go
+testutil.LoadFixture(t, "testdata/products.json", &products)
+testutil.SeedTestData(t, db, products...)
+```
+
+---
+
+## 15. Deployment
+
+### 15.1 Generated Deployment Files
+
+Every Gofasta project includes deployment configurations out of the box:
+
+```
+deployments/
+├── ci/              # GitHub Actions workflows (test, release, deploy)
+├── docker/          # Development Dockerfile with hot reload
+├── k8s/             # Kubernetes deployment, service, ingress
+├── nginx/           # Reverse proxy configuration
+└── systemd/         # Service file and deploy script for VPS
+```
+
+### 15.2 Docker
+
+The generated `Dockerfile` uses a multi-stage build:
+
+```dockerfile
+# Build stage
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY . .
+RUN CGO_ENABLED=0 go build -o server ./app/main
+
+# Production stage
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /app/server /server
+COPY --from=builder /app/config.yaml /config.yaml
+EXPOSE 8080
+CMD ["/server", "serve"]
+```
+
+`compose.yaml` includes the application and PostgreSQL with health checks:
+
+```bash
+make up    # Start application + database
+make dev   # Start with hot reload
+```
+
+### 15.3 Kubernetes
+
+Generated manifests include:
+
+- **Deployment** — 3 replicas, resource limits, liveness/readiness probes pointing to `/health`
+- **Service** — ClusterIP exposing port 80 → 8080
+- **Ingress** — TLS with cert-manager annotation
+
+### 15.4 VPS with systemd
+
+A systemd service file and deploy script are included for traditional VPS deployments. The deploy script builds the binary, copies it to the server via SCP, and restarts the service.
+
+### 15.5 CI/CD
+
+GitHub Actions workflows are generated for:
+
+- **Test** — Runs on push/PR with a PostgreSQL service container
+- **Release** — Builds and pushes a Docker image to GHCR on tag push
+- **Deploy** — Platform-specific deployment steps (AWS, GCP, Azure, VPS)
+
+---
+
+## 16. Comparison with Existing Tools
+
+### 16.1 Positioning
+
+Gofasta occupies a specific niche: it provides more structure than a router library but less magic than a full framework. The closest analogies in other ecosystems are Ruby on Rails' `rails new` + generators, or Nest CLI's `nest generate` — but producing plain Go that doesn't require a runtime framework.
+
+### 16.2 Comparison Matrix
+
+| Capability | mux/chi/Gin/Echo | go-blueprint | Buffalo | Gofasta |
+|-----------|-------------|-------------|---------|---------|
+| HTTP routing | Yes | Yes | Yes | Yes |
+| Project scaffolding | No | Yes | Yes | Yes |
+| Resource code generation | No | No | Yes | Yes |
+| Compile-time DI | No | No | No | Yes (Wire) |
+| Database migrations | No | No | Yes (Pop) | Yes (SQL files) |
+| GraphQL support | No | No | No | Yes (opt-in, gqlgen) |
+| Background jobs | No | No | Yes | Yes |
+| Email support | No | No | No | Yes |
+| Resilience patterns | No | No | No | Yes |
+| Observability | No | No | No | Yes |
+| Health checks | No | No | No | Yes |
+| Test utilities | No | No | No | Yes |
+| Deployment manifests | No | No | No | Yes |
+| Runtime framework required | Yes | No | Yes | No |
+| Custom syntax | No | No | No | No |
+
+### 16.3 Key Differentiators
+
+**vs. gorilla/mux, chi, Gin, Echo:** These are HTTP routers. Gofasta uses gorilla/mux (which builds on `net/http`) as its router but adds project structure, code generation, database management, authentication, background processing, and utility packages. A developer using any router still needs to set all of this up manually.
+
+**vs. go-blueprint:** go-blueprint generates project scaffolding with a choice of router and database driver. Gofasta goes further with resource-level code generation (`gofasta g scaffold`), a library of production packages, and generated deployment manifests. go-blueprint generates the starting point; Gofasta generates the starting point and the ongoing CRUD boilerplate.
+
+**vs. Buffalo:** Buffalo was a full-stack Go framework with its own ORM (Pop), template engine (Plush), and asset pipeline. It required buying into the Buffalo ecosystem. Gofasta generates standalone Go code that imports individual packages. There is no monolithic framework to maintain, and no single point of failure if maintenance slows.
+
+---
+
+## 17. Roadmap
+
+Gofasta is under active development. Current priorities:
+
+### Near-term
+- Expand test coverage across all packages
+- Add `gofasta g middleware` generator for custom middleware scaffolding
+- Improve error messages in code generation for edge cases
+- Add support for additional database drivers (e.g., CockroachDB)
+
+### Medium-term
+- Plugin system for community-contributed generators
+- `gofasta upgrade` command to update framework packages in existing projects
+- IDE extensions for scaffold generation (VS Code, GoLand)
+- Interactive project creation wizard
+
+### Long-term
+- Admin dashboard generation
+- OpenAPI-first code generation (generate handlers from an OpenAPI spec)
+- Multi-service project support (monorepo with shared packages)
+
+The roadmap is driven by community feedback. Feature requests and contributions are welcome via GitHub Issues and Pull Requests.
+
+---
+
+## 18. Contributing
+
+Gofasta is open source under the [MIT License](https://opensource.org/licenses/MIT).
+
+**Repositories:**
+- **Framework library:** `github.com/gofastadev/gofasta`
+- **CLI tool:** `github.com/gofastadev/cli`
+- **Documentation website:** `github.com/gofastadev/website`
+
+**How to contribute:**
+1. Open an issue to discuss the change before starting work
+2. Fork the repository and create a feature branch
+3. Write tests for new functionality
+4. Submit a pull request with a clear description
+
+**Community:**
+- GitHub Issues for bug reports and feature requests
+- GitHub Discussions for questions and ideas
+
+---
+
+## References
+
+1. Go Developer Survey 2024 Results — The Go Blog, https://go.dev/blog/survey2024-h2-results
+2. Google Wire — Compile-time Dependency Injection for Go, https://github.com/google/wire
+3. GORM — The fantastic ORM library for Go, https://gorm.io
+4. gorilla/mux — HTTP request multiplexer for Go, https://github.com/gorilla/mux
+5. gqlgen — Go library for building GraphQL servers, https://gqlgen.com
+6. go-playground/validator — Struct and field validation for Go, https://github.com/go-playground/validator
+7. hibiken/asynq — Distributed task queue for Go, https://github.com/hibiken/asynq
+8. golang-migrate — Database migrations for Go, https://github.com/golang-migrate/migrate
+9. Casbin — Authorization library, https://casbin.org
+10. OpenTelemetry Go — Observability framework, https://opentelemetry.io/docs/languages/go/
+11. Air — Live reload for Go apps, https://github.com/air-verse/air
+12. Cobra — CLI library for Go, https://github.com/spf13/cobra
+13. swaggo/swag — Swagger documentation generator for Go, https://github.com/swaggo/swag
+
+---
+
+*This document describes Gofasta as of version 3.0.0. For the latest documentation, visit [gofasta.dev](https://gofasta.dev).*
+
+*Copyright 2025–2026 Gofasta Authors. Released under the MIT License.*

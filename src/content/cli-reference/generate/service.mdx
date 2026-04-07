@@ -1,46 +1,69 @@
 ---
 title: gofasta g service
-description: Generate a service interface and implementation containing business logic.
+description: Generate a service interface and implementation containing business logic, along with all prerequisite layers.
 ---
 
 # gofasta g service
 
-Generates a service interface and its implementation for a given resource. The service layer contains business logic and orchestrates calls to one or more repositories. Services never interact with the database directly -- they delegate data access to repositories.
+Generates a service interface and its implementation for a given resource, along with all prerequisite layers (model, migration, repository interface, repository implementation, DTOs, and Wire provider). The service layer contains business logic and orchestrates calls to one or more repositories. Services never interact with the database directly -- they delegate data access to repositories.
+
+**Aliases:** `svc`
 
 ## Usage
 
 ```bash
-gofasta g service <ResourceName> [flags]
+gofasta g service <Name> [field:type ...] [flags]
 ```
 
 ## Flags
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--methods` | `-m` | `all` | Comma-separated list of methods to generate. Options: `create`, `findAll`, `findByID`, `update`, `delete` |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--graphql` | `false` | Also generate GraphQL schema and wire up the resolver |
+| `--gql` | `false` | Alias for `--graphql` |
 
 ## Examples
 
 Generate a service with all CRUD methods:
 
 ```bash
-gofasta g service Product
+gofasta g service Product name:string price:float
 ```
 
-Generate with only specific methods:
+Generate a service with GraphQL support:
 
 ```bash
-gofasta g service Product --methods create,findAll
+gofasta g service Product name:string price:float --graphql
 ```
 
 ## What It Generates
 
-Running `gofasta g service Product` creates two files:
+Running `gofasta g service Product name:string price:float` creates the following files:
 
 | File | Description |
 |------|-------------|
+| `app/models/product.model.go` | GORM database model |
+| `db/migrations/000006_create_products.up.sql` | Create table migration |
+| `db/migrations/000006_create_products.down.sql` | Drop table migration |
+| `app/repositories/interfaces/product_repository.go` | Repository interface |
+| `app/repositories/product.repository.go` | Repository implementation |
 | `app/services/interfaces/product_service.go` | Service interface |
 | `app/services/product.service.go` | Service implementation |
+| `app/dtos/product.dtos.go` | Request/response DTOs |
+| `app/di/providers/product.go` | Wire DI provider set |
+
+It also patches 2 existing files:
+
+| File | Change |
+|------|--------|
+| `app/di/container.go` | Adds `ProductService` field |
+| `app/di/wire.go` | Adds `ProductSet` to the Wire build |
+
+With `--graphql`, the service generator additionally:
+
+- Generates a GraphQL schema file (`.gql`)
+- Patches `resolver.go` to add the service dependency
+- Runs `gqlgen generate`
 
 ### Service Interface
 

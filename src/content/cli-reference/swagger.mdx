@@ -12,31 +12,30 @@ This command uses [swag](https://github.com/swaggo/swag) under the hood to parse
 ## Usage
 
 ```bash
-gofasta swagger [flags]
+gofasta swagger
 ```
 
 Run this command from the root directory of your Gofasta project.
 
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--output` | `-o` | `docs/` | Output directory for generated Swagger files |
-| `--general` | `-g` | `cmd/serve.go` | Path to the file containing the general API annotations |
+This command takes no flags.
 
 ## Examples
 
-Generate Swagger docs with defaults:
+Generate Swagger docs:
 
 ```bash
 gofasta swagger
 ```
 
-Generate to a custom output directory:
+## How It Works
+
+The `gofasta swagger` command runs:
 
 ```bash
-gofasta swagger --output api/docs
+go tool swag init -g app/main/main.go -o docs/
 ```
+
+This parses the Go annotation comments in your source code starting from `app/main/main.go` and generates the OpenAPI specification files in the `docs/` directory.
 
 ## Annotation Format
 
@@ -61,7 +60,7 @@ func (c *ProductController) Create(ctx *gin.Context) {
 }
 ```
 
-The general API information is defined in `cmd/serve.go`:
+The general API information is defined in `app/main/main.go`:
 
 ```go
 // @title        My App API
@@ -101,10 +100,9 @@ Run `gofasta swagger` after:
 - Adding or modifying controller annotations
 - Changing DTO structures that are referenced in annotations
 - Adding new routes or controllers
-- Updating the general API information in `cmd/serve.go`
+- Updating the general API information in `app/main/main.go`
 
 ## Related
 
-- [gofasta g controller](/docs/cli-reference/generate/controller) -- generate a controller with Swagger annotations
-- [gofasta g dto](/docs/cli-reference/generate/dto) -- generate DTOs referenced in annotations
 - [gofasta serve](/docs/cli-reference/serve) -- start the server to view Swagger UI
+- [gofasta dev](/docs/cli-reference/dev) -- start the dev server to view Swagger UI

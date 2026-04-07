@@ -13,9 +13,9 @@ const features = [
     ),
   },
   {
-    title: "REST + GraphQL",
+    title: "REST + Optional GraphQL",
     description:
-      "Both REST and GraphQL endpoints are generated and auto-wired. Add --graphql to any scaffold command.",
+      "REST by default. Add --graphql for GraphQL alongside REST. Both share the same services — no logic duplication.",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
@@ -73,11 +73,11 @@ export function FeaturesGrid() {
   return (
     <section className="mx-auto max-w-6xl px-6 py-12 sm:py-20">
       <h2 className="text-center text-3xl font-bold sm:text-4xl">
-        Everything you need to ship
+        What you get out of the box
       </h2>
       <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-gray-600 dark:text-gray-400">
-        27 production-ready packages covering auth, caching, email, middleware,
-        observability, and more. No glue code required.
+        A CLI that scaffolds your project and composable packages that
+        handle the rest. No magic, just Go.
       </p>
 
       <div className="mt-10 grid gap-6 sm:mt-16 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">

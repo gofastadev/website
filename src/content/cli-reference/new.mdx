@@ -5,30 +5,28 @@ description: Create a new Gofasta project with a complete Go web application sca
 
 # gofasta new
 
-Creates a brand-new Gofasta project from scratch. This command generates approximately 78 files that give you a fully working Go web application with REST API, GraphQL, database migrations, authentication, dependency injection, background jobs, email support, Docker configuration, and CI/CD pipelines.
+Creates a brand-new Gofasta project from scratch. By default, this generates a REST-only project with database migrations, authentication, dependency injection, background jobs, email support, Docker configuration, and CI/CD pipelines. Pass `--graphql` to also include GraphQL support (gqlgen schema, resolvers, `/graphql` endpoint, and playground).
 
 ## Usage
 
 ```bash
-gofasta new <project-name> [flags]
+gofasta new <name> [flags]
 ```
 
-The `<project-name>` can be a simple name like `myapp` or a full Go module path like `github.com/myorg/myapp`. When a simple name is used, the module path defaults to the project name.
+The `<name>` can be a simple name like `myapp` or a full Go module path like `github.com/myorg/myapp`. When a simple name is used (no `/` in the argument), the module path defaults to the project name. When a full path is provided, it is used as the Go module path and the last segment becomes the project directory name.
 
 ## Flags
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--driver` | `-d` | `postgres` | Database driver to use. Options: `postgres`, `mysql`, `sqlite`, `sqlserver`, `clickhouse` |
-| `--module` | `-m` | `<project-name>` | Go module path (e.g., `github.com/myorg/myapp`) |
-| `--skip-git` | | `false` | Skip initializing a Git repository |
-| `--skip-deps` | | `false` | Skip running `go mod tidy` and installing dependencies |
-| `--skip-wire` | | `false` | Skip running Wire dependency injection code generation |
-| `--skip-gqlgen` | | `false` | Skip running gqlgen GraphQL code generation |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--graphql` | `false` | Include GraphQL support (gqlgen schema, resolvers, `/graphql` endpoint, playground) |
+| `--gql` | `false` | Alias for `--graphql` |
+
+Without `--graphql`, the generated project is REST-only -- no GraphQL files, no gqlgen dependency, and no `/graphql` routes.
 
 ## Examples
 
-Create a project with the default PostgreSQL driver:
+Create a project with a simple name:
 
 ```bash
 gofasta new myapp
@@ -40,27 +38,29 @@ Create a project with a full Go module path:
 gofasta new github.com/myorg/myapp
 ```
 
-Create a project using MySQL:
+Create a project with GraphQL support:
 
 ```bash
-gofasta new myapp --driver mysql
+gofasta new myapp --graphql
 ```
 
-Create a project using SQLite for lightweight local development:
+## What It Does
 
-```bash
-gofasta new myapp -d sqlite
-```
+When you run `gofasta new myapp`, the CLI performs the following steps in order:
 
-Create a project but skip dependency installation (useful in CI or Docker builds):
-
-```bash
-gofasta new myapp --skip-deps --skip-wire --skip-gqlgen
-```
+1. **Create project directory** -- creates the `myapp/` directory
+2. **Initialize Go module** -- runs `go mod init` with the appropriate module path
+3. **Copy skeleton files** -- writes template files into the project, including a starter User resource
+4. **Install Gofasta and Cobra** -- runs `go get` to add the gofasta framework and cobra CLI dependencies
+5. **Install tools** -- runs `go get` to add tool dependencies (wire, air, swag) and `go mod edit -tool` for each. If `--graphql` is passed, gqlgen is also installed.
+6. **Tidy modules** -- runs `go mod tidy` to synchronize dependencies
+7. **Generate Wire DI code** -- runs `go tool wire ./app/di/` to generate the dependency injection container
+8. **Generate GraphQL code** *(only with `--graphql`)* -- runs `go tool gqlgen generate` to create Go types and resolvers from the GraphQL schema
+9. **Initialize Git** -- runs `git init` and creates an initial commit
 
 ## What It Generates
 
-Running `gofasta new myapp` produces the following project structure with approximately 78 files:
+Running `gofasta new myapp` produces the following project structure. Items marked *(--graphql only)* are only included when the `--graphql` flag is passed:
 
 ```
 myapp/
@@ -99,7 +99,7 @@ myapp/
       providers/
         user.go
         auth.go
-    graphql/                        # GraphQL schema and resolvers
+    graphql/                        # GraphQL schema and resolvers (--graphql only)
       schema.graphqls
       resolver.go
       generated.go
@@ -118,6 +118,7 @@ myapp/
     workflows/                      # CI/CD pipeline definitions
   .air.toml                         # Air hot reload configuration
   .env.example                      # Environment variable template
+  gqlgen.yml                        # gqlgen GraphQL configuration (--graphql only)
   go.mod
   go.sum
 ```

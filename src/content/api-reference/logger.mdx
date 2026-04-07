@@ -38,13 +38,14 @@ type Field struct {
 }
 ```
 
-### LoggerConfig
+### LogConfig
+
+The logger configuration is part of the root `AppConfig` and uses koanf struct tags. Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_LOG_LEVEL`).
 
 ```go
-type LoggerConfig struct {
-    Level  string `yaml:"level" env:"LOG_LEVEL"`
-    Format string `yaml:"format" env:"LOG_FORMAT"`
-    Output string `yaml:"output" env:"LOG_OUTPUT"`
+type LogConfig struct {
+    Level  string `koanf:"level"`
+    Format string `koanf:"format"`
 }
 ```
 
@@ -132,10 +133,16 @@ serviceLog.Info("processing request")
 ### Configuration via config.yaml
 
 ```yaml
-logger:
+log:
   level: info
   format: json    # "json" or "text"
-  output: stdout  # "stdout", "stderr", or a file path
+```
+
+Environment variable overrides use the `GOFASTA_` prefix:
+
+```bash
+export GOFASTA_LOG_LEVEL=debug
+export GOFASTA_LOG_FORMAT=json
 ```
 
 ### Wire Integration

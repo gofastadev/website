@@ -20,7 +20,7 @@ myapp/
 │   ├── rest/
 │   │   ├── controllers/    # HTTP handlers
 │   │   └── routes/         # Route definitions
-│   ├── graphql/
+│   ├── graphql/            # Only present with --graphql
 │   │   ├── schema/         # GraphQL schema files (.gql)
 │   │   └── resolvers/      # GraphQL resolvers
 │   ├── validators/         # Input validation rules
@@ -28,11 +28,14 @@ myapp/
 │   │   ├── container.go    # Service container struct
 │   │   ├── wire.go         # Wire build configuration
 │   │   ├── wire_gen.go     # Generated Wire output
+│   │   ├── setters.go      # Wire setters
 │   │   └── providers/      # Wire provider sets
-│   └── jobs/               # Cron jobs
+│   ├── jobs/               # Cron jobs
+│   └── tasks/              # Async task handlers (asynq)
 ├── cmd/                    # CLI commands for your app
 │   ├── root.go             # Cobra root command
 │   ├── serve.go            # Starts the HTTP server
+│   ├── migrate.go          # Runs database migrations
 │   └── seed.go             # Runs database seeders
 ├── db/
 │   ├── migrations/         # SQL migration files (up + down)
@@ -40,12 +43,16 @@ myapp/
 ├── configs/                # RBAC policies, feature flags
 ├── deployments/            # Docker, Kubernetes, CI/CD, nginx, systemd
 ├── templates/emails/       # HTML email templates
-├── locales/                # Translation files (i18n)
+│   └── layouts/            # Email layout templates
+├── locales/                # Translation files (i18n YAML)
+├── testutil/mocks/         # Test mocks
 ├── config.yaml             # Application configuration
 ├── compose.yaml            # Docker Compose (app + PostgreSQL)
 ├── Dockerfile              # Production container image
 ├── Makefile                # Development shortcuts
-└── gqlgen.yml              # GraphQL code generation config
+├── gqlgen.yml              # GraphQL code generation config (only present with --graphql)
+├── .air.toml               # Air hot reload configuration
+└── .env.example            # Example environment variables
 ```
 
 ## Key Directories
@@ -64,15 +71,18 @@ Request → Controller → Service → Repository → Database
 - **`services/`** — Business logic layer. Receives DTOs, calls repositories, applies rules. This is where your domain logic goes.
 - **`rest/controllers/`** — HTTP handlers. Parse requests, call services, return responses. No business logic here.
 - **`rest/routes/`** — Route definitions. Maps HTTP methods and paths to controller methods.
-- **`graphql/`** — Schema files (`.gql`) and resolvers. gqlgen generates resolver stubs from your schema.
-- **`validators/`** — Custom validation rules and error messages for request validation.
-- **`di/`** — Google Wire dependency injection. `wire.go` defines how to build the container; `wire_gen.go` is the generated output.
+- **`graphql/`** — Schema files (`.gql`) and resolvers. gqlgen generates resolver stubs from your schema. This directory is only present when the project was created with `gofasta new --graphql`.
+- **`validators/`** — Custom validation rules using `go-playground/validator/v10` struct tags.
+- **`di/`** — Google Wire dependency injection. `wire.go` defines how to build the container; `wire_gen.go` is the generated output. Tools are registered via `go mod edit -tool` (Go 1.24 tool dependencies) and invoked via `go tool wire`, `go tool gqlgen`, etc.
+- **`jobs/`** — Cron jobs for scheduled background work.
+- **`tasks/`** — Async task handlers using `hibiken/asynq`.
 
 ### `cmd/` — Project CLI Commands
 
 Your project has its own CLI built with Cobra:
 
 - **`serve.go`** — Starts the HTTP server. Initializes the DI container, registers routes, and listens on the configured port.
+- **`migrate.go`** — Runs database migrations up or down.
 - **`seed.go`** — Runs database seeders. Useful for populating test data.
 
 ### `db/` — Database Files
@@ -117,7 +127,7 @@ redis:
   port: 6379
 ```
 
-Settings can be overridden with environment variables using the pattern `MYAPP_SECTION_KEY` (e.g., `MYAPP_DATABASE_HOST=db`).
+Settings can be overridden with environment variables using the prefix `GOFASTA_` with the pattern `GOFASTA_SECTION_KEY` (e.g., `GOFASTA_DATABASE_HOST=db`).
 
 ## What the Framework Provides vs. What You Write
 

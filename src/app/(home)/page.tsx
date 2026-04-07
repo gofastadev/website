@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LandingTemplate } from "@/components/templates";
-import { Hero, FeaturesGrid, QuickStartSection } from "@/components/organisms";
+import { Hero, FeaturesGrid, QuickStartSection, ComingSoon } from "@/components/organisms";
 import { getKeywordsForPath } from "@/lib/seo-keywords";
 
 export const metadata: Metadata = {
@@ -19,14 +19,14 @@ const jsonLd = {
       url: "https://gofasta.dev",
       logo: "https://gofasta.dev/logo.png",
       description:
-        "Production-ready scaffolding, code generation, and batteries-included packages for Go web services.",
+        "CLI scaffolding and composable packages for Go web services. Generate models, APIs, auth, jobs, and deployment configs. No magic, just Go.",
     },
     {
       "@type": "WebSite",
       name: "Gofasta",
       url: "https://gofasta.dev",
       description:
-        "Production-ready scaffolding, code generation, and batteries-included packages for Go web services.",
+        "CLI scaffolding and composable packages for Go web services. Generate models, APIs, auth, jobs, and deployment configs. No magic, just Go.",
       potentialAction: {
         "@type": "SearchAction",
         target: "https://gofasta.dev/docs?search={search_term_string}",
@@ -40,7 +40,7 @@ const jsonLd = {
       operatingSystem: "Cross-platform",
       url: "https://gofasta.dev",
       description:
-        "A Go web framework with CLI tooling for scaffolding, code generation, and production-ready backend services.",
+        "A Go backend toolkit with CLI scaffolding, code generation, and composable packages for production web services.",
       offers: {
         "@type": "Offer",
         price: "0",
@@ -50,7 +50,13 @@ const jsonLd = {
   ],
 };
 
+const isProduction = process.env.NODE_ENV === "production";
+
 export default function HomePage() {
+  if (isProduction) {
+    return <ComingSoon />;
+  }
+
   return (
     <LandingTemplate>
       <script

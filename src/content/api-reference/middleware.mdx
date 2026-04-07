@@ -19,12 +19,12 @@ import "github.com/gofastadev/gofasta/pkg/middleware"
 
 ```go
 type CORSConfig struct {
-    AllowedOrigins   []string      `yaml:"allowed_origins"`
-    AllowedMethods   []string      `yaml:"allowed_methods"`
-    AllowedHeaders   []string      `yaml:"allowed_headers"`
-    ExposedHeaders   []string      `yaml:"exposed_headers"`
-    AllowCredentials bool          `yaml:"allow_credentials"`
-    MaxAge           time.Duration `yaml:"max_age"`
+    AllowedOrigins   []string      `koanf:"allowed_origins"`
+    AllowedMethods   []string      `koanf:"allowed_methods"`
+    AllowedHeaders   []string      `koanf:"allowed_headers"`
+    ExposedHeaders   []string      `koanf:"exposed_headers"`
+    AllowCredentials bool          `koanf:"allow_credentials"`
+    MaxAge           time.Duration `koanf:"max_age"`
 }
 ```
 
@@ -32,9 +32,9 @@ type CORSConfig struct {
 
 ```go
 type RateLimitConfig struct {
-    RequestsPerSecond float64       `yaml:"requests_per_second"`
-    Burst             int           `yaml:"burst"`
-    Window            time.Duration `yaml:"window"`
+    Enabled bool   `koanf:"enabled"`
+    Rate    string `koanf:"rate"`
+    Store   string `koanf:"store"`
 }
 ```
 
@@ -79,8 +79,8 @@ http.ListenAndServe(":8080", handler)
 
 ```go
 authMiddleware := middleware.Auth(auth.AuthConfig{
-    SecretKey: "my-secret-key",
-    Issuer:    "my-service",
+    JWTSecret:         "my-secret-key",
+    AccessTokenExpiry: 15 * time.Minute,
 })
 
 // Protect specific routes
@@ -104,9 +104,9 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 ### Role-Based Access Control
 
 ```go
-enforcer, _ := auth.NewEnforcer(auth.RBACConfig{
-    ModelPath:  "rbac_model.conf",
-    PolicyPath: "rbac_policy.csv",
+enforcer, _ := auth.NewEnforcer(auth.AuthConfig{
+    RBACModelPath:  "configs/rbac_model.conf",
+    RBACPolicyPath: "configs/rbac_policy.csv",
 })
 
 adminRoutes := http.NewServeMux()

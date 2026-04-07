@@ -1,49 +1,32 @@
 ---
 title: gofasta g task
-description: Generate a scheduled task that runs on a cron schedule.
+description: Generate an async task handler using hibiken/asynq.
 ---
 
 # gofasta g task
 
-Generates a scheduled task file that runs on a cron schedule. Tasks are useful for recurring work such as cleaning up expired sessions, sending digest emails, generating reports, syncing data from external services, or performing periodic maintenance.
+Generates an async task handler file for processing work asynchronously using [hibiken/asynq](https://github.com/hibiken/asynq). Tasks are useful for offloading work from the HTTP request/response cycle, such as sending emails, processing uploads, or triggering external API calls.
 
 ## Usage
 
 ```bash
-gofasta g task <TaskName> [flags]
+gofasta g task <Name>
 ```
 
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--schedule` | `-s` | `0 * * * *` | Cron expression for the task schedule |
-| `--timezone` | `-z` | `UTC` | Timezone for the cron schedule |
+This command has no flags.
 
 ## Examples
 
-Generate a task that runs every hour:
+Generate a task for cleaning expired sessions:
 
 ```bash
 gofasta g task CleanExpiredSessions
 ```
 
-Generate a task that runs daily at midnight:
+Generate a task for sending notifications:
 
 ```bash
-gofasta g task SendDailyDigest --schedule "0 0 * * *"
-```
-
-Generate a task that runs every Monday at 9 AM in a specific timezone:
-
-```bash
-gofasta g task GenerateWeeklyReport --schedule "0 9 * * 1" --timezone "America/New_York"
-```
-
-Generate a task that runs every 5 minutes:
-
-```bash
-gofasta g task SyncExternalData --schedule "*/5 * * * *"
+gofasta g task SendNotification
 ```
 
 ## What It Generates
@@ -51,97 +34,88 @@ gofasta g task SyncExternalData --schedule "*/5 * * * *"
 Running `gofasta g task CleanExpiredSessions` creates one file:
 
 ```
-app/tasks/clean_expired_sessions.task.go
+app/tasks/clean_expired_sessions.go
 ```
 
 ### Generated Code
 
 ```go
-// app/tasks/clean_expired_sessions.task.go
+// app/tasks/clean_expired_sessions.go
 package tasks
 
 import (
     "context"
-    "log"
+    "encoding/json"
+
+    "github.com/hibiken/asynq"
 )
 
-// CleanExpiredSessionsTask runs on a cron schedule to clean expired sessions.
-type CleanExpiredSessionsTask struct {
-    // Add dependencies here (e.g., session repository)
+const TypeCleanExpiredSessions = "clean_expired_sessions"
+
+// CleanExpiredSessionsPayload contains the data needed to execute this task.
+type CleanExpiredSessionsPayload struct {
+    // TODO: Add payload fields here
 }
 
-// NewCleanExpiredSessionsTask creates a new instance of CleanExpiredSessionsTask.
-func NewCleanExpiredSessionsTask() *CleanExpiredSessionsTask {
-    return &CleanExpiredSessionsTask{}
-}
-
-// Run executes the task logic.
-func (t *CleanExpiredSessionsTask) Run(ctx context.Context) error {
-    log.Println("Running CleanExpiredSessions task...")
+// HandleCleanExpiredSessions processes the CleanExpiredSessions task.
+func HandleCleanExpiredSessions(ctx context.Context, t *asynq.Task) error {
+    var payload CleanExpiredSessionsPayload
+    if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+        return err
+    }
 
     // TODO: Implement task logic here
-    // Example:
-    // deleted, err := t.sessionRepo.DeleteExpired()
-    // log.Printf("Cleaned %d expired sessions", deleted)
 
     return nil
 }
 
-// Schedule returns the cron expression for this task.
-func (t *CleanExpiredSessionsTask) Schedule() string {
-    return "0 * * * *"
-}
+// EnqueueCleanExpiredSessions creates and enqueues a CleanExpiredSessions task.
+func EnqueueCleanExpiredSessions(client *asynq.Client, payload CleanExpiredSessionsPayload) (*asynq.TaskInfo, error) {
+    data, err := json.Marshal(payload)
+    if err != nil {
+        return nil, err
+    }
 
-// Timezone returns the timezone for the cron schedule.
-func (t *CleanExpiredSessionsTask) Timezone() string {
-    return "UTC"
-}
-
-// Name returns a human-readable name for logging.
-func (t *CleanExpiredSessionsTask) Name() string {
-    return "CleanExpiredSessions"
-}
-
-// OnError is called when the task execution fails.
-func (t *CleanExpiredSessionsTask) OnError(ctx context.Context, err error) {
-    log.Printf("CleanExpiredSessions task failed: %v", err)
+    task := asynq.NewTask(TypeCleanExpiredSessions, data)
+    return client.Enqueue(task)
 }
 ```
-
-## Cron Expression Format
-
-The schedule uses standard cron syntax with five fields:
-
-```
-* * * * *
-| | | | |
-| | | | +-- Day of week (0-6, Sunday=0)
-| | | +---- Month (1-12)
-| | +------ Day of month (1-31)
-| +-------- Hour (0-23)
-+---------- Minute (0-59)
-```
-
-| Expression | Description |
-|------------|-------------|
-| `0 * * * *` | Every hour at minute 0 |
-| `0 0 * * *` | Daily at midnight |
-| `0 9 * * 1` | Every Monday at 9:00 AM |
-| `*/5 * * * *` | Every 5 minutes |
-| `0 0 1 * *` | First day of every month at midnight |
-| `0 6,18 * * *` | Twice daily at 6:00 AM and 6:00 PM |
 
 ## Task vs Job
 
 | Feature | Task | Job |
 |---------|------|-----|
-| Trigger | Cron schedule (automatic) | Dispatched from code (manual) |
-| Payload | None (runs with context only) | Carries a custom payload |
-| Use case | Periodic maintenance | Event-driven async processing |
-| Retries | Re-runs on next schedule | Configurable retry count |
+| Library | hibiken/asynq | scheduler.Job interface |
+| Trigger | Enqueued from code (manual) | Cron schedule (automatic) |
+| Payload | Carries a custom payload | None (runs with context only) |
+| Use case | Event-driven async processing | Periodic maintenance |
+| Pattern | Handle function + Enqueue helper | Name() + Run() methods |
+
+## Enqueuing Tasks
+
+To enqueue a task from a service or controller:
+
+```go
+func (s *UserServiceImpl) Register(req dtos.RegisterRequest) (*dtos.UserResponse, error) {
+    user, err := s.repo.Create(mapToUser(req))
+    if err != nil {
+        return nil, err
+    }
+
+    // Enqueue the async task
+    _, err = tasks.EnqueueCleanExpiredSessions(s.asynqClient, tasks.CleanExpiredSessionsPayload{
+        // populate fields
+    })
+    if err != nil {
+        slog.Error("failed to enqueue task", "error", err)
+    }
+
+    return dtos.ToUserResponse(user), nil
+}
+```
 
 ## Related
 
-- [gofasta g job](/docs/cli-reference/generate/job) -- generate a background job instead
+- [gofasta g job](/docs/cli-reference/generate/job) -- generate a scheduled background job instead
 - [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource
-- [gofasta dev](/docs/cli-reference/dev) -- start the dev server which also runs the task scheduler
+- [gofasta dev](/docs/cli-reference/dev) -- start the dev server which also runs the task worker

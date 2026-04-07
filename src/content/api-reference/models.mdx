@@ -1,11 +1,11 @@
 ---
 title: Models
-description: Base model with UUID primary keys, automatic timestamps, soft delete, and optimistic locking.
+description: Base model with UUID primary keys, automatic timestamps, soft delete, optimistic locking via record_version, and is_active/is_deletable flags.
 ---
 
 # Models
 
-The `models` package provides the `BaseModelImpl` struct that serves as the foundation for all GORM models in a Gofasta application. It includes UUID primary keys, automatic timestamp management, soft delete support, and optimistic locking via version fields.
+The `models` package provides the `BaseModelImpl` struct that serves as the foundation for all GORM models in a Gofasta application. It includes UUID primary keys, automatic timestamp management, soft delete support, optimistic locking via `RecordVersion`, and boolean flags `IsActive` and `IsDeletable`.
 
 ## Import
 
@@ -21,12 +21,14 @@ The interface that all Gofasta models implement.
 
 ```go
 type BaseModel interface {
-    GetID() string
+    gorm.Model
+    GetID() uuid.UUID
     GetCreatedAt() time.Time
     GetUpdatedAt() time.Time
-    GetDeletedAt() *time.Time
-    GetVersion() int
-    IsDeleted() bool
+    GetDeletedAt() time.Time
+    GetIsActive() bool
+    GetIsDeletable() bool
+    GetRecordVersion() int
 }
 ```
 
@@ -36,11 +38,13 @@ The concrete base struct to embed in all your GORM models.
 
 ```go
 type BaseModelImpl struct {
-    ID        string         `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-    CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
-    UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
-    DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
-    Version   int            `gorm:"default:1" json:"version"`
+    ID            uuid.UUID `gorm:"type:uuid;primary_key;"`
+    CreatedAt     time.Time `gorm:"type:timestamp;not null;"`
+    UpdatedAt     time.Time `gorm:"type:timestamp;not null;"`
+    DeletedAt     time.Time `gorm:"type:timestamp;"`
+    RecordVersion int       `gorm:"type:int;not null;default:1"`
+    IsActive      bool      `gorm:"type:bool;not null;default:true"`
+    IsDeletable   bool      `gorm:"type:bool;not null;default:true"`
 }
 ```
 
@@ -48,13 +52,14 @@ type BaseModelImpl struct {
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `GetID` | `func (b *BaseModelImpl) GetID() string` | Returns the model's UUID |
-| `GetCreatedAt` | `func (b *BaseModelImpl) GetCreatedAt() time.Time` | Returns the creation timestamp |
-| `GetUpdatedAt` | `func (b *BaseModelImpl) GetUpdatedAt() time.Time` | Returns the last update timestamp |
-| `GetDeletedAt` | `func (b *BaseModelImpl) GetDeletedAt() *time.Time` | Returns the soft-delete timestamp, or nil |
-| `GetVersion` | `func (b *BaseModelImpl) GetVersion() int` | Returns the current version for optimistic locking |
-| `IsDeleted` | `func (b *BaseModelImpl) IsDeleted() bool` | Returns true if the model is soft-deleted |
-| `BeforeCreate` | `func (b *BaseModelImpl) BeforeCreate(tx *gorm.DB) error` | GORM hook that generates a UUID before insert |
+| `GetID` | `func (b BaseModelImpl) GetID() uuid.UUID` | Returns the model's UUID |
+| `GetCreatedAt` | `func (b BaseModelImpl) GetCreatedAt() time.Time` | Returns the creation timestamp |
+| `GetUpdatedAt` | `func (b BaseModelImpl) GetUpdatedAt() time.Time` | Returns the last update timestamp |
+| `GetDeletedAt` | `func (b BaseModelImpl) GetDeletedAt() time.Time` | Returns the soft-delete timestamp |
+| `GetIsActive` | `func (b BaseModelImpl) GetIsActive() bool` | Returns whether the record is active |
+| `GetIsDeletable` | `func (b BaseModelImpl) GetIsDeletable() bool` | Returns whether the record can be deleted |
+| `GetRecordVersion` | `func (b BaseModelImpl) GetRecordVersion() int` | Returns the current version for optimistic locking |
+| `BeforeCreate` | `func (b *BaseModelImpl) BeforeCreate(tx *gorm.DB) error` | GORM hook that generates a UUID and sets defaults before insert |
 
 ## Usage
 
@@ -82,12 +87,15 @@ type Post struct {
 
 ### Automatic UUID Generation
 
-The `BeforeCreate` hook automatically generates a UUID v4 for new records.
+The `BeforeCreate` hook automatically generates a UUID v4 for new records and sets default values for `IsActive`, `IsDeletable`, and `RecordVersion`.
 
 ```go
 user := User{Name: "Jane", Email: "jane@example.com"}
 db.Create(&user)
-fmt.Println(user.ID) // "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+fmt.Println(user.ID)            // "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+fmt.Println(user.IsActive)      // true
+fmt.Println(user.IsDeletable)   // true
+fmt.Println(user.RecordVersion) // 1
 ```
 
 ### Soft Delete
@@ -111,16 +119,16 @@ db.Unscoped().Delete(&user)
 
 ### Optimistic Locking
 
-Use the `Version` field to prevent lost updates in concurrent scenarios.
+Use the `RecordVersion` field to prevent lost updates in concurrent scenarios. Note that a database trigger automatically increments `record_version` on update, but you can also check it at the application level.
 
 ```go
 func (r *UserRepository) Update(ctx context.Context, user *User) error {
     result := r.db.Model(user).
-        Where("version = ?", user.Version).
+        Where("record_version = ?", user.RecordVersion).
         Updates(map[string]interface{}{
-            "name":    user.Name,
-            "email":   user.Email,
-            "version": user.Version + 1,
+            "name":           user.Name,
+            "email":          user.Email,
+            "record_version": user.RecordVersion + 1,
         })
 
     if result.RowsAffected == 0 {

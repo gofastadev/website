@@ -42,16 +42,26 @@ type FileInfo struct {
 
 ### StorageConfig
 
+The storage configuration uses koanf struct tags and is part of the root `AppConfig`. Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_STORAGE_DRIVER`). S3 storage uses minio-go under the hood.
+
 ```go
 type StorageConfig struct {
-    Driver    string `yaml:"driver" env:"STORAGE_DRIVER"`
-    LocalPath string `yaml:"local_path" env:"STORAGE_LOCAL_PATH"`
-    Bucket    string `yaml:"bucket" env:"STORAGE_BUCKET"`
-    Region    string `yaml:"region" env:"STORAGE_REGION"`
-    Endpoint  string `yaml:"endpoint" env:"STORAGE_ENDPOINT"`
-    AccessKey string `yaml:"access_key" env:"STORAGE_ACCESS_KEY"`
-    SecretKey string `yaml:"secret_key" env:"STORAGE_SECRET_KEY"`
-    BaseURL   string `yaml:"base_url" env:"STORAGE_BASE_URL"`
+    Driver string             `koanf:"driver"`
+    Local  LocalStorageConfig `koanf:"local"`
+    S3     S3Config           `koanf:"s3"`
+}
+
+type LocalStorageConfig struct {
+    Path string `koanf:"path"`
+}
+
+type S3Config struct {
+    Endpoint  string `koanf:"endpoint"`
+    Bucket    string `koanf:"bucket"`
+    AccessKey string `koanf:"access_key"`
+    SecretKey string `koanf:"secret_key"`
+    Region    string `koanf:"region"`
+    UseSSL    bool   `koanf:"use_ssl"`
 }
 ```
 
@@ -79,11 +89,14 @@ func WithMetadata(meta map[string]string) PutOption
 
 ```go
 store, err := storage.NewStorage(storage.StorageConfig{
-    Driver:    "s3",
-    Bucket:    "my-bucket",
-    Region:    "us-east-1",
-    AccessKey: "AKIA...",
-    SecretKey: "secret",
+    Driver: "s3",
+    S3: storage.S3Config{
+        Bucket:    "my-bucket",
+        Region:    "us-east-1",
+        AccessKey: "AKIA...",
+        SecretKey: "secret",
+        UseSSL:    true,
+    },
 })
 if err != nil {
     log.Fatalf("failed to create storage: %v", err)
@@ -144,13 +157,14 @@ err := store.Delete(ctx, "avatars/user-123/old-photo.jpg")
 
 ```go
 store := storage.NewLocalStorage(storage.StorageConfig{
-    Driver:    "local",
-    LocalPath: "./uploads",
-    BaseURL:   "http://localhost:8080/files",
+    Driver: "local",
+    Local: storage.LocalStorageConfig{
+        Path: "./uploads",
+    },
 })
 
 url := store.URL("avatars/photo.jpg")
-// -> "http://localhost:8080/files/avatars/photo.jpg"
+// -> "./uploads/avatars/photo.jpg"
 ```
 
 ### Configuration via config.yaml
@@ -158,11 +172,23 @@ url := store.URL("avatars/photo.jpg")
 ```yaml
 storage:
   driver: s3          # "local" or "s3"
-  bucket: my-bucket
-  region: us-east-1
-  access_key: "AKIA..."
-  secret_key: "secret"
-  base_url: "https://my-bucket.s3.amazonaws.com"
+  local:
+    path: "./uploads"
+  s3:
+    endpoint: "s3.amazonaws.com"
+    bucket: my-bucket
+    region: us-east-1
+    access_key: "AKIA..."
+    secret_key: "secret"
+    use_ssl: true
+```
+
+Environment variable overrides use the `GOFASTA_` prefix:
+
+```bash
+export GOFASTA_STORAGE_DRIVER=s3
+export GOFASTA_STORAGE_S3_BUCKET=my-bucket
+export GOFASTA_STORAGE_S3_ACCESS_KEY=AKIA...
 ```
 
 ## Related Pages

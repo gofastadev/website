@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { LandingTemplate } from "@/components/templates";
 import { getKeywordsForPath } from "@/lib/seo-keywords";
 
@@ -120,7 +121,13 @@ const sections = [
   },
 ];
 
+const isProduction = process.env.NODE_ENV === "production";
+
 export default function SitemapPage() {
+  if (isProduction) {
+    redirect("/");
+  }
+
   return (
     <LandingTemplate>
       <section className="mx-auto max-w-4xl px-6 pt-32 pb-20">

@@ -40,17 +40,14 @@ type Session struct {
 
 ### SessionConfig
 
+The session configuration uses koanf struct tags and is part of the root `AppConfig`. Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_SESSION_DRIVER`). Sessions use gorilla/sessions under the hood.
+
 ```go
 type SessionConfig struct {
-    Driver     string        `yaml:"driver" env:"SESSION_DRIVER"`
-    CookieName string        `yaml:"cookie_name" env:"SESSION_COOKIE_NAME"`
-    MaxAge     time.Duration `yaml:"max_age" env:"SESSION_MAX_AGE"`
-    Secure     bool          `yaml:"secure" env:"SESSION_SECURE"`
-    HTTPOnly   bool          `yaml:"http_only" env:"SESSION_HTTP_ONLY"`
-    SameSite   string        `yaml:"same_site" env:"SESSION_SAME_SITE"`
-    Domain     string        `yaml:"domain" env:"SESSION_DOMAIN"`
-    Path       string        `yaml:"path" env:"SESSION_PATH"`
-    Secret     string        `yaml:"secret" env:"SESSION_SECRET"`
+    Driver         string `koanf:"driver"`
+    Secret         string `koanf:"secret"`
+    SessionName    string `koanf:"session_name"`
+    FilesystemPath string `koanf:"filesystem_path"`
 }
 ```
 
@@ -80,14 +77,10 @@ type SessionConfig struct {
 
 ```go
 store, err := sessions.NewStore(sessions.SessionConfig{
-    Driver:     "redis",
-    CookieName: "session_id",
-    MaxAge:     24 * time.Hour,
-    Secure:     true,
-    HTTPOnly:   true,
-    SameSite:   "Lax",
-    Path:       "/",
-    Secret:     "my-session-secret",
+    Driver:         "cookie",
+    Secret:         "change-me-in-production-32bytes!",
+    SessionName:    "app_session",
+    FilesystemPath: "./sessions",
 })
 if err != nil {
     log.Fatalf("failed to create session store: %v", err)
@@ -152,16 +145,18 @@ sched.Register("cleanup-sessions", "*/30 * * * *", func(ctx context.Context) err
 ### Configuration via config.yaml
 
 ```yaml
-sessions:
-  driver: redis      # "cookie" or "redis"
-  cookie_name: session_id
-  max_age: 24h
-  secure: true
-  http_only: true
-  same_site: Lax
-  domain: ""
-  path: /
-  secret: "change-me-in-production"
+session:
+  driver: cookie           # "cookie" or "redis"
+  secret: "change-me-in-production-32bytes!"
+  session_name: app_session
+  filesystem_path: "./sessions"
+```
+
+Environment variable overrides use the `GOFASTA_` prefix:
+
+```bash
+export GOFASTA_SESSION_DRIVER=cookie
+export GOFASTA_SESSION_SECRET=my-secure-secret-32bytes!
 ```
 
 ## Related Pages

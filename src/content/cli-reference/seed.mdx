@@ -5,7 +5,7 @@ description: Run database seeders to populate your database with initial or test
 
 # gofasta seed
 
-Runs the database seeder files located in `db/seeders/` to populate your database with initial data. This is useful for setting up default roles, permissions, admin users, and sample data for development and testing.
+Runs the database seeder files to populate your database with initial data. This is useful for setting up default roles, permissions, admin users, and sample data for development and testing.
 
 ## Usage
 
@@ -17,11 +17,9 @@ Run this command from the root directory of your Gofasta project.
 
 ## Flags
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--env` | `-e` | `development` | Environment to use for database connection |
-| `--fresh` | | `false` | Drop all tables and re-run all migrations before seeding |
-| `--file` | `-f` | all | Run a specific seeder file only |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--fresh` | `false` | Drop all tables, re-run all migrations, then seed |
 
 ## Examples
 
@@ -31,23 +29,21 @@ Run all seeders:
 gofasta seed
 ```
 
-Run seeders against the staging database:
-
-```bash
-gofasta seed --env staging
-```
-
-Run only a specific seeder file:
-
-```bash
-gofasta seed --file users
-```
-
 Drop all tables, re-run migrations, and seed from scratch:
 
 ```bash
 gofasta seed --fresh
 ```
+
+## How It Works
+
+The `gofasta seed` command delegates to:
+
+```bash
+go run ./app/main seed [--fresh]
+```
+
+When the `--fresh` flag is provided, it drops all tables, re-runs all migrations, and then executes the seeders.
 
 ## Default Seeders
 

@@ -7,21 +7,22 @@ description: Generate a complete CRUD resource with all layers including model, 
 
 Generates a full CRUD resource spanning all layers of the application. This is the most powerful generator command -- it creates 11 new files and patches 4 existing files to wire everything together. After running this command and applying migrations, you have a fully working REST API for your resource.
 
+**Aliases:** `s`
+
 ## Usage
 
 ```bash
-gofasta g scaffold <ResourceName> [field:type ...] [flags]
+gofasta g scaffold <Name> [field:type ...] [flags]
 ```
 
 `gofasta generate scaffold` also works. The `g` shorthand is equivalent to `generate`.
 
 ## Flags
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--skip-migration` | | `false` | Skip generating migration files |
-| `--skip-graphql` | | `false` | Skip generating GraphQL resolver |
-| `--skip-wire` | | `false` | Skip running Wire after generation |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--graphql` | `false` | Also generate GraphQL schema and wire up the resolver for this resource. This is separate from the `--graphql` flag on `gofasta new`, which enables GraphQL for the entire project. Your project must have been created with `gofasta new --graphql` for this flag to work. |
+| `--gql` | `false` | Alias for `--graphql` |
 
 ## Field Types
 
@@ -34,6 +35,8 @@ gofasta g scaffold <ResourceName> [field:type ...] [flags]
 | `bool` | `bool` | `BOOLEAN` | `Boolean` |
 | `uuid` | `uuid.UUID` | `UUID` | `ID` |
 | `time` | `time.Time` | `TIMESTAMP` | `DateTime` |
+
+The `datetime` alias can be used in place of `time`. SQL types are generated per-driver (postgres, mysql, sqlite, sqlserver, clickhouse) based on the driver configured in `config.yaml`.
 
 ## Examples
 
@@ -49,10 +52,10 @@ Generate a BlogPost with multiple fields:
 gofasta g scaffold BlogPost title:string body:text published:bool author_id:uuid published_at:time
 ```
 
-Generate without migration files:
+Generate a resource with GraphQL support:
 
 ```bash
-gofasta g scaffold Category name:string description:text --skip-migration
+gofasta g scaffold Category name:string description:text --graphql
 ```
 
 ## What It Generates
@@ -81,6 +84,14 @@ It also patches 4 existing files:
 | `app/di/wire.go` | Adds `ProductSet` to the Wire build |
 | `app/rest/routes/index.routes.go` | Registers Product routes |
 | `cmd/serve.go` | Wires `ProductController` into the route config |
+
+After generation, Wire regeneration is run automatically.
+
+With `--graphql`, the scaffold additionally:
+
+- Generates a GraphQL schema file (`.gql`)
+- Patches `resolver.go` to add the service dependency
+- Runs `gqlgen generate`
 
 ## Generated Code Examples
 
@@ -112,24 +123,55 @@ type Product struct {
 // app/rest/controllers/product.controller.go
 package controllers
 
+import (
+    "net/http"
+
+    "myapp/app/dtos"
+    svcInterfaces "myapp/app/services/interfaces"
+    "myapp/pkg/httputil"
+)
+
 type ProductController struct {
-    service interfaces.ProductService
+    service svcInterfaces.ProductService
 }
 
-func NewProductController(service interfaces.ProductService) *ProductController {
+func NewProductController(service svcInterfaces.ProductService) *ProductController {
     return &ProductController{service: service}
 }
 
-// Create godoc
-// @Summary      Create a new product
-// @Tags         Products
-// @Accept       json
-// @Produce      json
-// @Param        body  body      dtos.CreateProductRequest  true  "Product data"
-// @Success      201   {object}  dtos.ProductResponse
-// @Router       /api/v1/products [post]
-func (c *ProductController) Create(ctx *gin.Context) {
+// Create handles POST /api/v1/products
+func (c *ProductController) Create(w http.ResponseWriter, r *http.Request) error {
+    var req dtos.CreateProductRequest
+    // parse and validate request body
     // ...
+    result, err := c.service.Create(req)
+    if err != nil {
+        return err
+    }
+    return httputil.WriteJSON(w, http.StatusCreated, result)
+}
+```
+
+### Routes (excerpt)
+
+```go
+// app/rest/routes/product.routes.go
+package routes
+
+import (
+    "github.com/gorilla/mux"
+    "myapp/app/rest/controllers"
+    "myapp/pkg/httputil"
+)
+
+func RegisterProductRoutes(router *mux.Router, controller *controllers.ProductController) {
+    sub := router.PathPrefix("/api/v1/products").Subrouter()
+
+    sub.HandleFunc("", httputil.Handle(controller.Create)).Methods("POST")
+    sub.HandleFunc("", httputil.Handle(controller.FindAll)).Methods("GET")
+    sub.HandleFunc("/{id}", httputil.Handle(controller.FindByID)).Methods("GET")
+    sub.HandleFunc("/{id}", httputil.Handle(controller.Update)).Methods("PUT")
+    sub.HandleFunc("/{id}", httputil.Handle(controller.Delete)).Methods("DELETE")
 }
 ```
 
@@ -139,8 +181,7 @@ After generating a scaffold, complete these steps:
 
 1. Run the migration: `gofasta migrate up`
 2. Regenerate Wire (if not done automatically): `gofasta wire`
-3. Regenerate Swagger docs: `gofasta swagger`
-4. Test the endpoints with curl or the Swagger UI
+3. Test the endpoints with curl or your preferred API client
 
 ## Related
 

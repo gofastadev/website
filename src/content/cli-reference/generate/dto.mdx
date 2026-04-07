@@ -10,14 +10,10 @@ Generates Data Transfer Objects (DTOs) for a resource, including create request,
 ## Usage
 
 ```bash
-gofasta g dto <ResourceName> [field:type ...] [flags]
+gofasta g dto <Name> [field:type ...]
 ```
 
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--types` | `-t` | `all` | Comma-separated list of DTO types to generate. Options: `create`, `update`, `response`, `paginated` |
+This command has no flags.
 
 ## Examples
 
@@ -25,12 +21,6 @@ Generate all DTOs for a Product:
 
 ```bash
 gofasta g dto Product name:string price:float
-```
-
-Generate only request DTOs:
-
-```bash
-gofasta g dto Product name:string price:float --types create,update
 ```
 
 Generate DTOs with multiple field types:
@@ -60,8 +50,8 @@ import (
 
 // CreateProductRequest represents the request body for creating a product.
 type CreateProductRequest struct {
-    Name  string  `json:"name" binding:"required"`
-    Price float64 `json:"price" binding:"required"`
+    Name  string  `json:"name" validate:"required"`
+    Price float64 `json:"price" validate:"required"`
 }
 
 // UpdateProductRequest represents the request body for updating a product.
@@ -123,7 +113,7 @@ func ToPaginatedProductResponse(products []models.Product, total int64, page, li
 
 ## Design Patterns
 
-- **Create DTOs** use `binding:"required"` tags for mandatory fields
+- **Create DTOs** use `validate:"required"` tags (go-playground/validator) for mandatory fields
 - **Update DTOs** use pointer types (`*string`, `*float64`) so that omitted fields are not confused with zero values
 - **Response DTOs** expose only the fields intended for the API consumer, hiding internal fields like `DeletedAt`
 - **Converter functions** (`ToProductResponse`, `ToPaginatedProductResponse`) handle model-to-DTO transformation

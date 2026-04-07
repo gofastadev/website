@@ -5,7 +5,9 @@ description: Building REST APIs with Gofasta -- controllers, routes, DTOs, middl
 
 # REST API
 
-Gofasta generates a layered REST API structure out of the box. This guide covers how controllers, routes, DTOs, middleware, and response helpers work together to handle HTTP requests.
+REST is the default API mode in Gofasta. When you run `gofasta new myapp`, the generated project includes a fully working REST API with no additional flags required. GraphQL can be added optionally via the `--graphql` flag.
+
+This guide covers how controllers, routes, DTOs, middleware, and response helpers work together to handle HTTP requests.
 
 ## Architecture Overview
 
@@ -28,9 +30,11 @@ Controllers live in `app/rest/controllers/`. Each controller receives a service 
 package controllers
 
 import (
+    "encoding/json"
     "net/http"
 
-    "github.com/gin-gonic/gin"
+    "github.com/gorilla/mux"
+    "github.com/gofastadev/gofasta/pkg/apperrors"
     "github.com/gofastadev/gofasta/pkg/httputil"
     "myapp/app/dtos"
     "myapp/app/services/interfaces"
@@ -44,69 +48,62 @@ func NewProductController(service interfaces.ProductService) *ProductController 
     return &ProductController{service: service}
 }
 
-func (c *ProductController) Create(ctx *gin.Context) {
+func (c *ProductController) Create(w http.ResponseWriter, r *http.Request) error {
     var req dtos.CreateProductRequest
-    if err := httputil.BindJSON(ctx, &req); err != nil {
-        httputil.BadRequest(ctx, err.Error())
-        return
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        return apperrors.BadRequest("invalid request body")
     }
 
-    product, err := c.service.Create(ctx, &req)
+    result, err := c.service.Create(r.Context(), req)
     if err != nil {
-        httputil.HandleError(ctx, err)
-        return
+        return err
     }
 
-    httputil.Created(ctx, product)
+    return httputil.Created(w, result)
 }
 
-func (c *ProductController) FindAll(ctx *gin.Context) {
-    params := httputil.ParsePaginationParams(ctx)
-    products, total, err := c.service.FindAll(ctx, params)
+func (c *ProductController) List(w http.ResponseWriter, r *http.Request) error {
+    params := httputil.ParsePaginationParams(r)
+    products, total, err := c.service.FindAll(r.Context(), params)
     if err != nil {
-        httputil.HandleError(ctx, err)
-        return
+        return err
     }
 
-    httputil.PaginatedJSON(ctx, products, total, params)
+    return httputil.PaginatedJSON(w, products, total, params)
 }
 
-func (c *ProductController) FindByID(ctx *gin.Context) {
-    id := ctx.Param("id")
-    product, err := c.service.FindByID(ctx, id)
+func (c *ProductController) GetByID(w http.ResponseWriter, r *http.Request) error {
+    id := mux.Vars(r)["id"]
+    product, err := c.service.FindByID(r.Context(), id)
     if err != nil {
-        httputil.HandleError(ctx, err)
-        return
+        return err
     }
 
-    httputil.OK(ctx, product)
+    return httputil.OK(w, product)
 }
 
-func (c *ProductController) Update(ctx *gin.Context) {
-    id := ctx.Param("id")
+func (c *ProductController) Update(w http.ResponseWriter, r *http.Request) error {
+    id := mux.Vars(r)["id"]
     var req dtos.UpdateProductRequest
-    if err := httputil.BindJSON(ctx, &req); err != nil {
-        httputil.BadRequest(ctx, err.Error())
-        return
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        return apperrors.BadRequest("invalid request body")
     }
 
-    product, err := c.service.Update(ctx, id, &req)
+    result, err := c.service.Update(r.Context(), id, req)
     if err != nil {
-        httputil.HandleError(ctx, err)
-        return
+        return err
     }
 
-    httputil.OK(ctx, product)
+    return httputil.OK(w, result)
 }
 
-func (c *ProductController) Delete(ctx *gin.Context) {
-    id := ctx.Param("id")
-    if err := c.service.Delete(ctx, id); err != nil {
-        httputil.HandleError(ctx, err)
-        return
+func (c *ProductController) Archive(w http.ResponseWriter, r *http.Request) error {
+    id := mux.Vars(r)["id"]
+    if err := c.service.Delete(r.Context(), id); err != nil {
+        return err
     }
 
-    httputil.NoContent(ctx)
+    return httputil.NoContent(w)
 }
 ```
 
@@ -118,19 +115,18 @@ Routes live in `app/rest/routes/`. Each resource has its own route file that reg
 package routes
 
 import (
-    "github.com/gin-gonic/gin"
+    "github.com/gorilla/mux"
+    "github.com/gofastadev/gofasta/pkg/httputil"
     "myapp/app/rest/controllers"
 )
 
-func RegisterProductRoutes(router *gin.RouterGroup, controller *controllers.ProductController) {
-    products := router.Group("/products")
-    {
-        products.POST("", controller.Create)
-        products.GET("", controller.FindAll)
-        products.GET("/:id", controller.FindByID)
-        products.PUT("/:id", controller.Update)
-        products.DELETE("/:id", controller.Delete)
-    }
+func ProductRoutes(api *mux.Router, ctrl *controllers.ProductController) {
+    r := api.PathPrefix("/products").Subrouter()
+    r.HandleFunc("", httputil.Handle(ctrl.List)).Methods("GET")
+    r.HandleFunc("", httputil.Handle(ctrl.Create)).Methods("POST")
+    r.HandleFunc("/{id}", httputil.Handle(ctrl.GetByID)).Methods("GET")
+    r.HandleFunc("/{id}", httputil.Handle(ctrl.Update)).Methods("PUT")
+    r.HandleFunc("/{id}", httputil.Handle(ctrl.Archive)).Methods("DELETE")
 }
 ```
 
@@ -139,11 +135,11 @@ All resource route files are registered in `app/rest/routes/index.routes.go`, wh
 ```go
 package routes
 
-import "github.com/gin-gonic/gin"
+import "github.com/gorilla/mux"
 
-func RegisterRoutes(router *gin.RouterGroup, deps *di.Container) {
-    RegisterUserRoutes(router, deps.UserController)
-    RegisterProductRoutes(router, deps.ProductController)
+func RegisterRoutes(api *mux.Router, deps *di.Container) {
+    UserRoutes(api, deps.UserController)
+    ProductRoutes(api, deps.ProductController)
 }
 ```
 
@@ -157,13 +153,13 @@ package dtos
 import "time"
 
 type CreateProductRequest struct {
-    Name  string  `json:"name" binding:"required"`
-    Price float64 `json:"price" binding:"required,gt=0"`
+    Name  string  `json:"name" validate:"required"`
+    Price float64 `json:"price" validate:"required,gt=0"`
 }
 
 type UpdateProductRequest struct {
     Name  *string  `json:"name"`
-    Price *float64 `json:"price" binding:"omitempty,gt=0"`
+    Price *float64 `json:"price" validate:"omitempty,gt=0"`
 }
 
 type ProductResponse struct {
@@ -185,14 +181,14 @@ The `github.com/gofastadev/gofasta/pkg/httputil` package provides consistent res
 
 | Helper | Status Code | Use Case |
 |--------|-------------|----------|
-| `httputil.OK(ctx, data)` | 200 | Successful read or update |
-| `httputil.Created(ctx, data)` | 201 | Successful resource creation |
-| `httputil.NoContent(ctx)` | 204 | Successful deletion |
-| `httputil.BadRequest(ctx, msg)` | 400 | Validation or parsing failure |
-| `httputil.Unauthorized(ctx, msg)` | 401 | Missing or invalid auth token |
-| `httputil.Forbidden(ctx, msg)` | 403 | Insufficient permissions |
-| `httputil.NotFound(ctx, msg)` | 404 | Resource not found |
-| `httputil.HandleError(ctx, err)` | varies | Maps error types to status codes automatically |
+| `httputil.OK(w, data)` | 200 | Successful read or update |
+| `httputil.Created(w, data)` | 201 | Successful resource creation |
+| `httputil.NoContent(w)` | 204 | Successful deletion |
+| `httputil.BadRequest(w, msg)` | 400 | Validation or parsing failure |
+| `httputil.Unauthorized(w, msg)` | 401 | Missing or invalid auth token |
+| `httputil.Forbidden(w, msg)` | 403 | Insufficient permissions |
+| `httputil.NotFound(w, msg)` | 404 | Resource not found |
+| `httputil.HandleError(w, err)` | varies | Maps error types to status codes automatically |
 
 All responses follow a consistent JSON envelope:
 
@@ -220,7 +216,7 @@ Error responses follow the same structure:
 
 ```go
 // GET /api/v1/products?page=2&per_page=20&sort=created_at&order=desc
-params := httputil.ParsePaginationParams(ctx)
+params := httputil.ParsePaginationParams(r)
 // params.Page = 2, params.PerPage = 20, params.Sort = "created_at", params.Order = "desc"
 ```
 
@@ -239,15 +235,14 @@ params := httputil.ParsePaginationParams(ctx)
 }
 ```
 
-### Request Binding
+### Request Decoding
 
-`httputil.BindJSON` parses the request body and validates it using struct tags:
+Use `json.NewDecoder` from the standard library to parse request bodies, and `go-playground/validator/v10` struct tags for validation:
 
 ```go
 var req dtos.CreateProductRequest
-if err := httputil.BindJSON(ctx, &req); err != nil {
-    httputil.BadRequest(ctx, err.Error())
-    return
+if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+    return apperrors.BadRequest("invalid request body")
 }
 ```
 
@@ -256,9 +251,12 @@ if err := httputil.BindJSON(ctx, &req); err != nil {
 Gofasta includes built-in middleware from `github.com/gofastadev/gofasta/pkg/middleware`. Middleware is applied in `cmd/serve.go` when the server starts.
 
 ```go
-import "github.com/gofastadev/gofasta/pkg/middleware"
+import (
+    "github.com/gorilla/mux"
+    "github.com/gofastadev/gofasta/pkg/middleware"
+)
 
-router := gin.New()
+router := mux.NewRouter()
 router.Use(middleware.Logger())
 router.Use(middleware.Recovery())
 router.Use(middleware.CORS(middleware.CORSConfig{
@@ -289,25 +287,21 @@ router.Use(middleware.RateLimiter(middleware.RateLimiterConfig{
 Apply auth middleware to specific route groups:
 
 ```go
-func RegisterRoutes(router *gin.RouterGroup, deps *di.Container) {
+func RegisterRoutes(api *mux.Router, deps *di.Container) {
     // Public routes
-    RegisterAuthRoutes(router, deps.AuthController)
+    AuthRoutes(api, deps.AuthController)
 
     // Protected routes
-    protected := router.Group("")
+    protected := api.PathPrefix("").Subrouter()
     protected.Use(middleware.Auth(deps.JWTConfig))
-    {
-        RegisterProductRoutes(protected, deps.ProductController)
-        RegisterOrderRoutes(protected, deps.OrderController)
-    }
+    ProductRoutes(protected, deps.ProductController)
+    OrderRoutes(protected, deps.OrderController)
 
     // Admin-only routes
-    admin := router.Group("/admin")
+    admin := api.PathPrefix("/admin").Subrouter()
     admin.Use(middleware.Auth(deps.JWTConfig))
     admin.Use(middleware.RBAC(deps.Enforcer))
-    {
-        RegisterAdminRoutes(admin, deps.AdminController)
-    }
+    AdminRoutes(admin, deps.AdminController)
 }
 ```
 
@@ -325,18 +319,17 @@ To add a custom endpoint to an existing controller, add the handler method and r
 
 ```go
 // In app/rest/controllers/product.controller.go
-func (c *ProductController) Search(ctx *gin.Context) {
-    query := ctx.Query("q")
-    products, err := c.service.Search(ctx, query)
+func (c *ProductController) Search(w http.ResponseWriter, r *http.Request) error {
+    query := r.URL.Query().Get("q")
+    products, err := c.service.Search(r.Context(), query)
     if err != nil {
-        httputil.HandleError(ctx, err)
-        return
+        return err
     }
-    httputil.OK(ctx, products)
+    return httputil.OK(w, products)
 }
 
 // In app/rest/routes/product.routes.go
-products.GET("/search", controller.Search)
+r.HandleFunc("/search", httputil.Handle(ctrl.Search)).Methods("GET")
 ```
 
 ## Next Steps

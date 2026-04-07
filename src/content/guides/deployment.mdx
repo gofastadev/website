@@ -63,8 +63,8 @@ Build and run:
 ```bash
 docker build -t myapp:latest .
 docker run -p 8080:8080 \
-  -e MYAPP_DATABASE_HOST=host.docker.internal \
-  -e MYAPP_JWT_SECRET=production-secret \
+  -e GOFASTA_DATABASE_HOST=host.docker.internal \
+  -e GOFASTA_JWT_SECRET=production-secret \
   myapp:latest
 ```
 
@@ -79,11 +79,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - MYAPP_DATABASE_HOST=db
-      - MYAPP_DATABASE_PORT=5432
-      - MYAPP_DATABASE_USER=postgres
-      - MYAPP_DATABASE_PASSWORD=postgres
-      - MYAPP_DATABASE_NAME=myapp_db
+      - GOFASTA_DATABASE_HOST=db
+      - GOFASTA_DATABASE_PORT=5432
+      - GOFASTA_DATABASE_USER=postgres
+      - GOFASTA_DATABASE_PASSWORD=postgres
+      - GOFASTA_DATABASE_NAME=myapp_db
     depends_on:
       db:
         condition: service_healthy
@@ -167,17 +167,17 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            - name: MYAPP_DATABASE_HOST
+            - name: GOFASTA_DATABASE_HOST
               valueFrom:
                 secretKeyRef:
                   name: myapp-secrets
                   key: database-host
-            - name: MYAPP_DATABASE_PASSWORD
+            - name: GOFASTA_DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: myapp-secrets
                   key: database-password
-            - name: MYAPP_JWT_SECRET
+            - name: GOFASTA_JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: myapp-secrets
@@ -277,8 +277,8 @@ WorkingDirectory=/opt/myapp
 ExecStart=/opt/myapp/server serve
 Restart=always
 RestartSec=5
-Environment=MYAPP_APP_ENV=production
-Environment=MYAPP_DATABASE_HOST=localhost
+Environment=GOFASTA_APP_ENV=production
+Environment=GOFASTA_DATABASE_HOST=localhost
 EnvironmentFile=/opt/myapp/.env
 
 [Install]
@@ -413,11 +413,11 @@ jobs:
       - name: Run tests
         run: go test -race -coverprofile=coverage.out ./...
         env:
-          MYAPP_DATABASE_HOST: localhost
-          MYAPP_DATABASE_PORT: 5432
-          MYAPP_DATABASE_USER: postgres
-          MYAPP_DATABASE_PASSWORD: postgres
-          MYAPP_DATABASE_NAME: myapp_test
+          GOFASTA_DATABASE_HOST: localhost
+          GOFASTA_DATABASE_PORT: 5432
+          GOFASTA_DATABASE_USER: postgres
+          GOFASTA_DATABASE_PASSWORD: postgres
+          GOFASTA_DATABASE_NAME: myapp_test
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4

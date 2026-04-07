@@ -12,16 +12,12 @@ Run this command whenever you add, remove, or modify DI providers in your projec
 ## Usage
 
 ```bash
-gofasta wire [flags]
+gofasta wire
 ```
 
 Run this command from the root directory of your Gofasta project.
 
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--verbose` | `-v` | `false` | Show detailed output from the Wire generator |
+This command takes no flags.
 
 ## Examples
 
@@ -31,13 +27,13 @@ Regenerate Wire DI code:
 gofasta wire
 ```
 
-Regenerate with verbose output to debug wiring issues:
+## How It Works
+
+The `gofasta wire` command runs:
 
 ```bash
-gofasta wire --verbose
+go tool wire ./app/di/
 ```
-
-## How It Works
 
 The Wire code generation process:
 

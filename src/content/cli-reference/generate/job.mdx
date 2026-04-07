@@ -1,24 +1,19 @@
 ---
 title: gofasta g job
-description: Generate a background job for asynchronous processing.
+description: Generate a scheduled background job that implements the scheduler.Job interface.
 ---
 
 # gofasta g job
 
-Generates a background job file for handling asynchronous work such as sending emails, processing uploads, generating reports, or any task that should not block the HTTP request/response cycle.
+Generates a background job file for handling recurring work such as sending emails, processing uploads, generating reports, or any task that should run on a schedule. Jobs implement the `scheduler.Job` interface with `Name()` and `Run()` methods, and use GORM for database access and `slog` for structured logging.
 
 ## Usage
 
 ```bash
-gofasta g job <JobName> [flags]
+gofasta g job <Name> [schedule]
 ```
 
-## Flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--queue` | `-q` | `default` | Queue name for the job |
-| `--retries` | `-r` | `3` | Maximum number of retry attempts on failure |
+The optional second positional argument specifies a cron schedule expression. This command has no flags.
 
 ## Examples
 
@@ -28,115 +23,104 @@ Generate a job for sending welcome emails:
 gofasta g job SendWelcomeEmail
 ```
 
-Generate a job with a specific queue and retry count:
+Generate a job with a specific cron schedule:
 
 ```bash
-gofasta g job ProcessImageUpload --queue media --retries 5
+gofasta g job GenerateMonthlyReport "0 0 1 * *"
 ```
 
-Generate a job for report generation:
+Generate a job that runs every 5 minutes:
 
 ```bash
-gofasta g job GenerateMonthlyReport --queue reports
+gofasta g job SyncExternalData "*/5 * * * *"
 ```
 
 ## What It Generates
 
-Running `gofasta g job SendWelcomeEmail` creates one file:
+Running `gofasta g job SendWelcomeEmail` creates one file and patches two:
 
-```
-app/jobs/send_welcome_email.job.go
-```
+| File | Description |
+|------|-------------|
+| `app/jobs/send_welcome_email.go` | Job implementation (created) |
+| `cmd/serve.go` | Registers the job in the job registry (patched) |
+| `config/config.yaml` | Adds the job schedule entry (patched) |
 
 ### Generated Code
 
 ```go
-// app/jobs/send_welcome_email.job.go
+// app/jobs/send_welcome_email.go
 package jobs
 
 import (
     "context"
-    "log"
+    "log/slog"
+
+    "gorm.io/gorm"
 )
 
-// SendWelcomeEmailJob handles asynchronous sending of welcome emails.
+// SendWelcomeEmailJob handles sending welcome emails on a schedule.
 type SendWelcomeEmailJob struct {
-    // Add dependencies here (e.g., email service, user repository)
-}
-
-// SendWelcomeEmailPayload contains the data needed to execute this job.
-type SendWelcomeEmailPayload struct {
-    UserID string `json:"user_id"`
-    Email  string `json:"email"`
-    Name   string `json:"name"`
+    db *gorm.DB
 }
 
 // NewSendWelcomeEmailJob creates a new instance of SendWelcomeEmailJob.
-func NewSendWelcomeEmailJob() *SendWelcomeEmailJob {
-    return &SendWelcomeEmailJob{}
+func NewSendWelcomeEmailJob(db *gorm.DB) *SendWelcomeEmailJob {
+    return &SendWelcomeEmailJob{db: db}
 }
 
-// Handle executes the job logic.
-func (j *SendWelcomeEmailJob) Handle(ctx context.Context, payload SendWelcomeEmailPayload) error {
-    log.Printf("Sending welcome email to %s (%s)", payload.Name, payload.Email)
+// Name returns the unique name of this job.
+func (j *SendWelcomeEmailJob) Name() string {
+    return "SendWelcomeEmail"
+}
+
+// Run executes the job logic.
+func (j *SendWelcomeEmailJob) Run(ctx context.Context) error {
+    slog.Info("Running SendWelcomeEmail job")
 
     // TODO: Implement job logic here
-    // Example:
-    // return j.emailService.Send(payload.Email, "Welcome!", templateData)
 
     return nil
 }
-
-// Queue returns the queue name for this job.
-func (j *SendWelcomeEmailJob) Queue() string {
-    return "default"
-}
-
-// MaxRetries returns the maximum number of retry attempts.
-func (j *SendWelcomeEmailJob) MaxRetries() int {
-    return 3
-}
-
-// OnFailure is called when the job exceeds its maximum retry attempts.
-func (j *SendWelcomeEmailJob) OnFailure(ctx context.Context, payload SendWelcomeEmailPayload, err error) {
-    log.Printf("SendWelcomeEmail job failed after max retries: %v", err)
-}
 ```
 
-## Dispatching Jobs
+## Job Interface
 
-To dispatch a job from a service or controller:
+All generated jobs implement the `scheduler.Job` interface:
 
 ```go
-// In your service
-func (s *UserServiceImpl) Register(req dtos.RegisterRequest) (*dtos.UserResponse, error) {
-    user, err := s.repo.Create(mapToUser(req))
-    if err != nil {
-        return nil, err
-    }
-
-    // Dispatch the background job
-    s.jobDispatcher.Dispatch(&jobs.SendWelcomeEmailPayload{
-        UserID: user.ID.String(),
-        Email:  user.Email,
-        Name:   user.Name,
-    })
-
-    return dtos.ToUserResponse(user), nil
+type Job interface {
+    Name() string
+    Run(ctx context.Context) error
 }
 ```
 
-## Job Lifecycle
+- `Name()` returns a unique identifier used for logging and the job registry
+- `Run()` contains the job logic and receives a context for cancellation support
 
-1. A job is dispatched with a payload
-2. The job runner picks it up from the queue
-3. `Handle()` is called with the payload
-4. On success, the job is marked complete
-5. On failure, it retries up to `MaxRetries()` times
-6. If all retries fail, `OnFailure()` is called
+## Cron Expression Format
+
+The schedule uses standard cron syntax with five fields:
+
+```
+* * * * *
+| | | | |
+| | | | +-- Day of week (0-6, Sunday=0)
+| | | +---- Month (1-12)
+| | +------ Day of month (1-31)
+| +-------- Hour (0-23)
++---------- Minute (0-59)
+```
+
+| Expression | Description |
+|------------|-------------|
+| `0 * * * *` | Every hour at minute 0 |
+| `0 0 * * *` | Daily at midnight |
+| `0 9 * * 1` | Every Monday at 9:00 AM |
+| `*/5 * * * *` | Every 5 minutes |
+| `0 0 1 * *` | First day of every month at midnight |
 
 ## Related
 
-- [gofasta g task](/docs/cli-reference/generate/task) -- generate a scheduled task (cron) instead
+- [gofasta g task](/docs/cli-reference/generate/task) -- generate an async task handler instead
 - [gofasta g email-template](/docs/cli-reference/generate/email-template) -- generate an email template for email jobs
 - [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource
