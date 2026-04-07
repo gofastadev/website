@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteTitle = "Gofasta - Build Go Backends at Lightning Speed";
+const siteTitle = "Gofasta - Production-Ready Go Backend Toolkit";
 const siteDescription =
-  "Production-ready scaffolding, code generation, and batteries-included packages for Go web services.";
+  "CLI scaffolding and 27 composable packages for Go web services. Generate models, APIs, auth, jobs, and deployment configs. No magic, just Go.";
 const siteUrl = "https://gofasta.dev";
 
 export const metadata: Metadata = {
@@ -38,10 +38,10 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [
       {
-        url: "/api/og?title=Build%20Go%20Backends%20at%20Lightning%20Speed&section=Gofasta",
+        url: "/api/og?title=Production-Ready%20Go%20Backend%20Toolkit&section=Gofasta",
         width: 1200,
         height: 630,
-        alt: "Gofasta - Build Go Backends at Lightning Speed",
+        alt: "Gofasta - Production-Ready Go Backend Toolkit",
         type: "image/png",
       },
     ],
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     images: [
-      "/api/og?title=Build%20Go%20Backends%20at%20Lightning%20Speed&section=Gofasta",
+      "/api/og?title=Production-Ready%20Go%20Backend%20Toolkit&section=Gofasta",
     ],
   },
   robots: {

@@ -17,14 +17,13 @@ export function ComingSoon() {
       </div>
 
       <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl">
-        Build Go backends at{" "}
-        <span className="text-primary">lightning speed</span>
+        The Go backend toolkit is{" "}
+        <span className="text-primary">almost here.</span>
       </h1>
 
       <p className="mt-6 max-w-xl text-base text-muted sm:text-lg">
-        Production-ready scaffolding, code generation, and batteries-included
-        packages for Go web services. We&apos;re putting the finishing touches
-        on something great.
+        Production-ready scaffolding, 27 composable packages, and zero magic.
+        We&apos;re putting the finishing touches on something useful.
       </p>
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
