@@ -10,7 +10,7 @@ describe("FeaturesGrid", () => {
 
   it("renders the section subtitle", () => {
     render(<FeaturesGrid />);
-    expect(screen.getByText(/27 composable packages/)).toBeInTheDocument();
+    expect(screen.getByText(/composable packages/)).toBeInTheDocument();
   });
 
   it("renders all 6 feature cards", () => {

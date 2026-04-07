@@ -76,7 +76,7 @@ export function FeaturesGrid() {
         What you get out of the box
       </h2>
       <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-gray-600 dark:text-gray-400">
-        A CLI that scaffolds your project and 27 composable packages that
+        A CLI that scaffolds your project and composable packages that
         handle the rest. No magic, just Go.
       </p>
 

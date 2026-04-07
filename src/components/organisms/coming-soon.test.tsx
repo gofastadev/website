@@ -16,7 +16,7 @@ describe("ComingSoon", () => {
   it("renders the subtitle", () => {
     render(<ComingSoon />);
     expect(
-      screen.getByText(/27 composable packages, and zero magic/)
+      screen.getByText(/composable packages, and zero magic/)
     ).toBeInTheDocument();
   });
 

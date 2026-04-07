@@ -167,7 +167,7 @@ Nextra provides built-in components you can use in any MDX file without importin
 | Getting Started | `content/getting-started/` | 4 | Introduction, installation, quick start, project structure |
 | Guides | `content/guides/` | 10 | REST, GraphQL, auth, database, deployment, etc. |
 | CLI Reference | `content/cli-reference/` | 21 | Every CLI command and generation subcommand |
-| Framework API | `content/api-reference/` | 26 | Package-by-package reference for all 27 `pkg/*` packages |
+| Framework API | `content/api-reference/` | 26 | Package-by-package reference for all `pkg/*` packages |
 
 ## License
 

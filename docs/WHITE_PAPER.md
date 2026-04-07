@@ -12,7 +12,7 @@
 
 Go is an excellent language for building backend services, but starting a new production project still involves significant repetitive setup: wiring routers, configuring databases, setting up authentication, writing CRUD boilerplate, organizing project structure, and preparing deployment manifests. Each team reinvents these patterns independently, leading to inconsistency and wasted effort.
 
-Gofasta is an open-source toolkit that eliminates this setup overhead. It consists of two components: a **CLI tool** (`gofastadev/cli`) that scaffolds projects and generates idiomatic Go code, and a **library** (`gofastadev/gofasta`) of 27 production-ready packages covering common backend concerns. Generated code is plain Go — no custom syntax, no transpilation, no runtime magic. Developers own every line of output and can modify or replace any component independently.
+Gofasta is an open-source toolkit that eliminates this setup overhead. It consists of two components: a **CLI tool** (`gofastadev/cli`) that scaffolds projects and generates idiomatic Go code, and a **library** (`gofastadev/gofasta`) of production-ready packages covering common backend concerns. Generated code is plain Go — no custom syntax, no transpilation, no runtime magic. Developers own every line of output and can modify or replace any component independently.
 
 This paper describes the technical architecture, design principles, and feature set of Gofasta, and explains how it fits into the Go ecosystem.
 
@@ -60,7 +60,7 @@ Gofasta is two things:
 
 1. **A CLI tool** (`github.com/gofastadev/cli`) installed globally via `go install`. It creates new projects, generates resource code (models, services, controllers, migrations), runs migrations, manages seeds, and regenerates dependency injection wiring. It does not import the framework library; it only manipulates files on disk.
 
-2. **A Go library** (`github.com/gofastadev/gofasta`) containing 27 packages under `pkg/`. These packages provide configuration loading, structured logging, error handling, HTTP utilities, middleware, authentication, caching, storage, email, notifications, WebSockets, scheduling, queues, resilience patterns, validation, internationalization, observability, feature flags, encryption, health checks, and test utilities. Each package is independently importable and has no side effects.
+2. **A Go library** (`github.com/gofastadev/gofasta`) containing multiple packages under `pkg/`. These packages provide configuration loading, structured logging, error handling, HTTP utilities, middleware, authentication, caching, storage, email, notifications, WebSockets, scheduling, queues, resilience patterns, validation, internationalization, observability, feature flags, encryption, health checks, and test utilities. Each package is independently importable and has no side effects.
 
 ### 1.3 What Gofasta Is Not
 
@@ -90,7 +90,7 @@ Gofasta prefers compile-time checks over runtime checks. Dependency injection is
 
 ### 2.5 Composable Packages
 
-The 27 packages in `pkg/` are independently importable. A project can use `pkg/cache` without `pkg/mailer`, or `pkg/resilience` without `pkg/queue`. There is no central "framework" import that pulls in everything. Each package declares its own dependencies, and they are minimal.
+The packages in `pkg/` are independently importable. A project can use `pkg/cache` without `pkg/mailer`, or `pkg/resilience` without `pkg/queue`. There is no central "framework" import that pulls in everything. Each package declares its own dependencies, and they are minimal.
 
 ### 2.6 No Shortcuts
 
@@ -283,7 +283,7 @@ After generation, run `gofasta wire` to regenerate the DI container and `gofasta
 
 ## 5. The Framework Library
 
-The library (`github.com/gofastadev/gofasta`) provides 27 packages under `pkg/`. Each package is independently importable.
+The library (`github.com/gofastadev/gofasta`) provides packages under `pkg/`. Each package is independently importable.
 
 | Package | Purpose |
 |---------|---------|
@@ -1102,7 +1102,7 @@ Gofasta occupies a specific niche: it provides more structure than a router libr
 
 ### 16.3 Key Differentiators
 
-**vs. gorilla/mux, chi, Gin, Echo:** These are HTTP routers. Gofasta uses gorilla/mux (which builds on `net/http`) as its router but adds project structure, code generation, database management, authentication, background processing, and 27 utility packages. A developer using any router still needs to set all of this up manually.
+**vs. gorilla/mux, chi, Gin, Echo:** These are HTTP routers. Gofasta uses gorilla/mux (which builds on `net/http`) as its router but adds project structure, code generation, database management, authentication, background processing, and utility packages. A developer using any router still needs to set all of this up manually.
 
 **vs. go-blueprint:** go-blueprint generates project scaffolding with a choice of router and database driver. Gofasta goes further with resource-level code generation (`gofasta g scaffold`), a library of production packages, and generated deployment manifests. go-blueprint generates the starting point; Gofasta generates the starting point and the ongoing CRUD boilerplate.
 
@@ -1115,7 +1115,7 @@ Gofasta occupies a specific niche: it provides more structure than a router libr
 Gofasta is under active development. Current priorities:
 
 ### Near-term
-- Expand test coverage across all 27 packages
+- Expand test coverage across all packages
 - Add `gofasta g middleware` generator for custom middleware scaffolding
 - Improve error messages in code generation for edge cases
 - Add support for additional database drivers (e.g., CockroachDB)

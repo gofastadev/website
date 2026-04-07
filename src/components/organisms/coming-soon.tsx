@@ -22,7 +22,7 @@ export function ComingSoon() {
       </h1>
 
       <p className="mt-6 max-w-xl text-base text-muted sm:text-lg">
-        Production-ready scaffolding, 27 composable packages, and zero magic.
+        Production-ready scaffolding, composable packages, and zero magic.
         We&apos;re putting the finishing touches on something useful.
       </p>
 

@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 const siteTitle = "Gofasta - Production-Ready Go Backend Toolkit";
 const siteDescription =
-  "CLI scaffolding and 27 composable packages for Go web services. Generate models, APIs, auth, jobs, and deployment configs. No magic, just Go.";
+  "CLI scaffolding and composable packages for Go web services. Generate models, APIs, auth, jobs, and deployment configs. No magic, just Go.";
 const siteUrl = "https://gofasta.dev";
 
 export const metadata: Metadata = {
