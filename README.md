@@ -169,21 +169,6 @@ Nextra provides built-in components you can use in any MDX file without importin
 | CLI Reference | `content/cli-reference/` | 21 | Every CLI command and generation subcommand |
 | Framework API | `content/api-reference/` | 26 | Package-by-package reference for all 27 `pkg/*` packages |
 
-## Deployment
-
-The site deploys to [Vercel](https://vercel.com) automatically via GitHub Actions:
-
-- **Push to `main`** — builds, lints, and deploys to production
-- **Pull request** — builds, lints, and deploys a preview URL (commented on the PR)
-
-Required GitHub secrets:
-
-| Secret | Description |
-|--------|-------------|
-| `VERCEL_TOKEN` | Vercel API token ([create one here](https://vercel.com/account/tokens)) |
-| `VERCEL_ORG_ID` | Your Vercel org/team ID (from `.vercel/project.json` after `vercel link`) |
-| `VERCEL_PROJECT_ID` | Your Vercel project ID (from `.vercel/project.json` after `vercel link`) |
-
 ## License
 
 MIT
