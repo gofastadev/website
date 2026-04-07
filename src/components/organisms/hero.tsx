@@ -3,17 +3,17 @@ import { TerminalBlock } from "@/components/molecules";
 
 export function Hero() {
   return (
-    <section className="flex flex-col items-center px-6 pt-32 pb-20 text-center">
-      <div className="mb-6 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+    <section className="flex flex-col items-center px-6 pt-24 pb-16 text-center sm:pt-32 sm:pb-20">
+      <div className="mb-6 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary sm:px-4 sm:py-1.5 sm:text-sm">
         Open Source Go Framework
       </div>
 
-      <h1 className="max-w-4xl text-5xl font-bold leading-tight tracking-tight sm:text-6xl lg:text-7xl">
+      <h1 className="max-w-4xl text-3xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
         Build Go backends at{" "}
         <span className="text-primary">lightning speed</span>
       </h1>
 
-      <p className="mt-6 max-w-2xl text-lg text-gray-600 dark:text-gray-400 sm:text-xl">
+      <p className="mt-4 max-w-2xl text-base text-gray-600 dark:text-gray-400 sm:mt-6 sm:text-lg md:text-xl">
         Production-ready scaffolding, code generation, and 27
         batteries-included packages for Go web services. Go from zero to CRUD
         in under a minute.
