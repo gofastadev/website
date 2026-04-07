@@ -1,6 +1,12 @@
+"use client";
+
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/atoms";
 
 export function ComingSoon() {
+  const router = useRouter();
+
   return (
     <section className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
       <Image
@@ -27,14 +33,20 @@ export function ComingSoon() {
       </p>
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-        <a
-          href="https://github.com/gofastadev/gofasta"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-lg bg-primary px-6 py-3 text-base font-semibold text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary-dark"
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={() => router.push("/docs/white-paper")}
+        >
+          Read the White Paper
+        </Button>
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={() => window.open("https://github.com/gofastadev/gofasta", "_blank")}
         >
           Star on GitHub
-        </a>
+        </Button>
       </div>
 
       <p className="mt-16 text-sm text-muted">

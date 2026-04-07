@@ -10,6 +10,10 @@ export function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  if (pathname.startsWith("/docs/white-paper")) {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/docs") || pathname === "/sitemap") {
     return NextResponse.redirect(new URL("/", request.url));
   }

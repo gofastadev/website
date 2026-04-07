@@ -1,6 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { ComingSoon } from "./coming-soon";
+
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 
 describe("ComingSoon", () => {
   it("renders the Coming Soon badge", () => {
@@ -20,15 +25,27 @@ describe("ComingSoon", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the Star on GitHub link", () => {
+  it("renders the Read the White Paper CTA and navigates on click", () => {
     render(<ComingSoon />);
-    const link = screen.getByText("Star on GitHub");
-    expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute(
-      "href",
-      "https://github.com/gofastadev/gofasta"
+    const cta = screen.getByText("Read the White Paper");
+    expect(cta).toBeInTheDocument();
+    expect(cta.tagName).toBe("BUTTON");
+    fireEvent.click(cta);
+    expect(mockPush).toHaveBeenCalledWith("/docs/white-paper");
+  });
+
+  it("renders the Star on GitHub CTA and opens in new tab on click", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    render(<ComingSoon />);
+    const github = screen.getByText("Star on GitHub");
+    expect(github).toBeInTheDocument();
+    expect(github.tagName).toBe("BUTTON");
+    fireEvent.click(github);
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://github.com/gofastadev/gofasta",
+      "_blank"
     );
-    expect(link).toHaveAttribute("target", "_blank");
+    openSpy.mockRestore();
   });
 
   it("renders the logo image", () => {

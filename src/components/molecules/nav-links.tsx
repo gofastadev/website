@@ -22,27 +22,30 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
       >
         Docs
       </Link>
-      <a
+      <Link
         href="https://github.com/gofastadev/gofasta"
         target="_blank"
         rel="noopener noreferrer"
         className={linkStyles[variant]}
       >
         GitHub
-      </a>
+      </Link>
       {variant === "footer" && (
         <>
+          <Link href="/docs/white-paper" className={linkStyles[variant]}>
+            White Paper
+          </Link>
           <Link href="/sitemap" className={linkStyles[variant]}>
             Sitemap
           </Link>
-          <a
+          <Link
             href="https://github.com/gofastadev/gofasta/blob/main/LICENSE"
             target="_blank"
             rel="noopener noreferrer"
             className={linkStyles[variant]}
           >
             License
-          </a>
+          </Link>
         </>
       )}
     </div>

@@ -9,21 +9,32 @@ describe("NavLinks", () => {
     expect(screen.getByText("GitHub")).toBeInTheDocument();
   });
 
-  it("does not render License link in header variant", () => {
+  it("does not render footer-only links in header variant", () => {
     render(<NavLinks variant="header" />);
     expect(screen.queryByText("License")).not.toBeInTheDocument();
+    expect(screen.queryByText("White Paper")).not.toBeInTheDocument();
   });
 
-  it("renders Docs, GitHub, and License links in footer variant", () => {
+  it("renders all links in footer variant", () => {
     render(<NavLinks variant="footer" />);
     expect(screen.getByText("Docs")).toBeInTheDocument();
     expect(screen.getByText("GitHub")).toBeInTheDocument();
+    expect(screen.getByText("White Paper")).toBeInTheDocument();
     expect(screen.getByText("License")).toBeInTheDocument();
+  });
+
+  it("White Paper link points to docs white paper page", () => {
+    render(<NavLinks variant="footer" />);
+    expect(screen.getByText("White Paper")).toHaveAttribute(
+      "href",
+      "/docs/white-paper"
+    );
   });
 
   it("defaults to header variant", () => {
     render(<NavLinks />);
     expect(screen.queryByText("License")).not.toBeInTheDocument();
+    expect(screen.queryByText("White Paper")).not.toBeInTheDocument();
   });
 
   it("Docs link points to getting started", () => {
