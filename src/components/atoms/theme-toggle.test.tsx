@@ -65,4 +65,28 @@ describe("ThemeToggle", () => {
     const button = screen.getByRole("button", { name: "Toggle theme" });
     expect(button).toHaveClass("extra-class");
   });
+
+  it("renders nothing when not mounted", async () => {
+    vi.resetModules();
+
+    vi.doMock("react", async () => {
+      const actual = await vi.importActual<typeof import("react")>("react");
+      return {
+        ...actual,
+        useSyncExternalStore: (
+          _subscribe: () => () => void,
+          _getSnapshot: () => boolean,
+          getServerSnapshot?: () => boolean,
+        ) => getServerSnapshot?.() ?? false,
+      };
+    });
+
+    vi.doMock("next-themes", () => ({
+      useTheme: () => ({ theme: "light", setTheme: vi.fn() }),
+    }));
+
+    const { ThemeToggle: UnmountedToggle } = await import("./theme-toggle");
+    const { container } = render(<UnmountedToggle />);
+    expect(container.innerHTML).toBe("");
+  });
 });
