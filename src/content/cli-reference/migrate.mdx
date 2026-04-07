@@ -1,7 +1,143 @@
 ---
 title: gofasta migrate
+description: Run and manage database migrations for your Gofasta project.
 ---
 
 # gofasta migrate
 
-Documentation coming soon.
+Manages database migrations using SQL files in the `db/migrations/` directory. Supports running migrations up, rolling them back, creating new migration files, and checking migration status.
+
+Gofasta uses numbered migration files with `up` and `down` variants. Each migration is tracked in a `schema_migrations` table in your database.
+
+## Usage
+
+```bash
+gofasta migrate <subcommand> [flags]
+```
+
+## Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| `up` | Run all pending migrations |
+| `down` | Roll back the last migration batch |
+| `create` | Create a new blank migration file pair |
+| `status` | Show which migrations have been applied |
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--steps` | `-n` | all | Number of migrations to run (for `up` and `down`) |
+| `--env` | `-e` | `development` | Environment to use for database connection |
+
+## Examples
+
+Run all pending migrations:
+
+```bash
+gofasta migrate up
+```
+
+Run only the next 2 pending migrations:
+
+```bash
+gofasta migrate up --steps 2
+```
+
+Roll back the most recent migration:
+
+```bash
+gofasta migrate down
+```
+
+Roll back the last 3 migrations:
+
+```bash
+gofasta migrate down -n 3
+```
+
+Create a new migration for adding an orders table:
+
+```bash
+gofasta migrate create create_orders
+```
+
+This creates two files:
+
+```
+db/migrations/000007_create_orders.up.sql
+db/migrations/000007_create_orders.down.sql
+```
+
+Check migration status:
+
+```bash
+gofasta migrate status
+```
+
+Output:
+
+```
+Migration Status
+================
+000001_create_users          applied   2026-03-15 10:23:45
+000002_create_roles          applied   2026-03-15 10:23:45
+000003_create_permissions    applied   2026-03-15 10:23:46
+000004_create_casbin_rules   applied   2026-03-15 10:23:46
+000005_create_sessions       applied   2026-03-15 10:23:46
+000006_create_products       pending
+```
+
+Run migrations against the production database:
+
+```bash
+gofasta migrate up --env production
+```
+
+## Migration File Format
+
+Up migrations contain SQL statements to apply changes:
+
+```sql
+-- db/migrations/000006_create_products.up.sql
+CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMP
+);
+
+CREATE INDEX idx_products_deleted_at ON products(deleted_at);
+```
+
+Down migrations contain SQL statements to reverse changes:
+
+```sql
+-- db/migrations/000006_create_products.down.sql
+DROP TABLE IF EXISTS products;
+```
+
+## Database Configuration
+
+The migration command reads database connection settings from `config/config.yaml`:
+
+```yaml
+database:
+  driver: postgres
+  host: localhost
+  port: 5432
+  name: myapp_dev
+  user: postgres
+  password: postgres
+```
+
+The `--env` flag selects which configuration block to use when you have environment-specific configs.
+
+## Related
+
+- [gofasta seed](/docs/cli-reference/seed) -- run database seeders
+- [gofasta g migration](/docs/cli-reference/generate/migration) -- generate migration files from a resource definition
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource including migrations

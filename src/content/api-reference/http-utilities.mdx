@@ -1,7 +1,161 @@
 ---
-title: http-utilities
+title: HTTP Utilities
+description: Request binding, response helpers, JSON utilities, and pagination support for HTTP handlers.
 ---
 
-# http-utilities
+# HTTP Utilities
 
-Documentation coming soon.
+The `httputil` package provides helper functions for common HTTP handler tasks including request body binding, JSON response writing, pagination, and standardized response structures.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/httputil"
+```
+
+## Key Types
+
+### PaginationParams
+
+```go
+type PaginationParams struct {
+    Page     int `json:"page"`
+    PageSize int `json:"page_size"`
+    Offset   int `json:"-"`
+}
+```
+
+### PaginatedResponse
+
+```go
+type PaginatedResponse[T any] struct {
+    Data       []T   `json:"data"`
+    Total      int64 `json:"total"`
+    Page       int   `json:"page"`
+    PageSize   int   `json:"page_size"`
+    TotalPages int   `json:"total_pages"`
+}
+```
+
+### SuccessResponse
+
+```go
+type SuccessResponse struct {
+    Message string      `json:"message"`
+    Data    interface{} `json:"data,omitempty"`
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `Bind` | `func Bind(r *http.Request, dest interface{}) error` | Decodes the JSON request body into the destination struct |
+| `BindQuery` | `func BindQuery(r *http.Request, dest interface{}) error` | Binds URL query parameters to a struct |
+| `JSON` | `func JSON(w http.ResponseWriter, status int, data interface{})` | Writes a JSON response with the given status code |
+| `Success` | `func Success(w http.ResponseWriter, message string, data interface{})` | Writes a 200 JSON success response |
+| `Created` | `func Created(w http.ResponseWriter, message string, data interface{})` | Writes a 201 JSON created response |
+| `NoContent` | `func NoContent(w http.ResponseWriter)` | Writes a 204 no content response |
+| `Error` | `func Error(w http.ResponseWriter, err error)` | Converts an error to the appropriate HTTP error response |
+| `ParsePagination` | `func ParsePagination(r *http.Request) PaginationParams` | Extracts page and page_size from query parameters |
+| `Paginate` | `func Paginate[T any](items []T, total int64, params PaginationParams) PaginatedResponse[T]` | Constructs a paginated response |
+| `PathParam` | `func PathParam(r *http.Request, name string) string` | Extracts a named path parameter from the request |
+
+## Usage
+
+### Binding Request Bodies
+
+```go
+func (c *UserController) Create(w http.ResponseWriter, r *http.Request) {
+    var input CreateUserInput
+    if err := httputil.Bind(r, &input); err != nil {
+        httputil.Error(w, errors.BadRequest(err.Error()))
+        return
+    }
+
+    user, err := c.service.Create(r.Context(), input)
+    if err != nil {
+        httputil.Error(w, err)
+        return
+    }
+
+    httputil.Created(w, "user created", user)
+}
+```
+
+### Binding Query Parameters
+
+```go
+type ListUsersQuery struct {
+    Role   string `query:"role"`
+    Status string `query:"status"`
+    Search string `query:"search"`
+}
+
+func (c *UserController) List(w http.ResponseWriter, r *http.Request) {
+    var query ListUsersQuery
+    if err := httputil.BindQuery(r, &query); err != nil {
+        httputil.Error(w, errors.BadRequest(err.Error()))
+        return
+    }
+    // query.Role, query.Status, query.Search are populated
+}
+```
+
+### JSON Responses
+
+```go
+// Success with data
+httputil.Success(w, "user retrieved", user)
+// -> 200 {"message":"user retrieved","data":{...}}
+
+// Created
+httputil.Created(w, "user created", user)
+// -> 201 {"message":"user created","data":{...}}
+
+// No content
+httputil.NoContent(w)
+// -> 204
+
+// Custom status
+httputil.JSON(w, http.StatusAccepted, map[string]string{"status": "processing"})
+// -> 202 {"status":"processing"}
+```
+
+### Pagination
+
+```go
+func (c *UserController) List(w http.ResponseWriter, r *http.Request) {
+    params := httputil.ParsePagination(r)
+    // GET /api/users?page=2&page_size=20
+    // params.Page = 2, params.PageSize = 20, params.Offset = 20
+
+    users, total, err := c.service.List(r.Context(), params)
+    if err != nil {
+        httputil.Error(w, err)
+        return
+    }
+
+    response := httputil.Paginate(users, total, params)
+    httputil.JSON(w, http.StatusOK, response)
+    // -> {"data":[...],"total":100,"page":2,"page_size":20,"total_pages":5}
+}
+```
+
+### Error Responses
+
+The `Error` function automatically detects `*errors.AppError` and uses the appropriate HTTP status code. Unknown errors default to 500 Internal Server Error.
+
+```go
+httputil.Error(w, errors.NotFound("User", "123"))
+// -> 404 {"error":{"code":"NOT_FOUND","message":"User not found","detail":"id: 123"}}
+
+httputil.Error(w, fmt.Errorf("something broke"))
+// -> 500 {"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}
+```
+
+## Related Pages
+
+- [Errors](/docs/api-reference/errors) -- Error types used by the Error() helper
+- [Validators](/docs/api-reference/validators) -- Validate input before binding
+- [Middleware](/docs/api-reference/middleware) -- Request processing pipeline

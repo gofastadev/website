@@ -1,7 +1,179 @@
 ---
-title: observability
+title: Observability
+description: Prometheus metrics, OpenTelemetry tracing, and application instrumentation.
 ---
 
-# observability
+# Observability
 
-Documentation coming soon.
+The `observability` package provides instrumentation for monitoring and tracing Gofasta applications. It integrates Prometheus for metrics collection and OpenTelemetry for distributed tracing.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/observability"
+```
+
+## Key Types
+
+### MetricsConfig
+
+```go
+type MetricsConfig struct {
+    Enabled   bool   `yaml:"enabled" env:"METRICS_ENABLED"`
+    Path      string `yaml:"path" env:"METRICS_PATH"`
+    Namespace string `yaml:"namespace" env:"METRICS_NAMESPACE"`
+}
+```
+
+### TracingConfig
+
+```go
+type TracingConfig struct {
+    Enabled      bool   `yaml:"enabled" env:"TRACING_ENABLED"`
+    Exporter     string `yaml:"exporter" env:"TRACING_EXPORTER"`
+    Endpoint     string `yaml:"endpoint" env:"TRACING_ENDPOINT"`
+    ServiceName  string `yaml:"service_name" env:"TRACING_SERVICE_NAME"`
+    SamplingRate float64 `yaml:"sampling_rate" env:"TRACING_SAMPLING_RATE"`
+}
+```
+
+### Metrics
+
+```go
+type Metrics struct {
+    HTTPRequestsTotal    *prometheus.CounterVec
+    HTTPRequestDuration  *prometheus.HistogramVec
+    HTTPResponseSize     *prometheus.HistogramVec
+    ActiveConnections    prometheus.Gauge
+    DBQueryDuration      *prometheus.HistogramVec
+    CacheHits            *prometheus.CounterVec
+    CacheMisses          *prometheus.CounterVec
+    QueueJobsProcessed   *prometheus.CounterVec
+    QueueJobDuration     *prometheus.HistogramVec
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewMetrics` | `func NewMetrics(cfg MetricsConfig) *Metrics` | Creates and registers Prometheus metrics |
+| `MetricsHandler` | `func MetricsHandler() http.Handler` | Returns the Prometheus metrics HTTP handler |
+| `MetricsMiddleware` | `func MetricsMiddleware(m *Metrics) func(http.Handler) http.Handler` | Middleware that records HTTP request metrics |
+| `InitTracer` | `func InitTracer(cfg TracingConfig) (func(context.Context) error, error)` | Initializes the OpenTelemetry tracer and returns a shutdown function |
+| `SpanFromContext` | `func SpanFromContext(ctx context.Context) trace.Span` | Retrieves the current span from context |
+| `StartSpan` | `func StartSpan(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span)` | Creates a new child span |
+| `TracingMiddleware` | `func TracingMiddleware(serviceName string) func(http.Handler) http.Handler` | Middleware that creates spans for HTTP requests |
+
+## Usage
+
+### Setting Up Metrics
+
+```go
+metrics := observability.NewMetrics(observability.MetricsConfig{
+    Enabled:   true,
+    Path:      "/metrics",
+    Namespace: "myapp",
+})
+
+// Expose the metrics endpoint
+mux.Handle("GET /metrics", observability.MetricsHandler())
+
+// Add metrics middleware to record HTTP request data
+handler := observability.MetricsMiddleware(metrics)(mux)
+```
+
+### Custom Metrics
+
+```go
+// Increment a counter
+metrics.HTTPRequestsTotal.WithLabelValues("GET", "/api/users", "200").Inc()
+
+// Observe a duration
+timer := prometheus.NewTimer(metrics.HTTPRequestDuration.WithLabelValues("GET", "/api/users"))
+defer timer.ObserveDuration()
+
+// Track cache hits/misses
+metrics.CacheHits.WithLabelValues("users").Inc()
+metrics.CacheMisses.WithLabelValues("sessions").Inc()
+```
+
+### Setting Up Tracing
+
+```go
+shutdown, err := observability.InitTracer(observability.TracingConfig{
+    Enabled:      true,
+    Exporter:     "otlp",        // "otlp", "jaeger", or "stdout"
+    Endpoint:     "localhost:4317",
+    ServiceName:  "my-service",
+    SamplingRate: 0.5,           // Sample 50% of traces
+})
+if err != nil {
+    log.Fatalf("failed to init tracer: %v", err)
+}
+defer shutdown(ctx)
+
+// Add tracing middleware
+handler := observability.TracingMiddleware("my-service")(mux)
+```
+
+### Creating Spans
+
+```go
+func (s *UserService) Create(ctx context.Context, input CreateUserInput) (*User, error) {
+    ctx, span := observability.StartSpan(ctx, "UserService.Create")
+    defer span.End()
+
+    span.SetAttributes(
+        attribute.String("user.email", input.Email),
+        attribute.String("user.role", input.Role),
+    )
+
+    user, err := s.repo.Create(ctx, input)
+    if err != nil {
+        span.RecordError(err)
+        span.SetStatus(codes.Error, err.Error())
+        return nil, err
+    }
+
+    return user, nil
+}
+```
+
+### Database Query Tracing
+
+```go
+func (r *UserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+    ctx, span := observability.StartSpan(ctx, "UserRepository.FindByID")
+    defer span.End()
+
+    timer := prometheus.NewTimer(r.metrics.DBQueryDuration.WithLabelValues("FindByID"))
+    defer timer.ObserveDuration()
+
+    var user User
+    err := r.db.WithContext(ctx).First(&user, "id = ?", id).Error
+    return &user, err
+}
+```
+
+### Configuration via config.yaml
+
+```yaml
+observability:
+  metrics:
+    enabled: true
+    path: /metrics
+    namespace: myapp
+  tracing:
+    enabled: true
+    exporter: otlp
+    endpoint: localhost:4317
+    service_name: my-service
+    sampling_rate: 1.0
+```
+
+## Related Pages
+
+- [Logger](/docs/api-reference/logger) -- Structured logging complements metrics and traces
+- [Health](/docs/api-reference/health) -- Health endpoints alongside metrics
+- [Middleware](/docs/api-reference/middleware) -- Apply observability middleware to routes

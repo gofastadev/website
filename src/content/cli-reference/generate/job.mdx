@@ -1,7 +1,142 @@
 ---
 title: gofasta g job
+description: Generate a background job for asynchronous processing.
 ---
 
 # gofasta g job
 
-Documentation coming soon.
+Generates a background job file for handling asynchronous work such as sending emails, processing uploads, generating reports, or any task that should not block the HTTP request/response cycle.
+
+## Usage
+
+```bash
+gofasta g job <JobName> [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--queue` | `-q` | `default` | Queue name for the job |
+| `--retries` | `-r` | `3` | Maximum number of retry attempts on failure |
+
+## Examples
+
+Generate a job for sending welcome emails:
+
+```bash
+gofasta g job SendWelcomeEmail
+```
+
+Generate a job with a specific queue and retry count:
+
+```bash
+gofasta g job ProcessImageUpload --queue media --retries 5
+```
+
+Generate a job for report generation:
+
+```bash
+gofasta g job GenerateMonthlyReport --queue reports
+```
+
+## What It Generates
+
+Running `gofasta g job SendWelcomeEmail` creates one file:
+
+```
+app/jobs/send_welcome_email.job.go
+```
+
+### Generated Code
+
+```go
+// app/jobs/send_welcome_email.job.go
+package jobs
+
+import (
+    "context"
+    "log"
+)
+
+// SendWelcomeEmailJob handles asynchronous sending of welcome emails.
+type SendWelcomeEmailJob struct {
+    // Add dependencies here (e.g., email service, user repository)
+}
+
+// SendWelcomeEmailPayload contains the data needed to execute this job.
+type SendWelcomeEmailPayload struct {
+    UserID string `json:"user_id"`
+    Email  string `json:"email"`
+    Name   string `json:"name"`
+}
+
+// NewSendWelcomeEmailJob creates a new instance of SendWelcomeEmailJob.
+func NewSendWelcomeEmailJob() *SendWelcomeEmailJob {
+    return &SendWelcomeEmailJob{}
+}
+
+// Handle executes the job logic.
+func (j *SendWelcomeEmailJob) Handle(ctx context.Context, payload SendWelcomeEmailPayload) error {
+    log.Printf("Sending welcome email to %s (%s)", payload.Name, payload.Email)
+
+    // TODO: Implement job logic here
+    // Example:
+    // return j.emailService.Send(payload.Email, "Welcome!", templateData)
+
+    return nil
+}
+
+// Queue returns the queue name for this job.
+func (j *SendWelcomeEmailJob) Queue() string {
+    return "default"
+}
+
+// MaxRetries returns the maximum number of retry attempts.
+func (j *SendWelcomeEmailJob) MaxRetries() int {
+    return 3
+}
+
+// OnFailure is called when the job exceeds its maximum retry attempts.
+func (j *SendWelcomeEmailJob) OnFailure(ctx context.Context, payload SendWelcomeEmailPayload, err error) {
+    log.Printf("SendWelcomeEmail job failed after max retries: %v", err)
+}
+```
+
+## Dispatching Jobs
+
+To dispatch a job from a service or controller:
+
+```go
+// In your service
+func (s *UserServiceImpl) Register(req dtos.RegisterRequest) (*dtos.UserResponse, error) {
+    user, err := s.repo.Create(mapToUser(req))
+    if err != nil {
+        return nil, err
+    }
+
+    // Dispatch the background job
+    s.jobDispatcher.Dispatch(&jobs.SendWelcomeEmailPayload{
+        UserID: user.ID.String(),
+        Email:  user.Email,
+        Name:   user.Name,
+    })
+
+    return dtos.ToUserResponse(user), nil
+}
+```
+
+## Job Lifecycle
+
+1. A job is dispatched with a payload
+2. The job runner picks it up from the queue
+3. `Handle()` is called with the payload
+4. On success, the job is marked complete
+5. On failure, it retries up to `MaxRetries()` times
+6. If all retries fail, `OnFailure()` is called
+
+## Related
+
+- [gofasta g task](/docs/cli-reference/generate/task) -- generate a scheduled task (cron) instead
+- [gofasta g email-template](/docs/cli-reference/generate/email-template) -- generate an email template for email jobs
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource

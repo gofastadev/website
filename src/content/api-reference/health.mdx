@@ -1,7 +1,214 @@
 ---
-title: health
+title: Health
+description: Health check endpoints with readiness and liveness probes, dependency checks, and status reporting.
 ---
 
-# health
+# Health
 
-Documentation coming soon.
+The `health` package provides health check endpoints for monitoring application status. It supports Kubernetes-style readiness and liveness probes, dependency health checks (database, cache, external services), and aggregated status reporting.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/health"
+```
+
+## Key Types
+
+### Checker
+
+```go
+type Checker interface {
+    AddCheck(name string, check CheckFunc)
+    AddReadinessCheck(name string, check CheckFunc)
+    AddLivenessCheck(name string, check CheckFunc)
+    Handler() http.Handler
+    ReadinessHandler() http.Handler
+    LivenessHandler() http.Handler
+    Check(ctx context.Context) HealthReport
+}
+```
+
+### CheckFunc
+
+```go
+type CheckFunc func(ctx context.Context) CheckResult
+```
+
+### CheckResult
+
+```go
+type CheckResult struct {
+    Status  Status        `json:"status"`
+    Message string        `json:"message,omitempty"`
+    Latency time.Duration `json:"latency"`
+}
+```
+
+### HealthReport
+
+```go
+type HealthReport struct {
+    Status    Status                  `json:"status"`
+    Timestamp time.Time               `json:"timestamp"`
+    Uptime    time.Duration           `json:"uptime"`
+    Checks    map[string]CheckResult  `json:"checks"`
+}
+```
+
+### Status
+
+```go
+type Status string
+
+const (
+    StatusUp       Status = "up"
+    StatusDown     Status = "down"
+    StatusDegraded Status = "degraded"
+)
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewChecker` | `func NewChecker() Checker` | Creates a new health checker |
+| `AddCheck` | `func (c *Checker) AddCheck(name string, check CheckFunc)` | Adds a check to both readiness and liveness |
+| `AddReadinessCheck` | `func (c *Checker) AddReadinessCheck(name string, check CheckFunc)` | Adds a readiness-only check |
+| `AddLivenessCheck` | `func (c *Checker) AddLivenessCheck(name string, check CheckFunc)` | Adds a liveness-only check |
+| `DatabaseCheck` | `func DatabaseCheck(db *gorm.DB) CheckFunc` | Built-in check that pings the database |
+| `RedisCheck` | `func RedisCheck(client *redis.Client) CheckFunc` | Built-in check that pings Redis |
+| `HTTPCheck` | `func HTTPCheck(url string, timeout time.Duration) CheckFunc` | Built-in check that makes an HTTP GET request |
+| `DiskSpaceCheck` | `func DiskSpaceCheck(path string, minFreeBytes int64) CheckFunc` | Built-in check for available disk space |
+
+## Usage
+
+### Setting Up Health Checks
+
+```go
+checker := health.NewChecker()
+
+// Database check
+checker.AddCheck("database", health.DatabaseCheck(db))
+
+// Redis check
+checker.AddCheck("redis", health.RedisCheck(redisClient))
+
+// External service check
+checker.AddReadinessCheck("payment-api", health.HTTPCheck(
+    "https://api.payment.com/health",
+    5*time.Second,
+))
+
+// Disk space check
+checker.AddLivenessCheck("disk", health.DiskSpaceCheck("/data", 1<<30)) // 1 GB minimum
+```
+
+### Registering Endpoints
+
+```go
+mux.Handle("GET /health", checker.Handler())
+mux.Handle("GET /health/ready", checker.ReadinessHandler())
+mux.Handle("GET /health/live", checker.LivenessHandler())
+```
+
+### Response Format
+
+`GET /health` returns:
+
+```json
+{
+  "status": "up",
+  "timestamp": "2026-04-07T10:00:00Z",
+  "uptime": "72h30m15s",
+  "checks": {
+    "database": {
+      "status": "up",
+      "latency": "2ms"
+    },
+    "redis": {
+      "status": "up",
+      "latency": "1ms"
+    },
+    "payment-api": {
+      "status": "up",
+      "latency": "150ms"
+    }
+  }
+}
+```
+
+When a dependency is down:
+
+```json
+{
+  "status": "degraded",
+  "timestamp": "2026-04-07T10:00:00Z",
+  "uptime": "72h30m15s",
+  "checks": {
+    "database": {
+      "status": "up",
+      "latency": "2ms"
+    },
+    "redis": {
+      "status": "down",
+      "message": "connection refused",
+      "latency": "5000ms"
+    }
+  }
+}
+```
+
+### Custom Health Checks
+
+```go
+checker.AddCheck("queue", func(ctx context.Context) health.CheckResult {
+    start := time.Now()
+    
+    queueSize, err := queue.Len(ctx)
+    if err != nil {
+        return health.CheckResult{
+            Status:  health.StatusDown,
+            Message: err.Error(),
+            Latency: time.Since(start),
+        }
+    }
+
+    if queueSize > 10000 {
+        return health.CheckResult{
+            Status:  health.StatusDegraded,
+            Message: fmt.Sprintf("queue backlog: %d jobs", queueSize),
+            Latency: time.Since(start),
+        }
+    }
+
+    return health.CheckResult{
+        Status:  health.StatusUp,
+        Latency: time.Since(start),
+    }
+})
+```
+
+### Kubernetes Probe Configuration
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+```
+
+## Related Pages
+
+- [Config](/docs/api-reference/config) -- Database and cache configuration for checks
+- [Observability](/docs/api-reference/observability) -- Metrics complement health checks
+- [Resilience](/docs/api-reference/resilience) -- Circuit breaker states reflected in health

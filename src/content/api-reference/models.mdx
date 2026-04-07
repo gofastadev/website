@@ -1,7 +1,143 @@
 ---
-title: models
+title: Models
+description: Base model with UUID primary keys, automatic timestamps, soft delete, and optimistic locking.
 ---
 
-# models
+# Models
 
-Documentation coming soon.
+The `models` package provides the `BaseModelImpl` struct that serves as the foundation for all GORM models in a Gofasta application. It includes UUID primary keys, automatic timestamp management, soft delete support, and optimistic locking via version fields.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/models"
+```
+
+## Key Types
+
+### BaseModel
+
+The interface that all Gofasta models implement.
+
+```go
+type BaseModel interface {
+    GetID() string
+    GetCreatedAt() time.Time
+    GetUpdatedAt() time.Time
+    GetDeletedAt() *time.Time
+    GetVersion() int
+    IsDeleted() bool
+}
+```
+
+### BaseModelImpl
+
+The concrete base struct to embed in all your GORM models.
+
+```go
+type BaseModelImpl struct {
+    ID        string         `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+    CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
+    UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+    DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+    Version   int            `gorm:"default:1" json:"version"`
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `GetID` | `func (b *BaseModelImpl) GetID() string` | Returns the model's UUID |
+| `GetCreatedAt` | `func (b *BaseModelImpl) GetCreatedAt() time.Time` | Returns the creation timestamp |
+| `GetUpdatedAt` | `func (b *BaseModelImpl) GetUpdatedAt() time.Time` | Returns the last update timestamp |
+| `GetDeletedAt` | `func (b *BaseModelImpl) GetDeletedAt() *time.Time` | Returns the soft-delete timestamp, or nil |
+| `GetVersion` | `func (b *BaseModelImpl) GetVersion() int` | Returns the current version for optimistic locking |
+| `IsDeleted` | `func (b *BaseModelImpl) IsDeleted() bool` | Returns true if the model is soft-deleted |
+| `BeforeCreate` | `func (b *BaseModelImpl) BeforeCreate(tx *gorm.DB) error` | GORM hook that generates a UUID before insert |
+
+## Usage
+
+### Defining a Model
+
+Embed `BaseModelImpl` in your domain models to inherit UUID, timestamps, soft delete, and versioning.
+
+```go
+type User struct {
+    models.BaseModelImpl
+    Name     string `gorm:"type:varchar(255);not null" json:"name"`
+    Email    string `gorm:"type:varchar(255);uniqueIndex;not null" json:"email"`
+    Password string `gorm:"type:varchar(255);not null" json:"-"`
+    Role     string `gorm:"type:varchar(50);default:'user'" json:"role"`
+}
+
+type Post struct {
+    models.BaseModelImpl
+    Title    string `gorm:"type:varchar(255);not null" json:"title"`
+    Content  string `gorm:"type:text" json:"content"`
+    AuthorID string `gorm:"type:uuid;not null" json:"author_id"`
+    Author   User   `gorm:"foreignKey:AuthorID" json:"author,omitempty"`
+}
+```
+
+### Automatic UUID Generation
+
+The `BeforeCreate` hook automatically generates a UUID v4 for new records.
+
+```go
+user := User{Name: "Jane", Email: "jane@example.com"}
+db.Create(&user)
+fmt.Println(user.ID) // "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+```
+
+### Soft Delete
+
+GORM's soft delete is built in. Calling `Delete` sets `deleted_at` instead of removing the row.
+
+```go
+// Soft delete
+db.Delete(&user)
+fmt.Println(user.IsDeleted()) // true
+
+// Query excludes soft-deleted records by default
+db.Find(&users) // only returns non-deleted users
+
+// Include soft-deleted records
+db.Unscoped().Find(&users) // returns all users
+
+// Permanently delete
+db.Unscoped().Delete(&user)
+```
+
+### Optimistic Locking
+
+Use the `Version` field to prevent lost updates in concurrent scenarios.
+
+```go
+func (r *UserRepository) Update(ctx context.Context, user *User) error {
+    result := r.db.Model(user).
+        Where("version = ?", user.Version).
+        Updates(map[string]interface{}{
+            "name":    user.Name,
+            "email":   user.Email,
+            "version": user.Version + 1,
+        })
+
+    if result.RowsAffected == 0 {
+        return errors.New("CONFLICT", "record was modified by another request", 409)
+    }
+    return result.Error
+}
+```
+
+### Auto-Migration
+
+```go
+db, err := config.SetupDBWithMigrate(cfg.Database, &User{}, &Post{})
+```
+
+## Related Pages
+
+- [Config](/docs/api-reference/config) -- Database setup and connection
+- [Seeds](/docs/api-reference/seeds) -- Seed initial data for models
+- [Types](/docs/api-reference/types) -- Shared type definitions

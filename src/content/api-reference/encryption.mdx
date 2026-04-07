@@ -1,7 +1,151 @@
 ---
-title: encryption
+title: Encryption
+description: AES encryption and decryption, password hashing, HMAC signing, and key management utilities.
 ---
 
-# encryption
+# Encryption
 
-Documentation coming soon.
+The `encryption` package provides cryptographic utilities including AES-256-GCM encryption/decryption, bcrypt password hashing, HMAC signing, and key generation helpers for securing sensitive data.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/encryption"
+```
+
+## Key Types
+
+### Encryptor
+
+```go
+type Encryptor interface {
+    Encrypt(plaintext []byte) ([]byte, error)
+    Decrypt(ciphertext []byte) ([]byte, error)
+    EncryptString(plaintext string) (string, error)
+    DecryptString(ciphertext string) (string, error)
+}
+```
+
+### EncryptionConfig
+
+```go
+type EncryptionConfig struct {
+    Key       string `yaml:"key" env:"ENCRYPTION_KEY"`
+    Algorithm string `yaml:"algorithm" env:"ENCRYPTION_ALGORITHM"`
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewEncryptor` | `func NewEncryptor(cfg EncryptionConfig) (Encryptor, error)` | Creates an AES-256-GCM encryptor with the given key |
+| `GenerateKey` | `func GenerateKey(bits int) (string, error)` | Generates a random encryption key (128, 192, or 256 bits) |
+| `HashPassword` | `func HashPassword(password string) (string, error)` | Hashes a password with bcrypt |
+| `CheckPassword` | `func CheckPassword(hash, password string) bool` | Compares a bcrypt hash to a plaintext password |
+| `HMAC` | `func HMAC(key, data []byte) []byte` | Computes an HMAC-SHA256 signature |
+| `VerifyHMAC` | `func VerifyHMAC(key, data, signature []byte) bool` | Verifies an HMAC-SHA256 signature |
+| `SHA256` | `func SHA256(data []byte) string` | Returns the SHA-256 hex digest of the data |
+| `RandomBytes` | `func RandomBytes(n int) ([]byte, error)` | Generates n cryptographically random bytes |
+| `RandomString` | `func RandomString(n int) (string, error)` | Generates an n-character random alphanumeric string |
+
+## Usage
+
+### AES Encryption and Decryption
+
+```go
+enc, err := encryption.NewEncryptor(encryption.EncryptionConfig{
+    Key:       "a-32-byte-secret-key-for-aes256", // must be 32 bytes for AES-256
+    Algorithm: "aes-256-gcm",
+})
+if err != nil {
+    log.Fatalf("failed to create encryptor: %v", err)
+}
+
+// Encrypt
+ciphertext, err := enc.EncryptString("sensitive data")
+if err != nil {
+    log.Fatalf("encryption failed: %v", err)
+}
+
+// Decrypt
+plaintext, err := enc.DecryptString(ciphertext)
+if err != nil {
+    log.Fatalf("decryption failed: %v", err)
+}
+fmt.Println(plaintext) // "sensitive data"
+```
+
+### Encrypting Structured Data
+
+```go
+data, _ := json.Marshal(creditCard)
+encrypted, err := enc.Encrypt(data)
+if err != nil {
+    return err
+}
+// Store encrypted bytes in the database
+```
+
+### Password Hashing
+
+```go
+hash, err := encryption.HashPassword("user-password-123")
+if err != nil {
+    return err
+}
+// Store hash in the database
+
+// Later, verify the password
+ok := encryption.CheckPassword(hash, "user-password-123")
+fmt.Println(ok) // true
+```
+
+### HMAC Signing
+
+```go
+key := []byte("webhook-secret")
+payload := []byte(`{"event":"order.created","order_id":"123"}`)
+
+signature := encryption.HMAC(key, payload)
+
+// Verify incoming webhook
+incomingSig := r.Header.Get("X-Signature")
+valid := encryption.VerifyHMAC(key, payload, []byte(incomingSig))
+```
+
+### Key Generation
+
+```go
+// Generate a 256-bit key for AES-256
+key, err := encryption.GenerateKey(256)
+if err != nil {
+    log.Fatalf("key generation failed: %v", err)
+}
+fmt.Println(key) // base64-encoded 32-byte key
+```
+
+### Random String Generation
+
+```go
+// Generate a random token
+token, err := encryption.RandomString(32)
+if err != nil {
+    return err
+}
+fmt.Println(token) // e.g., "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+```
+
+### Configuration via config.yaml
+
+```yaml
+encryption:
+  key: "your-32-byte-secret-key-here!!"
+  algorithm: aes-256-gcm
+```
+
+## Related Pages
+
+- [Auth](/docs/api-reference/auth) -- Password hashing and JWT token signing
+- [Storage](/docs/api-reference/storage) -- Encrypt files before storage
+- [Config](/docs/api-reference/config) -- Encryption configuration loading

@@ -1,7 +1,178 @@
 ---
-title: mailer
+title: Mailer
+description: Email sending with SMTP, SendGrid, and Brevo drivers, template rendering, and attachments.
 ---
 
-# mailer
+# Mailer
 
-Documentation coming soon.
+The `mailer` package provides a unified email sending interface with support for SMTP, SendGrid, and Brevo (formerly Sendinblue) drivers. It includes HTML template rendering, attachments, and batch sending.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/mailer"
+```
+
+## Key Types
+
+### Mailer
+
+```go
+type Mailer interface {
+    Send(ctx context.Context, msg Message) error
+    SendBatch(ctx context.Context, msgs []Message) error
+    Close() error
+}
+```
+
+### Message
+
+```go
+type Message struct {
+    From        Address       `json:"from"`
+    To          []Address     `json:"to"`
+    CC          []Address     `json:"cc,omitempty"`
+    BCC         []Address     `json:"bcc,omitempty"`
+    ReplyTo     *Address      `json:"reply_to,omitempty"`
+    Subject     string        `json:"subject"`
+    Body        string        `json:"body"`
+    HTMLBody    string        `json:"html_body,omitempty"`
+    Attachments []Attachment  `json:"attachments,omitempty"`
+    Headers     map[string]string `json:"headers,omitempty"`
+}
+```
+
+### Address
+
+```go
+type Address struct {
+    Name  string `json:"name"`
+    Email string `json:"email"`
+}
+```
+
+### Attachment
+
+```go
+type Attachment struct {
+    Filename    string `json:"filename"`
+    ContentType string `json:"content_type"`
+    Content     []byte `json:"-"`
+}
+```
+
+### MailerConfig
+
+```go
+type MailerConfig struct {
+    Driver       string `yaml:"driver" env:"MAILER_DRIVER"`
+    Host         string `yaml:"host" env:"MAILER_HOST"`
+    Port         int    `yaml:"port" env:"MAILER_PORT"`
+    Username     string `yaml:"username" env:"MAILER_USERNAME"`
+    Password     string `yaml:"password" env:"MAILER_PASSWORD"`
+    APIKey       string `yaml:"api_key" env:"MAILER_API_KEY"`
+    FromName     string `yaml:"from_name" env:"MAILER_FROM_NAME"`
+    FromEmail    string `yaml:"from_email" env:"MAILER_FROM_EMAIL"`
+    TemplatePath string `yaml:"template_path" env:"MAILER_TEMPLATE_PATH"`
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewMailer` | `func NewMailer(cfg MailerConfig) (Mailer, error)` | Creates a mailer using the configured driver |
+| `NewSMTPMailer` | `func NewSMTPMailer(cfg MailerConfig) (Mailer, error)` | Creates an SMTP mailer |
+| `NewSendGridMailer` | `func NewSendGridMailer(cfg MailerConfig) (Mailer, error)` | Creates a SendGrid mailer |
+| `NewBrevoMailer` | `func NewBrevoMailer(cfg MailerConfig) (Mailer, error)` | Creates a Brevo mailer |
+| `RenderTemplate` | `func RenderTemplate(templatePath string, data interface{}) (string, error)` | Renders an HTML email template with the given data |
+
+## Usage
+
+### Sending a Simple Email
+
+```go
+m, err := mailer.NewMailer(mailer.MailerConfig{
+    Driver:    "smtp",
+    Host:      "smtp.gmail.com",
+    Port:      587,
+    Username:  "user@gmail.com",
+    Password:  "app-password",
+    FromName:  "My App",
+    FromEmail: "noreply@myapp.com",
+})
+if err != nil {
+    log.Fatalf("failed to create mailer: %v", err)
+}
+defer m.Close()
+
+err = m.Send(ctx, mailer.Message{
+    To:      []mailer.Address{{Name: "Jane", Email: "jane@example.com"}},
+    Subject: "Welcome to My App",
+    Body:    "Thanks for signing up!",
+})
+```
+
+### Sending with HTML Template
+
+Create a template file at `templates/welcome.html`:
+
+```html
+<h1>Welcome, {{.Name}}!</h1>
+<p>Your account has been created successfully.</p>
+<a href="{{.VerifyURL}}">Verify your email</a>
+```
+
+Render and send:
+
+```go
+htmlBody, err := mailer.RenderTemplate("templates/welcome.html", map[string]string{
+    "Name":      "Jane",
+    "VerifyURL": "https://myapp.com/verify?token=abc123",
+})
+if err != nil {
+    return err
+}
+
+err = m.Send(ctx, mailer.Message{
+    To:       []mailer.Address{{Name: "Jane", Email: "jane@example.com"}},
+    Subject:  "Welcome to My App",
+    HTMLBody: htmlBody,
+})
+```
+
+### Sending with Attachments
+
+```go
+pdfContent, _ := os.ReadFile("invoice.pdf")
+
+err = m.Send(ctx, mailer.Message{
+    To:      []mailer.Address{{Email: "customer@example.com"}},
+    Subject: "Your Invoice",
+    Body:    "Please find your invoice attached.",
+    Attachments: []mailer.Attachment{
+        {
+            Filename:    "invoice.pdf",
+            ContentType: "application/pdf",
+            Content:     pdfContent,
+        },
+    },
+})
+```
+
+### Configuration via config.yaml
+
+```yaml
+mailer:
+  driver: sendgrid   # "smtp", "sendgrid", or "brevo"
+  api_key: "SG.xxxxx"
+  from_name: "My App"
+  from_email: "noreply@myapp.com"
+  template_path: "templates/"
+```
+
+## Related Pages
+
+- [Config](/docs/api-reference/config) -- Mailer configuration loading
+- [Queue](/docs/api-reference/queue) -- Queue email sending for async delivery
+- [Notifications](/docs/api-reference/notifications) -- Higher-level notification dispatch

@@ -1,7 +1,172 @@
 ---
 title: i18n
+description: Internationalization with translation loading, locale detection, message formatting, and pluralization.
 ---
 
 # i18n
 
-Documentation coming soon.
+The `i18n` package provides internationalization support including translation file loading, locale detection from HTTP requests, message formatting with parameter interpolation, and pluralization rules.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/i18n"
+```
+
+## Key Types
+
+### I18n
+
+```go
+type I18n interface {
+    T(locale string, key string, params ...interface{}) string
+    TPlural(locale string, key string, count int, params ...interface{}) string
+    HasLocale(locale string) bool
+    Locales() []string
+    SetFallback(locale string)
+}
+```
+
+### I18nConfig
+
+```go
+type I18nConfig struct {
+    DefaultLocale string `yaml:"default_locale" env:"I18N_DEFAULT_LOCALE"`
+    FallbackLocale string `yaml:"fallback_locale" env:"I18N_FALLBACK_LOCALE"`
+    TranslationDir string `yaml:"translation_dir" env:"I18N_TRANSLATION_DIR"`
+}
+```
+
+### LocaleDetector
+
+```go
+type LocaleDetector interface {
+    Detect(r *http.Request) string
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `New` | `func New(cfg I18nConfig) (I18n, error)` | Creates a new i18n instance and loads translation files |
+| `NewLocaleDetector` | `func NewLocaleDetector(cfg I18nConfig) LocaleDetector` | Creates a detector that reads Accept-Language headers |
+| `Middleware` | `func Middleware(i I18n, detector LocaleDetector) func(http.Handler) http.Handler` | Injects the detected locale into the request context |
+| `LocaleFromContext` | `func LocaleFromContext(ctx context.Context) string` | Retrieves the detected locale from context |
+
+## Translation Files
+
+Create JSON translation files in your translations directory. Each file is named by its locale code.
+
+`translations/en.json`:
+
+```json
+{
+  "greeting": "Hello, {name}!",
+  "items_count": {
+    "one": "You have {count} item",
+    "other": "You have {count} items"
+  },
+  "errors": {
+    "not_found": "The {resource} was not found",
+    "unauthorized": "You must be logged in to perform this action"
+  }
+}
+```
+
+`translations/fr.json`:
+
+```json
+{
+  "greeting": "Bonjour, {name} !",
+  "items_count": {
+    "one": "Vous avez {count} article",
+    "other": "Vous avez {count} articles"
+  },
+  "errors": {
+    "not_found": "Le {resource} n'a pas ete trouve",
+    "unauthorized": "Vous devez etre connecte pour effectuer cette action"
+  }
+}
+```
+
+## Usage
+
+### Basic Translation
+
+```go
+translator, err := i18n.New(i18n.I18nConfig{
+    DefaultLocale:  "en",
+    FallbackLocale: "en",
+    TranslationDir: "translations/",
+})
+if err != nil {
+    log.Fatalf("failed to load translations: %v", err)
+}
+
+msg := translator.T("en", "greeting", "name", "Jane")
+// -> "Hello, Jane!"
+
+msg = translator.T("fr", "greeting", "name", "Jane")
+// -> "Bonjour, Jane !"
+```
+
+### Pluralization
+
+```go
+msg := translator.TPlural("en", "items_count", 1, "count", 1)
+// -> "You have 1 item"
+
+msg = translator.TPlural("en", "items_count", 5, "count", 5)
+// -> "You have 5 items"
+```
+
+### Nested Keys
+
+```go
+msg := translator.T("en", "errors.not_found", "resource", "user")
+// -> "The user was not found"
+```
+
+### Locale Detection Middleware
+
+```go
+detector := i18n.NewLocaleDetector(i18n.I18nConfig{
+    DefaultLocale: "en",
+})
+
+mux.Handle("/api/", i18n.Middleware(translator, detector)(apiHandler))
+```
+
+### Using Locale in Handlers
+
+```go
+func (c *UserController) Create(w http.ResponseWriter, r *http.Request) {
+    locale := i18n.LocaleFromContext(r.Context())
+
+    user, err := c.service.Create(r.Context(), input)
+    if err != nil {
+        msg := c.translator.T(locale, "errors.creation_failed")
+        httputil.Error(w, errors.BadRequest(msg))
+        return
+    }
+
+    msg := c.translator.T(locale, "user_created")
+    httputil.Created(w, msg, user)
+}
+```
+
+### Configuration via config.yaml
+
+```yaml
+i18n:
+  default_locale: en
+  fallback_locale: en
+  translation_dir: translations/
+```
+
+## Related Pages
+
+- [Middleware](/docs/api-reference/middleware) -- Locale detection middleware
+- [Errors](/docs/api-reference/errors) -- Localized error messages
+- [Mailer](/docs/api-reference/mailer) -- Localized email templates

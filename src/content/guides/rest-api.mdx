@@ -1,8 +1,348 @@
 ---
 title: REST API
-description: Building REST APIs with Gofasta.
+description: Building REST APIs with Gofasta -- controllers, routes, DTOs, middleware, and response helpers.
 ---
 
 # REST API
 
-Documentation coming soon.
+Gofasta generates a layered REST API structure out of the box. This guide covers how controllers, routes, DTOs, middleware, and response helpers work together to handle HTTP requests.
+
+## Architecture Overview
+
+Every REST request flows through four layers:
+
+```
+HTTP Request → Route → Controller → Service → Repository → Database
+```
+
+- **Routes** map HTTP methods and paths to controller methods
+- **Controllers** parse requests, validate input, call services, and return responses
+- **Services** contain business logic and orchestrate repository calls
+- **Repositories** interact with the database via GORM
+
+## Controllers
+
+Controllers live in `app/rest/controllers/`. Each controller receives a service through dependency injection and exposes handler methods for CRUD operations.
+
+```go
+package controllers
+
+import (
+    "net/http"
+
+    "github.com/gin-gonic/gin"
+    "github.com/gofastadev/gofasta/pkg/httputil"
+    "myapp/app/dtos"
+    "myapp/app/services/interfaces"
+)
+
+type ProductController struct {
+    service interfaces.ProductService
+}
+
+func NewProductController(service interfaces.ProductService) *ProductController {
+    return &ProductController{service: service}
+}
+
+func (c *ProductController) Create(ctx *gin.Context) {
+    var req dtos.CreateProductRequest
+    if err := httputil.BindJSON(ctx, &req); err != nil {
+        httputil.BadRequest(ctx, err.Error())
+        return
+    }
+
+    product, err := c.service.Create(ctx, &req)
+    if err != nil {
+        httputil.HandleError(ctx, err)
+        return
+    }
+
+    httputil.Created(ctx, product)
+}
+
+func (c *ProductController) FindAll(ctx *gin.Context) {
+    params := httputil.ParsePaginationParams(ctx)
+    products, total, err := c.service.FindAll(ctx, params)
+    if err != nil {
+        httputil.HandleError(ctx, err)
+        return
+    }
+
+    httputil.PaginatedJSON(ctx, products, total, params)
+}
+
+func (c *ProductController) FindByID(ctx *gin.Context) {
+    id := ctx.Param("id")
+    product, err := c.service.FindByID(ctx, id)
+    if err != nil {
+        httputil.HandleError(ctx, err)
+        return
+    }
+
+    httputil.OK(ctx, product)
+}
+
+func (c *ProductController) Update(ctx *gin.Context) {
+    id := ctx.Param("id")
+    var req dtos.UpdateProductRequest
+    if err := httputil.BindJSON(ctx, &req); err != nil {
+        httputil.BadRequest(ctx, err.Error())
+        return
+    }
+
+    product, err := c.service.Update(ctx, id, &req)
+    if err != nil {
+        httputil.HandleError(ctx, err)
+        return
+    }
+
+    httputil.OK(ctx, product)
+}
+
+func (c *ProductController) Delete(ctx *gin.Context) {
+    id := ctx.Param("id")
+    if err := c.service.Delete(ctx, id); err != nil {
+        httputil.HandleError(ctx, err)
+        return
+    }
+
+    httputil.NoContent(ctx)
+}
+```
+
+## Routes
+
+Routes live in `app/rest/routes/`. Each resource has its own route file that registers paths and maps them to controller methods.
+
+```go
+package routes
+
+import (
+    "github.com/gin-gonic/gin"
+    "myapp/app/rest/controllers"
+)
+
+func RegisterProductRoutes(router *gin.RouterGroup, controller *controllers.ProductController) {
+    products := router.Group("/products")
+    {
+        products.POST("", controller.Create)
+        products.GET("", controller.FindAll)
+        products.GET("/:id", controller.FindByID)
+        products.PUT("/:id", controller.Update)
+        products.DELETE("/:id", controller.Delete)
+    }
+}
+```
+
+All resource route files are registered in `app/rest/routes/index.routes.go`, which is called from `cmd/serve.go`:
+
+```go
+package routes
+
+import "github.com/gin-gonic/gin"
+
+func RegisterRoutes(router *gin.RouterGroup, deps *di.Container) {
+    RegisterUserRoutes(router, deps.UserController)
+    RegisterProductRoutes(router, deps.ProductController)
+}
+```
+
+## DTOs (Data Transfer Objects)
+
+DTOs live in `app/dtos/` and define the shape of request and response payloads. They keep your API contract separate from your database models.
+
+```go
+package dtos
+
+import "time"
+
+type CreateProductRequest struct {
+    Name  string  `json:"name" binding:"required"`
+    Price float64 `json:"price" binding:"required,gt=0"`
+}
+
+type UpdateProductRequest struct {
+    Name  *string  `json:"name"`
+    Price *float64 `json:"price" binding:"omitempty,gt=0"`
+}
+
+type ProductResponse struct {
+    ID        string    `json:"id"`
+    Name      string    `json:"name"`
+    Price     float64   `json:"price"`
+    CreatedAt time.Time `json:"created_at"`
+    UpdatedAt time.Time `json:"updated_at"`
+}
+```
+
+Use pointer fields in update DTOs to distinguish between "not provided" (nil) and "set to zero value".
+
+## Response Helpers
+
+The `github.com/gofastadev/gofasta/pkg/httputil` package provides consistent response formatting across your API.
+
+### Standard Responses
+
+| Helper | Status Code | Use Case |
+|--------|-------------|----------|
+| `httputil.OK(ctx, data)` | 200 | Successful read or update |
+| `httputil.Created(ctx, data)` | 201 | Successful resource creation |
+| `httputil.NoContent(ctx)` | 204 | Successful deletion |
+| `httputil.BadRequest(ctx, msg)` | 400 | Validation or parsing failure |
+| `httputil.Unauthorized(ctx, msg)` | 401 | Missing or invalid auth token |
+| `httputil.Forbidden(ctx, msg)` | 403 | Insufficient permissions |
+| `httputil.NotFound(ctx, msg)` | 404 | Resource not found |
+| `httputil.HandleError(ctx, err)` | varies | Maps error types to status codes automatically |
+
+All responses follow a consistent JSON envelope:
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "Resource created successfully"
+}
+```
+
+Error responses follow the same structure:
+
+```json
+{
+  "success": false,
+  "error": "Product not found",
+  "message": "The requested resource does not exist"
+}
+```
+
+### Pagination
+
+`httputil.ParsePaginationParams` extracts `page`, `per_page`, `sort`, and `order` from query parameters with sensible defaults:
+
+```go
+// GET /api/v1/products?page=2&per_page=20&sort=created_at&order=desc
+params := httputil.ParsePaginationParams(ctx)
+// params.Page = 2, params.PerPage = 20, params.Sort = "created_at", params.Order = "desc"
+```
+
+`httputil.PaginatedJSON` wraps the response with pagination metadata:
+
+```json
+{
+  "success": true,
+  "data": [ ... ],
+  "meta": {
+    "page": 2,
+    "per_page": 20,
+    "total": 143,
+    "total_pages": 8
+  }
+}
+```
+
+### Request Binding
+
+`httputil.BindJSON` parses the request body and validates it using struct tags:
+
+```go
+var req dtos.CreateProductRequest
+if err := httputil.BindJSON(ctx, &req); err != nil {
+    httputil.BadRequest(ctx, err.Error())
+    return
+}
+```
+
+## Middleware
+
+Gofasta includes built-in middleware from `github.com/gofastadev/gofasta/pkg/middleware`. Middleware is applied in `cmd/serve.go` when the server starts.
+
+```go
+import "github.com/gofastadev/gofasta/pkg/middleware"
+
+router := gin.New()
+router.Use(middleware.Logger())
+router.Use(middleware.Recovery())
+router.Use(middleware.CORS(middleware.CORSConfig{
+    AllowOrigins: []string{"http://localhost:3000"},
+    AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+    AllowHeaders: []string{"Authorization", "Content-Type"},
+}))
+router.Use(middleware.RateLimiter(middleware.RateLimiterConfig{
+    Max:      100,
+    Window:   time.Minute,
+}))
+```
+
+### Available Middleware
+
+| Middleware | Description |
+|-----------|-------------|
+| `middleware.Logger()` | Structured request logging with duration |
+| `middleware.Recovery()` | Panic recovery with stack trace logging |
+| `middleware.CORS(config)` | Cross-origin resource sharing |
+| `middleware.RateLimiter(config)` | Request rate limiting per IP |
+| `middleware.Auth(jwtConfig)` | JWT token verification |
+| `middleware.RBAC(enforcer)` | Casbin role-based access control |
+| `middleware.RequestID()` | Adds a unique request ID to each request |
+
+### Protecting Routes
+
+Apply auth middleware to specific route groups:
+
+```go
+func RegisterRoutes(router *gin.RouterGroup, deps *di.Container) {
+    // Public routes
+    RegisterAuthRoutes(router, deps.AuthController)
+
+    // Protected routes
+    protected := router.Group("")
+    protected.Use(middleware.Auth(deps.JWTConfig))
+    {
+        RegisterProductRoutes(protected, deps.ProductController)
+        RegisterOrderRoutes(protected, deps.OrderController)
+    }
+
+    // Admin-only routes
+    admin := router.Group("/admin")
+    admin.Use(middleware.Auth(deps.JWTConfig))
+    admin.Use(middleware.RBAC(deps.Enforcer))
+    {
+        RegisterAdminRoutes(admin, deps.AdminController)
+    }
+}
+```
+
+## Adding a New Endpoint
+
+The fastest way to add a new resource is with the scaffold generator:
+
+```bash
+gofasta g scaffold Order total:float status:string user_id:uuid
+```
+
+This generates the model, migration, repository, service, controller, routes, DTOs, and DI provider, then wires everything together automatically.
+
+To add a custom endpoint to an existing controller, add the handler method and register the route:
+
+```go
+// In app/rest/controllers/product.controller.go
+func (c *ProductController) Search(ctx *gin.Context) {
+    query := ctx.Query("q")
+    products, err := c.service.Search(ctx, query)
+    if err != nil {
+        httputil.HandleError(ctx, err)
+        return
+    }
+    httputil.OK(ctx, products)
+}
+
+// In app/rest/routes/product.routes.go
+products.GET("/search", controller.Search)
+```
+
+## Next Steps
+
+- [Set up GraphQL alongside REST](/docs/guides/graphql)
+- [Configure authentication and RBAC](/docs/guides/authentication)
+- [Generate code with the CLI](/docs/guides/code-generation)
+- [HTTP Utilities API reference](/docs/api-reference/http-utilities)
+- [Middleware API reference](/docs/api-reference/middleware)

@@ -1,7 +1,113 @@
 ---
 title: gofasta g model
+description: Generate a GORM database model with typed fields.
 ---
 
 # gofasta g model
 
-Documentation coming soon.
+Generates a GORM database model file with the specified fields and types. The model includes standard fields (`ID`, `CreatedAt`, `UpdatedAt`, `DeletedAt`) automatically, plus any custom fields you define.
+
+Use this command when you need only the model without the full scaffold. For a complete resource with all layers, use `gofasta g scaffold` instead.
+
+## Usage
+
+```bash
+gofasta g model <ModelName> [field:type ...] [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--table` | `-t` | pluralized model name | Override the database table name |
+
+## Field Types
+
+| Type | Go Type | GORM Tag |
+|------|---------|----------|
+| `string` | `string` | `type:varchar(255);not null` |
+| `text` | `string` | `type:text` |
+| `int` | `int` | `type:integer;not null` |
+| `float` | `float64` | `type:decimal(10,2);not null` |
+| `bool` | `bool` | `type:boolean;default:false` |
+| `uuid` | `uuid.UUID` | `type:uuid` |
+| `time` | `time.Time` | `type:timestamp` |
+
+## Examples
+
+Generate a Product model:
+
+```bash
+gofasta g model Product name:string price:float
+```
+
+Generate a model with multiple field types:
+
+```bash
+gofasta g model Article title:string body:text published:bool view_count:int
+```
+
+Generate with a custom table name:
+
+```bash
+gofasta g model UserProfile bio:text avatar_url:string --table profiles
+```
+
+## What It Generates
+
+Running `gofasta g model Product name:string price:float` creates one file:
+
+```
+app/models/product.model.go
+```
+
+### Generated Code
+
+```go
+// app/models/product.model.go
+package models
+
+import (
+    "time"
+
+    "github.com/google/uuid"
+    "gorm.io/gorm"
+)
+
+type Product struct {
+    ID        uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+    Name      string         `gorm:"type:varchar(255);not null" json:"name"`
+    Price     float64        `gorm:"type:decimal(10,2);not null" json:"price"`
+    CreatedAt time.Time      `json:"created_at"`
+    UpdatedAt time.Time      `json:"updated_at"`
+    DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+}
+```
+
+The model automatically includes:
+
+- A UUID primary key with auto-generation
+- `CreatedAt` and `UpdatedAt` timestamps managed by GORM
+- `DeletedAt` for soft deletes with an index
+- JSON tags using snake_case naming
+- GORM tags for column type definitions
+
+## Database Driver Compatibility
+
+Field type mappings adapt automatically based on the database driver configured in `config/config.yaml`:
+
+| Field Type | Postgres | MySQL | SQLite | SQL Server | ClickHouse |
+|------------|----------|-------|--------|------------|------------|
+| `string` | `VARCHAR(255)` | `VARCHAR(255)` | `TEXT` | `NVARCHAR(255)` | `String` |
+| `text` | `TEXT` | `LONGTEXT` | `TEXT` | `NVARCHAR(MAX)` | `String` |
+| `int` | `INTEGER` | `INT` | `INTEGER` | `INT` | `Int64` |
+| `float` | `DECIMAL(10,2)` | `DECIMAL(10,2)` | `REAL` | `DECIMAL(10,2)` | `Float64` |
+| `bool` | `BOOLEAN` | `TINYINT(1)` | `INTEGER` | `BIT` | `UInt8` |
+| `uuid` | `UUID` | `CHAR(36)` | `TEXT` | `UNIQUEIDENTIFIER` | `UUID` |
+| `time` | `TIMESTAMP` | `DATETIME` | `DATETIME` | `DATETIME2` | `DateTime` |
+
+## Related
+
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource
+- [gofasta g migration](/docs/cli-reference/generate/migration) -- generate migration files for this model
+- [gofasta g repository](/docs/cli-reference/generate/repository) -- generate a repository for this model

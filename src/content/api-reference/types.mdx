@@ -1,7 +1,193 @@
 ---
-title: types
+title: Types
+description: Shared type definitions, common interfaces, and generic types used across Gofasta packages.
 ---
 
-# types
+# Types
 
-Documentation coming soon.
+The `types` package provides shared type definitions, common interfaces, and generic types used across Gofasta packages. It defines the contracts that bind the framework's layers together.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/types"
+```
+
+## Key Types
+
+### Repository
+
+The generic repository interface that all data access layers implement.
+
+```go
+type Repository[T any] interface {
+    FindByID(ctx context.Context, id string) (*T, error)
+    FindAll(ctx context.Context, params QueryParams) ([]T, int64, error)
+    Create(ctx context.Context, entity *T) error
+    Update(ctx context.Context, entity *T) error
+    Delete(ctx context.Context, id string) error
+}
+```
+
+### Service
+
+The generic service interface for the business logic layer.
+
+```go
+type Service[T any, C any, U any] interface {
+    Get(ctx context.Context, id string) (*T, error)
+    List(ctx context.Context, params QueryParams) ([]T, int64, error)
+    Create(ctx context.Context, input C) (*T, error)
+    Update(ctx context.Context, id string, input U) (*T, error)
+    Delete(ctx context.Context, id string) error
+}
+```
+
+### QueryParams
+
+```go
+type QueryParams struct {
+    Page     int               `json:"page"`
+    PageSize int               `json:"page_size"`
+    Sort     string            `json:"sort"`
+    Order    string            `json:"order"`
+    Filters  map[string]string `json:"filters"`
+    Search   string            `json:"search"`
+}
+```
+
+### Pagination
+
+```go
+type Pagination struct {
+    Page       int   `json:"page"`
+    PageSize   int   `json:"page_size"`
+    Total      int64 `json:"total"`
+    TotalPages int   `json:"total_pages"`
+}
+```
+
+### APIResponse
+
+```go
+type APIResponse[T any] struct {
+    Success    bool       `json:"success"`
+    Message    string     `json:"message"`
+    Data       T          `json:"data,omitempty"`
+    Pagination *Pagination `json:"pagination,omitempty"`
+}
+```
+
+### Identifiable
+
+```go
+type Identifiable interface {
+    GetID() string
+}
+```
+
+### Timestamped
+
+```go
+type Timestamped interface {
+    GetCreatedAt() time.Time
+    GetUpdatedAt() time.Time
+}
+```
+
+### SoftDeletable
+
+```go
+type SoftDeletable interface {
+    GetDeletedAt() *time.Time
+    IsDeleted() bool
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewQueryParams` | `func NewQueryParams(page, pageSize int) QueryParams` | Creates a QueryParams with defaults |
+| `DefaultQueryParams` | `func DefaultQueryParams() QueryParams` | Returns QueryParams with page=1, pageSize=20 |
+| `NewPagination` | `func NewPagination(page, pageSize int, total int64) Pagination` | Computes pagination metadata |
+| `SuccessResponse` | `func SuccessResponse[T any](message string, data T) APIResponse[T]` | Creates a success API response |
+| `PaginatedResponse` | `func PaginatedResponse[T any](message string, data T, pagination Pagination) APIResponse[T]` | Creates a paginated API response |
+
+## Usage
+
+### Implementing a Repository
+
+```go
+type UserRepository struct {
+    db *gorm.DB
+}
+
+func (r *UserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+    var user User
+    err := r.db.WithContext(ctx).First(&user, "id = ?", id).Error
+    if err != nil {
+        return nil, err
+    }
+    return &user, nil
+}
+
+func (r *UserRepository) FindAll(ctx context.Context, params types.QueryParams) ([]User, int64, error) {
+    var users []User
+    var total int64
+
+    query := r.db.WithContext(ctx).Model(&User{})
+
+    if params.Search != "" {
+        query = query.Where("name ILIKE ? OR email ILIKE ?", "%"+params.Search+"%", "%"+params.Search+"%")
+    }
+
+    query.Count(&total)
+
+    offset := (params.Page - 1) * params.PageSize
+    err := query.Offset(offset).Limit(params.PageSize).
+        Order(fmt.Sprintf("%s %s", params.Sort, params.Order)).
+        Find(&users).Error
+
+    return users, total, err
+}
+```
+
+### Using QueryParams in Controllers
+
+```go
+func (c *UserController) List(w http.ResponseWriter, r *http.Request) {
+    params := types.DefaultQueryParams()
+    params.Page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+    params.PageSize, _ = strconv.Atoi(r.URL.Query().Get("page_size"))
+    params.Search = r.URL.Query().Get("search")
+
+    users, total, err := c.service.List(r.Context(), params)
+    if err != nil {
+        httputil.Error(w, err)
+        return
+    }
+
+    pagination := types.NewPagination(params.Page, params.PageSize, total)
+    resp := types.PaginatedResponse("users retrieved", users, pagination)
+    httputil.JSON(w, http.StatusOK, resp)
+}
+```
+
+### Type Constraints in Generics
+
+```go
+func FindOrFail[T Identifiable](repo Repository[T], ctx context.Context, id string) (*T, error) {
+    entity, err := repo.FindByID(ctx, id)
+    if err != nil {
+        return nil, errors.NotFound(reflect.TypeOf((*T)(nil)).Elem().Name(), id)
+    }
+    return entity, nil
+}
+```
+
+## Related Pages
+
+- [Models](/docs/api-reference/models) -- BaseModelImpl implements Identifiable, Timestamped, SoftDeletable
+- [HTTP Utilities](/docs/api-reference/http-utilities) -- Pagination helpers complement these types
+- [Utils](/docs/api-reference/utils) -- Utility functions for working with these types

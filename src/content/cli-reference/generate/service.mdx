@@ -1,7 +1,125 @@
 ---
 title: gofasta g service
+description: Generate a service interface and implementation containing business logic.
 ---
 
 # gofasta g service
 
-Documentation coming soon.
+Generates a service interface and its implementation for a given resource. The service layer contains business logic and orchestrates calls to one or more repositories. Services never interact with the database directly -- they delegate data access to repositories.
+
+## Usage
+
+```bash
+gofasta g service <ResourceName> [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--methods` | `-m` | `all` | Comma-separated list of methods to generate. Options: `create`, `findAll`, `findByID`, `update`, `delete` |
+
+## Examples
+
+Generate a service with all CRUD methods:
+
+```bash
+gofasta g service Product
+```
+
+Generate with only specific methods:
+
+```bash
+gofasta g service Product --methods create,findAll
+```
+
+## What It Generates
+
+Running `gofasta g service Product` creates two files:
+
+| File | Description |
+|------|-------------|
+| `app/services/interfaces/product_service.go` | Service interface |
+| `app/services/product.service.go` | Service implementation |
+
+### Service Interface
+
+```go
+// app/services/interfaces/product_service.go
+package interfaces
+
+import "myapp/app/dtos"
+
+type ProductService interface {
+    Create(req dtos.CreateProductRequest) (*dtos.ProductResponse, error)
+    FindAll(page, limit int) (*dtos.PaginatedProductResponse, error)
+    FindByID(id string) (*dtos.ProductResponse, error)
+    Update(id string, req dtos.UpdateProductRequest) (*dtos.ProductResponse, error)
+    Delete(id string) error
+}
+```
+
+### Service Implementation
+
+```go
+// app/services/product.service.go
+package services
+
+import (
+    "myapp/app/dtos"
+    "myapp/app/models"
+    repoInterfaces "myapp/app/repositories/interfaces"
+    svcInterfaces "myapp/app/services/interfaces"
+)
+
+type ProductServiceImpl struct {
+    repo repoInterfaces.ProductRepository
+}
+
+func NewProductService(repo repoInterfaces.ProductRepository) svcInterfaces.ProductService {
+    return &ProductServiceImpl{repo: repo}
+}
+
+func (s *ProductServiceImpl) Create(req dtos.CreateProductRequest) (*dtos.ProductResponse, error) {
+    product := &models.Product{
+        Name:  req.Name,
+        Price: req.Price,
+    }
+
+    created, err := s.repo.Create(product)
+    if err != nil {
+        return nil, err
+    }
+
+    return dtos.ToProductResponse(created), nil
+}
+
+func (s *ProductServiceImpl) FindAll(page, limit int) (*dtos.PaginatedProductResponse, error) {
+    products, total, err := s.repo.FindAll(page, limit)
+    if err != nil {
+        return nil, err
+    }
+
+    return dtos.ToPaginatedProductResponse(products, total, page, limit), nil
+}
+```
+
+## Architecture
+
+The service sits between the controller and repository layers:
+
+```
+Controller --> Service --> Repository --> Database
+```
+
+- Services receive repositories via dependency injection (constructor injection)
+- Services accept DTOs as input and return DTOs as output
+- Services convert between DTOs and models internally
+- Business rules, validations, and data transformations belong in the service layer
+
+## Related
+
+- [gofasta g repository](/docs/cli-reference/generate/repository) -- generate the repository this service calls
+- [gofasta g controller](/docs/cli-reference/generate/controller) -- generate the controller that calls this service
+- [gofasta g dto](/docs/cli-reference/generate/dto) -- generate the DTOs this service uses
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers at once

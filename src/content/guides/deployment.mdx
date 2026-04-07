@@ -1,7 +1,488 @@
 ---
-title: deployment
+title: Deployment
+description: Deploy Gofasta applications with Docker, Docker Compose, Kubernetes, VPS with systemd, CI/CD with GitHub Actions, and nginx.
 ---
 
-# deployment
+# Deployment
 
-Documentation coming soon.
+Gofasta projects include pre-configured deployment files for multiple targets. This guide covers Docker, Kubernetes, VPS deployments, and CI/CD pipelines.
+
+## Deployment Files
+
+All deployment configurations live in the `deployments/` directory:
+
+```
+deployments/
+├── ci/                    # GitHub Actions workflows
+│   ├── test.yml
+│   ├── release.yml
+│   └── deploy.yml
+├── docker/                # Docker configurations
+│   └── Dockerfile.dev
+├── k8s/                   # Kubernetes manifests
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── ingress.yaml
+├── nginx/                 # Reverse proxy config
+│   └── nginx.conf
+└── systemd/               # VPS service files
+    ├── myapp.service
+    └── deploy.sh
+```
+
+## Docker
+
+### Production Dockerfile
+
+The `Dockerfile` at the project root builds a minimal production image using multi-stage builds:
+
+```dockerfile
+# Build stage
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./app/main
+
+# Production stage
+FROM alpine:3.20
+RUN apk --no-cache add ca-certificates tzdata
+WORKDIR /app
+COPY --from=builder /app/server .
+COPY config.yaml .
+COPY db/migrations ./db/migrations
+COPY templates ./templates
+COPY configs ./configs
+EXPOSE 8080
+CMD ["./server", "serve"]
+```
+
+Build and run:
+
+```bash
+docker build -t myapp:latest .
+docker run -p 8080:8080 \
+  -e MYAPP_DATABASE_HOST=host.docker.internal \
+  -e MYAPP_JWT_SECRET=production-secret \
+  myapp:latest
+```
+
+### Docker Compose
+
+The `compose.yaml` at the project root runs the application with PostgreSQL:
+
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - MYAPP_DATABASE_HOST=db
+      - MYAPP_DATABASE_PORT=5432
+      - MYAPP_DATABASE_USER=postgres
+      - MYAPP_DATABASE_PASSWORD=postgres
+      - MYAPP_DATABASE_NAME=myapp_db
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: myapp_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+```
+
+Start the full stack:
+
+```bash
+# Start everything
+make up
+# or
+docker compose up -d
+
+# View logs
+docker compose logs -f app
+
+# Stop everything
+docker compose down
+```
+
+### Development Dockerfile
+
+The `deployments/docker/Dockerfile.dev` includes Air for hot reload:
+
+```dockerfile
+FROM golang:1.24-alpine
+RUN go install github.com/air-verse/air@latest
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+CMD ["air"]
+```
+
+## Kubernetes
+
+The `deployments/k8s/` directory contains manifests for deploying to a Kubernetes cluster.
+
+### Deployment
+
+```yaml
+# deployments/k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  labels:
+    app: myapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: myapp
+          image: ghcr.io/myorg/myapp:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: MYAPP_DATABASE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: myapp-secrets
+                  key: database-host
+            - name: MYAPP_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: myapp-secrets
+                  key: database-password
+            - name: MYAPP_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: myapp-secrets
+                  key: jwt-secret
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+```
+
+### Service and Ingress
+
+```yaml
+# deployments/k8s/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp
+spec:
+  selector:
+    app: myapp
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+# deployments/k8s/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myapp
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+    - hosts:
+        - api.myapp.com
+      secretName: myapp-tls
+  rules:
+    - host: api.myapp.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: myapp
+                port:
+                  number: 80
+```
+
+Deploy to Kubernetes:
+
+```bash
+# Create secrets
+kubectl create secret generic myapp-secrets \
+  --from-literal=database-host=your-db-host \
+  --from-literal=database-password=your-db-password \
+  --from-literal=jwt-secret=your-jwt-secret
+
+# Apply manifests
+kubectl apply -f deployments/k8s/
+```
+
+## VPS with systemd
+
+For deploying to a single Linux server (Ubuntu, Debian, etc.).
+
+### systemd Service File
+
+```ini
+# deployments/systemd/myapp.service
+[Unit]
+Description=MyApp API Server
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=myapp
+Group=myapp
+WorkingDirectory=/opt/myapp
+ExecStart=/opt/myapp/server serve
+Restart=always
+RestartSec=5
+Environment=MYAPP_APP_ENV=production
+Environment=MYAPP_DATABASE_HOST=localhost
+EnvironmentFile=/opt/myapp/.env
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Deploy Script
+
+```bash
+# deployments/systemd/deploy.sh
+#!/bin/bash
+set -e
+
+APP_NAME="myapp"
+APP_DIR="/opt/$APP_NAME"
+BINARY="server"
+
+echo "Deploying $APP_NAME..."
+
+# Build the binary
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $BINARY ./app/main
+
+# Upload to server
+scp $BINARY deploy@your-server:$APP_DIR/
+scp config.yaml deploy@your-server:$APP_DIR/
+scp -r db/migrations deploy@your-server:$APP_DIR/db/
+scp -r templates deploy@your-server:$APP_DIR/
+scp -r configs deploy@your-server:$APP_DIR/
+
+# Restart the service
+ssh deploy@your-server "sudo systemctl restart $APP_NAME"
+
+echo "Deployed successfully"
+```
+
+Set up the server:
+
+```bash
+# On the server
+sudo useradd -r -s /bin/false myapp
+sudo mkdir -p /opt/myapp
+sudo chown myapp:myapp /opt/myapp
+
+# Copy the service file
+sudo cp myapp.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable myapp
+sudo systemctl start myapp
+
+# Check status
+sudo systemctl status myapp
+sudo journalctl -u myapp -f
+```
+
+## Nginx Reverse Proxy
+
+The `deployments/nginx/nginx.conf` configures nginx as a reverse proxy with TLS:
+
+```nginx
+upstream myapp {
+    server 127.0.0.1:8080;
+}
+
+server {
+    listen 80;
+    server_name api.myapp.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api.myapp.com;
+
+    ssl_certificate /etc/letsencrypt/live/api.myapp.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.myapp.com/privkey.pem;
+
+    location / {
+        proxy_pass http://myapp;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /health {
+        proxy_pass http://myapp;
+        access_log off;
+    }
+}
+```
+
+## CI/CD with GitHub Actions
+
+### Test Workflow
+
+```yaml
+# deployments/ci/test.yml
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: myapp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out ./...
+        env:
+          MYAPP_DATABASE_HOST: localhost
+          MYAPP_DATABASE_PORT: 5432
+          MYAPP_DATABASE_USER: postgres
+          MYAPP_DATABASE_PASSWORD: postgres
+          MYAPP_DATABASE_NAME: myapp_test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.out
+```
+
+### Release Workflow
+
+```yaml
+# deployments/ci/release.yml
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:latest
+```
+
+### Running Migrations in CI/CD
+
+Run migrations as part of your deployment pipeline:
+
+```bash
+# Before starting the new version
+./server migrate up
+```
+
+Or as a Kubernetes init container:
+
+```yaml
+initContainers:
+  - name: migrate
+    image: ghcr.io/myorg/myapp:latest
+    command: ["./server", "migrate", "up"]
+    envFrom:
+      - secretRef:
+          name: myapp-secrets
+```
+
+## Next Steps
+
+- [Configure your application](/docs/guides/configuration)
+- [Set up background jobs](/docs/guides/background-jobs)
+- [Health check API reference](/docs/api-reference/health)
+- [Observability API reference](/docs/api-reference/observability)

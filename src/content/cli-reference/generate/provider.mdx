@@ -1,7 +1,121 @@
 ---
 title: gofasta g provider
+description: Generate a Google Wire dependency injection provider set for a resource.
 ---
 
 # gofasta g provider
 
-Documentation coming soon.
+Generates a [Google Wire](https://github.com/google/wire) provider set file that defines how a resource's dependencies are wired together. The provider set binds interfaces to implementations for the repository, service, and controller layers.
+
+## Usage
+
+```bash
+gofasta g provider <ResourceName> [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--layers` | `-l` | `all` | Comma-separated list of layers to include. Options: `repository`, `service`, `controller` |
+
+## Examples
+
+Generate a provider with all layers:
+
+```bash
+gofasta g provider Product
+```
+
+Generate a provider for only the repository and service layers:
+
+```bash
+gofasta g provider Product --layers repository,service
+```
+
+## What It Generates
+
+Running `gofasta g provider Product` creates one file:
+
+```
+app/di/providers/product.go
+```
+
+### Generated Code
+
+```go
+// app/di/providers/product.go
+package providers
+
+import (
+    "github.com/google/wire"
+    "myapp/app/repositories"
+    repoInterfaces "myapp/app/repositories/interfaces"
+    "myapp/app/services"
+    svcInterfaces "myapp/app/services/interfaces"
+    "myapp/app/rest/controllers"
+)
+
+var ProductSet = wire.NewSet(
+    // Repository
+    repositories.NewProductRepository,
+    wire.Bind(new(repoInterfaces.ProductRepository), new(*repositories.ProductRepositoryImpl)),
+
+    // Service
+    services.NewProductService,
+    wire.Bind(new(svcInterfaces.ProductService), new(*services.ProductServiceImpl)),
+
+    // Controller
+    controllers.NewProductController,
+)
+```
+
+## How Wire Providers Work
+
+Each provider set uses three Wire constructs:
+
+| Construct | Purpose |
+|-----------|---------|
+| Constructor function (e.g., `NewProductRepository`) | Tells Wire how to create an instance |
+| `wire.Bind(interface, implementation)` | Tells Wire which concrete type satisfies an interface |
+| `wire.NewSet(...)` | Groups related providers into a reusable set |
+
+The provider set is referenced in `app/di/wire.go`:
+
+```go
+//go:build wireinject
+
+package di
+
+import (
+    "github.com/google/wire"
+    "myapp/app/di/providers"
+)
+
+func InitializeContainer() (*Container, error) {
+    wire.Build(
+        providers.UserSet,
+        providers.AuthSet,
+        providers.ProductSet, // Added by scaffold or manually
+        wire.Struct(new(Container), "*"),
+    )
+    return nil, nil
+}
+```
+
+## Registration Steps
+
+When generating a provider standalone (not via scaffold), you need to manually:
+
+1. Add the provider set to `wire.Build()` in `app/di/wire.go`
+2. Add the corresponding fields to the `Container` struct in `app/di/container.go`
+3. Run `gofasta wire` to regenerate `wire_gen.go`
+
+When using `gofasta g scaffold`, all three steps are handled automatically.
+
+## Related
+
+- [gofasta wire](/docs/cli-reference/wire) -- regenerate Wire DI code after adding providers
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers with automatic provider registration
+- [gofasta g repository](/docs/cli-reference/generate/repository) -- generate the repository bound in this provider
+- [gofasta g service](/docs/cli-reference/generate/service) -- generate the service bound in this provider

@@ -1,7 +1,122 @@
 ---
 title: gofasta wire
+description: Regenerate Google Wire dependency injection code for your Gofasta project.
 ---
 
 # gofasta wire
 
-Documentation coming soon.
+Regenerates the [Google Wire](https://github.com/google/wire) dependency injection container code. Wire is a compile-time dependency injection framework that reads your provider definitions and generates the wiring code automatically.
+
+Run this command whenever you add, remove, or modify DI providers in your project.
+
+## Usage
+
+```bash
+gofasta wire [flags]
+```
+
+Run this command from the root directory of your Gofasta project.
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--verbose` | `-v` | `false` | Show detailed output from the Wire generator |
+
+## Examples
+
+Regenerate Wire DI code:
+
+```bash
+gofasta wire
+```
+
+Regenerate with verbose output to debug wiring issues:
+
+```bash
+gofasta wire --verbose
+```
+
+## How It Works
+
+The Wire code generation process:
+
+1. Reads provider definitions from `app/di/providers/` directory
+2. Reads the injector definition from `app/di/wire.go`
+3. Generates `app/di/wire_gen.go` with the concrete wiring code
+
+### Provider Definition
+
+Each provider file in `app/di/providers/` defines a Wire provider set:
+
+```go
+// app/di/providers/product.go
+package providers
+
+import (
+    "github.com/google/wire"
+    "myapp/app/repositories"
+    repoInterfaces "myapp/app/repositories/interfaces"
+    "myapp/app/services"
+    svcInterfaces "myapp/app/services/interfaces"
+    "myapp/app/rest/controllers"
+)
+
+var ProductSet = wire.NewSet(
+    repositories.NewProductRepository,
+    wire.Bind(new(repoInterfaces.ProductRepository), new(*repositories.ProductRepositoryImpl)),
+    services.NewProductService,
+    wire.Bind(new(svcInterfaces.ProductService), new(*services.ProductServiceImpl)),
+    controllers.NewProductController,
+)
+```
+
+### Injector Definition
+
+The `app/di/wire.go` file defines the injector function that Wire implements:
+
+```go
+//go:build wireinject
+
+package di
+
+import (
+    "github.com/google/wire"
+    "myapp/app/di/providers"
+)
+
+func InitializeContainer() (*Container, error) {
+    wire.Build(
+        providers.UserSet,
+        providers.AuthSet,
+        providers.ProductSet,
+        // Add new provider sets here
+        wire.Struct(new(Container), "*"),
+    )
+    return nil, nil
+}
+```
+
+## When to Run
+
+Run `gofasta wire` after:
+
+- Running `gofasta g scaffold` to generate a new resource
+- Running `gofasta g provider` to create a new provider
+- Manually adding or modifying provider sets
+- Changing constructor signatures in repositories, services, or controllers
+- Resolving Wire compilation errors
+
+## Troubleshooting
+
+**Provider not found** -- Make sure the provider set is imported and included in the `wire.Build()` call in `app/di/wire.go`.
+
+**Duplicate bindings** -- Wire requires exactly one provider for each type. Check that you do not have two providers binding to the same interface.
+
+**Cycle detected** -- Wire does not allow circular dependencies. Refactor your code to break the cycle.
+
+## Related
+
+- [gofasta g provider](/docs/cli-reference/generate/provider) -- generate a new Wire provider
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource with providers
+- [gofasta init](/docs/cli-reference/init) -- initialize a project including Wire generation

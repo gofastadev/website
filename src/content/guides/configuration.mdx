@@ -1,7 +1,366 @@
 ---
-title: configuration
+title: Configuration
+description: Application configuration with config.yaml, environment variable overrides, database settings, JWT, Redis, and feature flags in Gofasta.
 ---
 
-# configuration
+# Configuration
 
-Documentation coming soon.
+Gofasta uses a `config.yaml` file at the project root as the central configuration source. Every setting can be overridden with environment variables, making it easy to configure different environments without changing files.
+
+## Loading Configuration
+
+The `github.com/gofastadev/gofasta/pkg/config` package loads and parses configuration:
+
+```go
+import "github.com/gofastadev/gofasta/pkg/config"
+
+cfg := config.LoadConfig("config.yaml")
+```
+
+`LoadConfig` reads the YAML file, then checks for environment variable overrides. The resulting config struct is passed to the DI container and used throughout the application.
+
+## Full config.yaml Reference
+
+Here is the complete configuration file with all available sections and their defaults:
+
+```yaml
+# Application settings
+app:
+  name: myapp
+  port: 8080
+  env: development        # development, staging, production
+  debug: true
+  url: http://localhost:8080
+
+# Database configuration
+database:
+  driver: postgres        # postgres, mysql, sqlite, sqlserver, clickhouse
+  host: localhost
+  port: 5432
+  name: myapp_db
+  user: postgres
+  password: postgres
+  ssl_mode: disable
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+
+# JWT authentication
+jwt:
+  secret: change-me-in-production
+  expiration: 24h
+  refresh_expiration: 168h
+  issuer: myapp
+
+# Redis (used for caching, sessions, and queue)
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+
+# Cache configuration
+cache:
+  driver: memory          # memory or redis
+  ttl: 5m
+
+# Session configuration
+session:
+  driver: cookie          # cookie or redis
+  secret: session-secret
+  max_age: 86400
+
+# Email configuration
+mail:
+  driver: smtp            # smtp, sendgrid, or brevo
+  from_name: MyApp
+  from_address: noreply@myapp.com
+  smtp:
+    host: smtp.mailtrap.io
+    port: 587
+    username: ""
+    password: ""
+    encryption: tls
+  sendgrid:
+    api_key: ""
+  brevo:
+    api_key: ""
+
+# Queue configuration
+queue:
+  driver: memory          # memory or redis
+  workers: 5
+  retry_attempts: 3
+  retry_delay: 30s
+
+# Storage configuration
+storage:
+  driver: local           # local, s3
+  local:
+    path: ./uploads
+  s3:
+    bucket: myapp-uploads
+    region: us-east-1
+    access_key: ""
+    secret_key: ""
+
+# Observability
+observability:
+  metrics:
+    enabled: true
+    path: /metrics
+  tracing:
+    enabled: false
+    exporter: jaeger
+    endpoint: http://localhost:14268/api/traces
+
+# Rate limiting
+rate_limit:
+  enabled: true
+  max: 100
+  window: 1m
+
+# CORS
+cors:
+  allowed_origins:
+    - http://localhost:3000
+  allowed_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed_headers:
+    - Authorization
+    - Content-Type
+  max_age: 86400
+
+# Logging
+log:
+  level: info             # debug, info, warn, error
+  format: json            # json or text
+
+# Feature flags
+features:
+  graphql_playground: true
+  swagger: true
+  registration: true
+```
+
+## Environment Variable Overrides
+
+Every config value can be overridden with an environment variable. The pattern is:
+
+```
+{APP_NAME}_{SECTION}_{KEY}
+```
+
+The app name is uppercased from `app.name` in your config. Nested keys are joined with underscores.
+
+| Config Path | Environment Variable |
+|------------|---------------------|
+| `app.port` | `MYAPP_APP_PORT` |
+| `app.env` | `MYAPP_APP_ENV` |
+| `database.host` | `MYAPP_DATABASE_HOST` |
+| `database.password` | `MYAPP_DATABASE_PASSWORD` |
+| `jwt.secret` | `MYAPP_JWT_SECRET` |
+| `jwt.expiration` | `MYAPP_JWT_EXPIRATION` |
+| `redis.host` | `MYAPP_REDIS_HOST` |
+| `redis.port` | `MYAPP_REDIS_PORT` |
+| `mail.driver` | `MYAPP_MAIL_DRIVER` |
+| `mail.sendgrid.api_key` | `MYAPP_MAIL_SENDGRID_API_KEY` |
+
+Environment variables always take precedence over `config.yaml` values.
+
+## Database Configuration
+
+### PostgreSQL (default)
+
+```yaml
+database:
+  driver: postgres
+  host: localhost
+  port: 5432
+  name: myapp_db
+  user: postgres
+  password: postgres
+  ssl_mode: disable
+```
+
+### MySQL
+
+```yaml
+database:
+  driver: mysql
+  host: localhost
+  port: 3306
+  name: myapp_db
+  user: root
+  password: root
+```
+
+### SQLite
+
+```yaml
+database:
+  driver: sqlite
+  name: ./data/myapp.db
+```
+
+### SQL Server
+
+```yaml
+database:
+  driver: sqlserver
+  host: localhost
+  port: 1433
+  name: myapp_db
+  user: sa
+  password: YourStrong!Passw0rd
+```
+
+### ClickHouse
+
+```yaml
+database:
+  driver: clickhouse
+  host: localhost
+  port: 9000
+  name: myapp_db
+  user: default
+  password: ""
+```
+
+### Connection Pool Settings
+
+Tune connection pool settings for production:
+
+```yaml
+database:
+  max_open_conns: 50      # Maximum number of open connections
+  max_idle_conns: 10      # Maximum number of idle connections
+  conn_max_lifetime: 10m  # Maximum time a connection can be reused
+```
+
+## JWT Configuration
+
+```yaml
+jwt:
+  secret: your-256-bit-secret
+  expiration: 24h          # Access token lifetime
+  refresh_expiration: 168h # Refresh token lifetime (7 days)
+  issuer: myapp            # Token issuer claim
+```
+
+For production, always set the secret via environment variable:
+
+```bash
+MYAPP_JWT_SECRET=$(openssl rand -hex 32)
+```
+
+## Redis Configuration
+
+Redis is used by the cache, session, and queue packages when configured with the `redis` driver:
+
+```yaml
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+```
+
+Multiple components can use the same Redis instance on different databases:
+
+```yaml
+redis:
+  host: localhost
+  port: 6379
+
+cache:
+  driver: redis
+
+queue:
+  driver: redis
+
+session:
+  driver: redis
+```
+
+## Feature Flags
+
+Feature flags in `config.yaml` control optional functionality:
+
+```yaml
+features:
+  graphql_playground: true   # Enable GraphQL Playground UI
+  swagger: true              # Enable Swagger documentation endpoint
+  registration: true         # Enable user registration endpoint
+```
+
+You can also manage feature flags through the `configs/` directory for more complex scenarios. The `github.com/gofastadev/gofasta/pkg/feature-flags` package provides runtime feature flag checking:
+
+```go
+import featureflags "github.com/gofastadev/gofasta/pkg/feature-flags"
+
+if featureflags.IsEnabled(cfg, "registration") {
+    RegisterAuthRoutes(router, deps.AuthController)
+}
+```
+
+## Accessing Configuration in Code
+
+The config struct is available throughout your application via dependency injection:
+
+```go
+// In a service
+type OrderService struct {
+    repo   interfaces.OrderRepository
+    config *config.AppConfig
+}
+
+func NewOrderService(repo interfaces.OrderRepository, config *config.AppConfig) *OrderService {
+    return &OrderService{repo: repo, config: config}
+}
+
+func (s *OrderService) GetAppURL() string {
+    return s.config.App.URL
+}
+```
+
+## Environment-Specific Configuration
+
+A common pattern is to have a base `config.yaml` for development and override values in other environments:
+
+**Development** -- use `config.yaml` as-is with local defaults.
+
+**Staging** -- override with environment variables in your deployment:
+
+```bash
+MYAPP_APP_ENV=staging
+MYAPP_DATABASE_HOST=staging-db.internal
+MYAPP_JWT_SECRET=staging-secret
+```
+
+**Production** -- override all sensitive values:
+
+```bash
+MYAPP_APP_ENV=production
+MYAPP_APP_DEBUG=false
+MYAPP_DATABASE_HOST=prod-db.internal
+MYAPP_DATABASE_PASSWORD=prod-password
+MYAPP_JWT_SECRET=prod-secret
+MYAPP_REDIS_HOST=prod-redis.internal
+MYAPP_MAIL_DRIVER=sendgrid
+MYAPP_MAIL_SENDGRID_API_KEY=SG.prod-key
+```
+
+This approach keeps your `config.yaml` safe to commit to version control (it only contains development defaults) while production secrets are managed through environment variables or secret managers.
+
+## Next Steps
+
+- [Set up your database](/docs/guides/database-and-migrations)
+- [Configure authentication](/docs/guides/authentication)
+- [Deploy your application](/docs/guides/deployment)
+- [Config API reference](/docs/api-reference/config)
+- [Feature Flags API reference](/docs/api-reference/feature-flags)

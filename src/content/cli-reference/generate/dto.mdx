@@ -1,7 +1,136 @@
 ---
 title: gofasta g dto
+description: Generate request and response Data Transfer Objects (DTOs) for a resource.
 ---
 
 # gofasta g dto
 
-Documentation coming soon.
+Generates Data Transfer Objects (DTOs) for a resource, including create request, update request, single response, and paginated response structs. DTOs define the shape of data exchanged between the client and the API, keeping internal model details separate from the API contract.
+
+## Usage
+
+```bash
+gofasta g dto <ResourceName> [field:type ...] [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--types` | `-t` | `all` | Comma-separated list of DTO types to generate. Options: `create`, `update`, `response`, `paginated` |
+
+## Examples
+
+Generate all DTOs for a Product:
+
+```bash
+gofasta g dto Product name:string price:float
+```
+
+Generate only request DTOs:
+
+```bash
+gofasta g dto Product name:string price:float --types create,update
+```
+
+Generate DTOs with multiple field types:
+
+```bash
+gofasta g dto Article title:string body:text published:bool view_count:int
+```
+
+## What It Generates
+
+Running `gofasta g dto Product name:string price:float` creates one file:
+
+```
+app/dtos/product.dtos.go
+```
+
+### Generated Code
+
+```go
+// app/dtos/product.dtos.go
+package dtos
+
+import (
+    "time"
+    "myapp/app/models"
+)
+
+// CreateProductRequest represents the request body for creating a product.
+type CreateProductRequest struct {
+    Name  string  `json:"name" binding:"required"`
+    Price float64 `json:"price" binding:"required"`
+}
+
+// UpdateProductRequest represents the request body for updating a product.
+type UpdateProductRequest struct {
+    Name  *string  `json:"name,omitempty"`
+    Price *float64 `json:"price,omitempty"`
+}
+
+// ProductResponse represents the API response for a single product.
+type ProductResponse struct {
+    ID        string    `json:"id"`
+    Name      string    `json:"name"`
+    Price     float64   `json:"price"`
+    CreatedAt time.Time `json:"created_at"`
+    UpdatedAt time.Time `json:"updated_at"`
+}
+
+// PaginatedProductResponse represents a paginated list of products.
+type PaginatedProductResponse struct {
+    Data       []ProductResponse `json:"data"`
+    Total      int64             `json:"total"`
+    Page       int               `json:"page"`
+    Limit      int               `json:"limit"`
+    TotalPages int               `json:"total_pages"`
+}
+
+// ToProductResponse converts a Product model to a ProductResponse DTO.
+func ToProductResponse(product *models.Product) *ProductResponse {
+    return &ProductResponse{
+        ID:        product.ID.String(),
+        Name:      product.Name,
+        Price:     product.Price,
+        CreatedAt: product.CreatedAt,
+        UpdatedAt: product.UpdatedAt,
+    }
+}
+
+// ToPaginatedProductResponse converts a slice of Product models to a paginated response.
+func ToPaginatedProductResponse(products []models.Product, total int64, page, limit int) *PaginatedProductResponse {
+    var items []ProductResponse
+    for _, p := range products {
+        items = append(items, *ToProductResponse(&p))
+    }
+
+    totalPages := int(total) / limit
+    if int(total)%limit != 0 {
+        totalPages++
+    }
+
+    return &PaginatedProductResponse{
+        Data:       items,
+        Total:      total,
+        Page:       page,
+        Limit:      limit,
+        TotalPages: totalPages,
+    }
+}
+```
+
+## Design Patterns
+
+- **Create DTOs** use `binding:"required"` tags for mandatory fields
+- **Update DTOs** use pointer types (`*string`, `*float64`) so that omitted fields are not confused with zero values
+- **Response DTOs** expose only the fields intended for the API consumer, hiding internal fields like `DeletedAt`
+- **Converter functions** (`ToProductResponse`, `ToPaginatedProductResponse`) handle model-to-DTO transformation
+
+## Related
+
+- [gofasta g model](/docs/cli-reference/generate/model) -- generate the model that DTOs map to
+- [gofasta g controller](/docs/cli-reference/generate/controller) -- generate the controller that uses these DTOs
+- [gofasta g service](/docs/cli-reference/generate/service) -- generate the service that converts between DTOs and models
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers at once

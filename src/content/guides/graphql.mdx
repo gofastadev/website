@@ -1,7 +1,311 @@
 ---
-title: graphql
+title: GraphQL
+description: Building GraphQL APIs with gqlgen in Gofasta -- schemas, resolvers, queries, mutations, and subscriptions.
 ---
 
-# graphql
+# GraphQL
 
-Documentation coming soon.
+Gofasta includes GraphQL support powered by [gqlgen](https://gqlgen.com/), a type-safe Go GraphQL server library. Your project ships with a working GraphQL endpoint alongside the REST API, both sharing the same services and repositories.
+
+## How It Works
+
+GraphQL in Gofasta follows this flow:
+
+```
+Schema (.gql files) → gqlgen generates → Resolver stubs → You implement → Service layer
+```
+
+1. You define your schema in `.gql` files under `app/graphql/schema/`
+2. Run `go generate ./...` (or `gofasta g resolver`) to generate resolver stubs
+3. Implement the resolver methods by calling your existing services
+4. Both REST and GraphQL share the same service and repository layers
+
+## Project Structure
+
+```
+app/graphql/
+├── schema/
+│   ├── schema.gql          # Root schema (Query, Mutation, Subscription types)
+│   ├── user.gql            # User type and operations
+│   └── product.gql         # Product type and operations
+├── resolvers/
+│   ├── resolver.go         # Resolver struct with service dependencies
+│   ├── schema.resolvers.go # Generated resolver stubs
+│   ├── user.resolvers.go   # User resolver implementations
+│   └── product.resolvers.go
+├── generated/
+│   └── generated.go        # Auto-generated runtime code (do not edit)
+└── model/
+    └── models_gen.go       # Auto-generated Go types from schema
+```
+
+The `gqlgen.yml` file at the project root controls code generation paths and type mappings.
+
+## Defining a Schema
+
+Schema files use standard GraphQL SDL syntax. Each resource typically gets its own `.gql` file.
+
+```graphql
+# app/graphql/schema/product.gql
+
+type Product {
+  id: ID!
+  name: String!
+  price: Float!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input CreateProductInput {
+  name: String!
+  price: Float!
+}
+
+input UpdateProductInput {
+  name: String
+  price: Float
+}
+
+extend type Query {
+  products(page: Int, perPage: Int): ProductConnection!
+  product(id: ID!): Product!
+}
+
+extend type Mutation {
+  createProduct(input: CreateProductInput!): Product!
+  updateProduct(id: ID!, input: UpdateProductInput!): Product!
+  deleteProduct(id: ID!): Boolean!
+}
+```
+
+The root schema file defines the base types and any custom scalars:
+
+```graphql
+# app/graphql/schema/schema.gql
+
+scalar DateTime
+
+type Query
+type Mutation
+type Subscription
+
+type PageInfo {
+  page: Int!
+  perPage: Int!
+  total: Int!
+  totalPages: Int!
+}
+
+type ProductConnection {
+  nodes: [Product!]!
+  pageInfo: PageInfo!
+}
+```
+
+## Generating Resolvers
+
+After modifying schema files, regenerate the resolver stubs:
+
+```bash
+go generate ./...
+```
+
+Or use the Gofasta CLI:
+
+```bash
+gofasta g resolver
+```
+
+This updates `schema.resolvers.go` with new stub methods for any schema additions. Existing implementations are preserved -- only new stubs are added.
+
+## Implementing Resolvers
+
+The resolver struct holds references to your services, injected via Wire:
+
+```go
+// app/graphql/resolvers/resolver.go
+package resolvers
+
+import "myapp/app/services/interfaces"
+
+type Resolver struct {
+    UserService    interfaces.UserService
+    ProductService interfaces.ProductService
+}
+```
+
+Resolver methods call the same services used by REST controllers:
+
+```go
+// app/graphql/resolvers/product.resolvers.go
+package resolvers
+
+import (
+    "context"
+
+    "myapp/app/dtos"
+    "myapp/app/graphql/model"
+)
+
+func (r *queryResolver) Products(ctx context.Context, page *int, perPage *int) (*model.ProductConnection, error) {
+    p := 1
+    pp := 20
+    if page != nil {
+        p = *page
+    }
+    if perPage != nil {
+        pp = *perPage
+    }
+
+    params := &dtos.PaginationParams{Page: p, PerPage: pp}
+    products, total, err := r.ProductService.FindAll(ctx, params)
+    if err != nil {
+        return nil, err
+    }
+
+    totalPages := (int(total) + pp - 1) / pp
+    return &model.ProductConnection{
+        Nodes: products,
+        PageInfo: &model.PageInfo{
+            Page:       p,
+            PerPage:    pp,
+            Total:      int(total),
+            TotalPages: totalPages,
+        },
+    }, nil
+}
+
+func (r *queryResolver) Product(ctx context.Context, id string) (*model.Product, error) {
+    return r.ProductService.FindByID(ctx, id)
+}
+
+func (r *mutationResolver) CreateProduct(ctx context.Context, input model.CreateProductInput) (*model.Product, error) {
+    req := &dtos.CreateProductRequest{
+        Name:  input.Name,
+        Price: input.Price,
+    }
+    return r.ProductService.Create(ctx, req)
+}
+
+func (r *mutationResolver) UpdateProduct(ctx context.Context, id string, input model.UpdateProductInput) (*model.Product, error) {
+    req := &dtos.UpdateProductRequest{
+        Name:  input.Name,
+        Price: input.Price,
+    }
+    return r.ProductService.Update(ctx, id, req)
+}
+
+func (r *mutationResolver) DeleteProduct(ctx context.Context, id string) (bool, error) {
+    err := r.ProductService.Delete(ctx, id)
+    return err == nil, err
+}
+```
+
+## Subscriptions
+
+gqlgen supports WebSocket-based subscriptions for real-time data:
+
+```graphql
+# app/graphql/schema/product.gql
+
+extend type Subscription {
+  productCreated: Product!
+}
+```
+
+Implement the subscription resolver with a channel:
+
+```go
+func (r *subscriptionResolver) ProductCreated(ctx context.Context) (<-chan *model.Product, error) {
+    ch := make(chan *model.Product, 1)
+
+    go func() {
+        defer close(ch)
+        // Listen for events from your event system
+        for {
+            select {
+            case <-ctx.Done():
+                return
+            case product := <-r.ProductService.OnCreated():
+                ch <- product
+            }
+        }
+    }()
+
+    return ch, nil
+}
+```
+
+## GraphQL Playground
+
+In development, the GraphQL Playground is available at:
+
+```
+http://localhost:8080/graphql-playground
+```
+
+The GraphQL endpoint itself is at:
+
+```
+http://localhost:8080/graphql
+```
+
+You can use the playground to explore your schema, run queries, and test mutations interactively.
+
+## Authentication in GraphQL
+
+GraphQL requests pass through the same middleware stack as REST. The JWT auth middleware extracts the user from the `Authorization` header and sets it on the Gin context, which is accessible in resolvers:
+
+```go
+func (r *mutationResolver) CreateProduct(ctx context.Context, input model.CreateProductInput) (*model.Product, error) {
+    ginCtx := ctx.Value("GinContextKey").(*gin.Context)
+    userID := ginCtx.GetString("user_id")
+    role := ginCtx.GetString("role")
+
+    // Use userID and role for authorization logic
+    // ...
+}
+```
+
+## gqlgen Configuration
+
+The `gqlgen.yml` file at your project root controls code generation:
+
+```yaml
+schema:
+  - app/graphql/schema/*.gql
+
+exec:
+  filename: app/graphql/generated/generated.go
+  package: generated
+
+model:
+  filename: app/graphql/model/models_gen.go
+  package: model
+
+resolver:
+  layout: follow-schema
+  dir: app/graphql/resolvers
+  package: resolvers
+
+autobind:
+  - myapp/app/models
+```
+
+The `autobind` setting tells gqlgen to map GraphQL types to your existing Go model structs when names match, avoiding duplicate type definitions.
+
+## Adding a New GraphQL Resource
+
+1. Create a schema file in `app/graphql/schema/order.gql`
+2. Define the type, inputs, and extend Query/Mutation
+3. Run `go generate ./...` to generate resolver stubs
+4. Implement the resolver methods by calling your services
+5. Add the service dependency to the `Resolver` struct
+
+If you generated the resource with `gofasta g scaffold`, the schema file and resolver are already created for you.
+
+## Next Steps
+
+- [Build REST endpoints](/docs/guides/rest-api)
+- [Set up authentication](/docs/guides/authentication)
+- [Generate code with the CLI](/docs/guides/code-generation)

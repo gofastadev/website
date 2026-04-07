@@ -1,8 +1,151 @@
 ---
 title: gofasta g scaffold
-description: Generate a full resource with all layers.
+description: Generate a complete CRUD resource with all layers including model, repository, service, controller, routes, DTOs, migration, and DI provider.
 ---
 
 # gofasta g scaffold
 
-Documentation coming soon.
+Generates a full CRUD resource spanning all layers of the application. This is the most powerful generator command -- it creates 11 new files and patches 4 existing files to wire everything together. After running this command and applying migrations, you have a fully working REST API for your resource.
+
+## Usage
+
+```bash
+gofasta g scaffold <ResourceName> [field:type ...] [flags]
+```
+
+`gofasta generate scaffold` also works. The `g` shorthand is equivalent to `generate`.
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--skip-migration` | | `false` | Skip generating migration files |
+| `--skip-graphql` | | `false` | Skip generating GraphQL resolver |
+| `--skip-wire` | | `false` | Skip running Wire after generation |
+
+## Field Types
+
+| Type | Go Type | SQL Type (Postgres) | GraphQL Type |
+|------|---------|-------------------|--------------|
+| `string` | `string` | `VARCHAR(255)` | `String` |
+| `text` | `string` | `TEXT` | `String` |
+| `int` | `int` | `INTEGER` | `Int` |
+| `float` | `float64` | `DECIMAL(10,2)` | `Float` |
+| `bool` | `bool` | `BOOLEAN` | `Boolean` |
+| `uuid` | `uuid.UUID` | `UUID` | `ID` |
+| `time` | `time.Time` | `TIMESTAMP` | `DateTime` |
+
+## Examples
+
+Generate a Product resource with name and price fields:
+
+```bash
+gofasta g scaffold Product name:string price:float
+```
+
+Generate a BlogPost with multiple fields:
+
+```bash
+gofasta g scaffold BlogPost title:string body:text published:bool author_id:uuid published_at:time
+```
+
+Generate without migration files:
+
+```bash
+gofasta g scaffold Category name:string description:text --skip-migration
+```
+
+## What It Generates
+
+Running `gofasta g scaffold Product name:string price:float` creates 11 files:
+
+| File | Description |
+|------|-------------|
+| `app/models/product.model.go` | GORM database model |
+| `db/migrations/000006_create_products.up.sql` | Create table migration |
+| `db/migrations/000006_create_products.down.sql` | Drop table migration |
+| `app/repositories/interfaces/product_repository.go` | Repository interface |
+| `app/repositories/product.repository.go` | Repository implementation |
+| `app/services/interfaces/product_service.go` | Service interface |
+| `app/services/product.service.go` | Service implementation |
+| `app/dtos/product.dtos.go` | Request/response DTOs |
+| `app/di/providers/product.go` | Wire DI provider set |
+| `app/rest/controllers/product.controller.go` | REST controller with CRUD handlers |
+| `app/rest/routes/product.routes.go` | Route definitions |
+
+It also patches 4 existing files:
+
+| File | Change |
+|------|--------|
+| `app/di/container.go` | Adds `ProductService` and `ProductController` fields |
+| `app/di/wire.go` | Adds `ProductSet` to the Wire build |
+| `app/rest/routes/index.routes.go` | Registers Product routes |
+| `cmd/serve.go` | Wires `ProductController` into the route config |
+
+## Generated Code Examples
+
+### Model
+
+```go
+// app/models/product.model.go
+package models
+
+import (
+    "time"
+    "github.com/google/uuid"
+    "gorm.io/gorm"
+)
+
+type Product struct {
+    ID        uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+    Name      string         `gorm:"type:varchar(255);not null" json:"name"`
+    Price     float64        `gorm:"type:decimal(10,2);not null" json:"price"`
+    CreatedAt time.Time      `json:"created_at"`
+    UpdatedAt time.Time      `json:"updated_at"`
+    DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+}
+```
+
+### Controller (excerpt)
+
+```go
+// app/rest/controllers/product.controller.go
+package controllers
+
+type ProductController struct {
+    service interfaces.ProductService
+}
+
+func NewProductController(service interfaces.ProductService) *ProductController {
+    return &ProductController{service: service}
+}
+
+// Create godoc
+// @Summary      Create a new product
+// @Tags         Products
+// @Accept       json
+// @Produce      json
+// @Param        body  body      dtos.CreateProductRequest  true  "Product data"
+// @Success      201   {object}  dtos.ProductResponse
+// @Router       /api/v1/products [post]
+func (c *ProductController) Create(ctx *gin.Context) {
+    // ...
+}
+```
+
+## After Running
+
+After generating a scaffold, complete these steps:
+
+1. Run the migration: `gofasta migrate up`
+2. Regenerate Wire (if not done automatically): `gofasta wire`
+3. Regenerate Swagger docs: `gofasta swagger`
+4. Test the endpoints with curl or the Swagger UI
+
+## Related
+
+- [gofasta g model](/docs/cli-reference/generate/model) -- generate only the model
+- [gofasta g controller](/docs/cli-reference/generate/controller) -- generate only the controller
+- [gofasta g migration](/docs/cli-reference/generate/migration) -- generate only migration files
+- [gofasta migrate](/docs/cli-reference/migrate) -- run the generated migrations
+- [Quick Start](/docs/getting-started/quick-start)

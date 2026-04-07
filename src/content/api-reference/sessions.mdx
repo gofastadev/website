@@ -1,7 +1,171 @@
 ---
-title: sessions
+title: Sessions
+description: Session management with cookie and Redis stores, session middleware, and secure session handling.
 ---
 
-# sessions
+# Sessions
 
-Documentation coming soon.
+The `sessions` package provides HTTP session management with support for cookie-based and Redis-backed stores. It includes session middleware, secure cookie configuration, and session data read/write utilities.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/sessions"
+```
+
+## Key Types
+
+### Store
+
+```go
+type Store interface {
+    Get(ctx context.Context, sessionID string) (*Session, error)
+    Save(ctx context.Context, session *Session) error
+    Delete(ctx context.Context, sessionID string) error
+    Cleanup(ctx context.Context) error
+}
+```
+
+### Session
+
+```go
+type Session struct {
+    ID        string                 `json:"id"`
+    Data      map[string]interface{} `json:"data"`
+    CreatedAt time.Time              `json:"created_at"`
+    ExpiresAt time.Time              `json:"expires_at"`
+    Modified  bool                   `json:"-"`
+}
+```
+
+### SessionConfig
+
+```go
+type SessionConfig struct {
+    Driver     string        `yaml:"driver" env:"SESSION_DRIVER"`
+    CookieName string        `yaml:"cookie_name" env:"SESSION_COOKIE_NAME"`
+    MaxAge     time.Duration `yaml:"max_age" env:"SESSION_MAX_AGE"`
+    Secure     bool          `yaml:"secure" env:"SESSION_SECURE"`
+    HTTPOnly   bool          `yaml:"http_only" env:"SESSION_HTTP_ONLY"`
+    SameSite   string        `yaml:"same_site" env:"SESSION_SAME_SITE"`
+    Domain     string        `yaml:"domain" env:"SESSION_DOMAIN"`
+    Path       string        `yaml:"path" env:"SESSION_PATH"`
+    Secret     string        `yaml:"secret" env:"SESSION_SECRET"`
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewStore` | `func NewStore(cfg SessionConfig) (Store, error)` | Creates a session store based on the configured driver |
+| `NewCookieStore` | `func NewCookieStore(cfg SessionConfig) Store` | Creates a cookie-based session store |
+| `NewRedisStore` | `func NewRedisStore(cfg SessionConfig, redisCfg cache.CacheConfig) (Store, error)` | Creates a Redis-backed session store |
+| `Middleware` | `func Middleware(store Store, cfg SessionConfig) func(http.Handler) http.Handler` | Session middleware that loads/saves sessions per request |
+| `FromContext` | `func FromContext(ctx context.Context) *Session` | Retrieves the current session from context |
+
+## Session Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `Get` | `func (s *Session) Get(key string) interface{}` | Reads a value from the session |
+| `Set` | `func (s *Session) Set(key string, value interface{})` | Writes a value to the session |
+| `Delete` | `func (s *Session) Delete(key string)` | Removes a key from the session |
+| `Clear` | `func (s *Session) Clear()` | Removes all data from the session |
+| `IsExpired` | `func (s *Session) IsExpired() bool` | Returns true if the session has expired |
+
+## Usage
+
+### Setting Up Sessions
+
+```go
+store, err := sessions.NewStore(sessions.SessionConfig{
+    Driver:     "redis",
+    CookieName: "session_id",
+    MaxAge:     24 * time.Hour,
+    Secure:     true,
+    HTTPOnly:   true,
+    SameSite:   "Lax",
+    Path:       "/",
+    Secret:     "my-session-secret",
+})
+if err != nil {
+    log.Fatalf("failed to create session store: %v", err)
+}
+
+handler := sessions.Middleware(store, sessionCfg)(mux)
+```
+
+### Reading and Writing Session Data
+
+```go
+func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
+    // Authenticate user...
+
+    session := sessions.FromContext(r.Context())
+    session.Set("user_id", user.ID)
+    session.Set("email", user.Email)
+    session.Set("role", user.Role)
+
+    httputil.Success(w, "logged in", nil)
+}
+
+func (c *AuthController) Profile(w http.ResponseWriter, r *http.Request) {
+    session := sessions.FromContext(r.Context())
+
+    userID := session.Get("user_id")
+    if userID == nil {
+        httputil.Error(w, errors.Unauthorized("not logged in"))
+        return
+    }
+
+    user, err := c.service.FindByID(r.Context(), userID.(string))
+    if err != nil {
+        httputil.Error(w, err)
+        return
+    }
+    httputil.Success(w, "profile", user)
+}
+```
+
+### Logout and Session Destruction
+
+```go
+func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
+    session := sessions.FromContext(r.Context())
+    session.Clear()
+
+    httputil.Success(w, "logged out", nil)
+}
+```
+
+### Session Cleanup
+
+Periodically clean up expired sessions (useful for Redis store).
+
+```go
+sched.Register("cleanup-sessions", "*/30 * * * *", func(ctx context.Context) error {
+    return store.Cleanup(ctx)
+})
+```
+
+### Configuration via config.yaml
+
+```yaml
+sessions:
+  driver: redis      # "cookie" or "redis"
+  cookie_name: session_id
+  max_age: 24h
+  secure: true
+  http_only: true
+  same_site: Lax
+  domain: ""
+  path: /
+  secret: "change-me-in-production"
+```
+
+## Related Pages
+
+- [Auth](/docs/api-reference/auth) -- JWT-based authentication alternative
+- [Cache](/docs/api-reference/cache) -- Redis connection shared with session store
+- [Middleware](/docs/api-reference/middleware) -- Session middleware in the middleware chain

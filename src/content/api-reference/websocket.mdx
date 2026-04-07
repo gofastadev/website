@@ -1,7 +1,189 @@
 ---
-title: websocket
+title: WebSocket
+description: WebSocket server with room management, broadcasting, client lifecycle, and message handling.
 ---
 
-# websocket
+# WebSocket
 
-Documentation coming soon.
+The `websocket` package provides a WebSocket server with support for room-based messaging, broadcasting, client management, and message routing. It is built for real-time features such as chat, live notifications, and collaborative editing.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/websocket"
+```
+
+## Key Types
+
+### Hub
+
+The central coordinator that manages clients and rooms.
+
+```go
+type Hub struct {
+    Clients    map[string]*Client
+    Rooms      map[string]*Room
+    Register   chan *Client
+    Unregister chan *Client
+    Broadcast  chan Message
+}
+```
+
+### Client
+
+```go
+type Client struct {
+    ID     string
+    UserID string
+    Conn   *ws.Conn
+    Hub    *Hub
+    Rooms  map[string]bool
+    Send   chan Message
+}
+```
+
+### Room
+
+```go
+type Room struct {
+    ID      string
+    Clients map[string]*Client
+}
+```
+
+### Message
+
+```go
+type Message struct {
+    Type    string                 `json:"type"`
+    Room    string                 `json:"room,omitempty"`
+    From    string                 `json:"from,omitempty"`
+    To      string                 `json:"to,omitempty"`
+    Payload map[string]interface{} `json:"payload"`
+}
+```
+
+### MessageHandler
+
+```go
+type MessageHandler func(client *Client, msg Message)
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewHub` | `func NewHub() *Hub` | Creates a new WebSocket hub |
+| `Run` | `func (h *Hub) Run(ctx context.Context)` | Starts the hub's event loop |
+| `HandleConnection` | `func (h *Hub) HandleConnection(w http.ResponseWriter, r *http.Request)` | Upgrades HTTP to WebSocket and registers the client |
+| `OnMessage` | `func (h *Hub) OnMessage(msgType string, handler MessageHandler)` | Registers a handler for a message type |
+| `BroadcastToRoom` | `func (h *Hub) BroadcastToRoom(room string, msg Message)` | Sends a message to all clients in a room |
+| `SendToClient` | `func (h *Hub) SendToClient(clientID string, msg Message) error` | Sends a message to a specific client |
+| `JoinRoom` | `func (c *Client) JoinRoom(roomID string)` | Adds a client to a room |
+| `LeaveRoom` | `func (c *Client) LeaveRoom(roomID string)` | Removes a client from a room |
+
+## Usage
+
+### Setting Up the WebSocket Server
+
+```go
+hub := websocket.NewHub()
+go hub.Run(ctx)
+
+mux.HandleFunc("/ws", hub.HandleConnection)
+```
+
+### Handling Messages
+
+```go
+hub.OnMessage("chat", func(client *websocket.Client, msg websocket.Message) {
+    // Broadcast chat messages to the room
+    hub.BroadcastToRoom(msg.Room, websocket.Message{
+        Type:    "chat",
+        Room:    msg.Room,
+        From:    client.UserID,
+        Payload: msg.Payload,
+    })
+})
+
+hub.OnMessage("typing", func(client *websocket.Client, msg websocket.Message) {
+    hub.BroadcastToRoom(msg.Room, websocket.Message{
+        Type:    "typing",
+        Room:    msg.Room,
+        From:    client.UserID,
+        Payload: map[string]interface{}{"is_typing": true},
+    })
+})
+```
+
+### Room Management
+
+```go
+hub.OnMessage("join_room", func(client *websocket.Client, msg websocket.Message) {
+    roomID := msg.Payload["room_id"].(string)
+    client.JoinRoom(roomID)
+
+    hub.BroadcastToRoom(roomID, websocket.Message{
+        Type: "user_joined",
+        Room: roomID,
+        Payload: map[string]interface{}{
+            "user_id": client.UserID,
+        },
+    })
+})
+
+hub.OnMessage("leave_room", func(client *websocket.Client, msg websocket.Message) {
+    roomID := msg.Payload["room_id"].(string)
+    client.LeaveRoom(roomID)
+
+    hub.BroadcastToRoom(roomID, websocket.Message{
+        Type: "user_left",
+        Room: roomID,
+        Payload: map[string]interface{}{
+            "user_id": client.UserID,
+        },
+    })
+})
+```
+
+### Direct Messaging
+
+```go
+hub.OnMessage("direct_message", func(client *websocket.Client, msg websocket.Message) {
+    targetID := msg.To
+    err := hub.SendToClient(targetID, websocket.Message{
+        Type:    "direct_message",
+        From:    client.UserID,
+        Payload: msg.Payload,
+    })
+    if err != nil {
+        client.Send <- websocket.Message{
+            Type:    "error",
+            Payload: map[string]interface{}{"message": "user not connected"},
+        }
+    }
+})
+```
+
+### Client-Side Example
+
+```javascript
+const ws = new WebSocket("ws://localhost:8080/ws?token=jwt-token-here");
+
+ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    console.log(msg.type, msg.payload);
+};
+
+ws.send(JSON.stringify({
+    type: "chat",
+    room: "room-123",
+    payload: { text: "Hello, world!" }
+}));
+```
+
+## Related Pages
+
+- [Auth](/docs/api-reference/auth) -- Authenticate WebSocket connections via JWT
+- [Middleware](/docs/api-reference/middleware) -- Apply middleware before WebSocket upgrade
+- [Notifications](/docs/api-reference/notifications) -- Real-time notification delivery via WebSocket

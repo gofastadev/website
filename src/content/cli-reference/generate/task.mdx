@@ -1,7 +1,147 @@
 ---
 title: gofasta g task
+description: Generate a scheduled task that runs on a cron schedule.
 ---
 
 # gofasta g task
 
-Documentation coming soon.
+Generates a scheduled task file that runs on a cron schedule. Tasks are useful for recurring work such as cleaning up expired sessions, sending digest emails, generating reports, syncing data from external services, or performing periodic maintenance.
+
+## Usage
+
+```bash
+gofasta g task <TaskName> [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--schedule` | `-s` | `0 * * * *` | Cron expression for the task schedule |
+| `--timezone` | `-z` | `UTC` | Timezone for the cron schedule |
+
+## Examples
+
+Generate a task that runs every hour:
+
+```bash
+gofasta g task CleanExpiredSessions
+```
+
+Generate a task that runs daily at midnight:
+
+```bash
+gofasta g task SendDailyDigest --schedule "0 0 * * *"
+```
+
+Generate a task that runs every Monday at 9 AM in a specific timezone:
+
+```bash
+gofasta g task GenerateWeeklyReport --schedule "0 9 * * 1" --timezone "America/New_York"
+```
+
+Generate a task that runs every 5 minutes:
+
+```bash
+gofasta g task SyncExternalData --schedule "*/5 * * * *"
+```
+
+## What It Generates
+
+Running `gofasta g task CleanExpiredSessions` creates one file:
+
+```
+app/tasks/clean_expired_sessions.task.go
+```
+
+### Generated Code
+
+```go
+// app/tasks/clean_expired_sessions.task.go
+package tasks
+
+import (
+    "context"
+    "log"
+)
+
+// CleanExpiredSessionsTask runs on a cron schedule to clean expired sessions.
+type CleanExpiredSessionsTask struct {
+    // Add dependencies here (e.g., session repository)
+}
+
+// NewCleanExpiredSessionsTask creates a new instance of CleanExpiredSessionsTask.
+func NewCleanExpiredSessionsTask() *CleanExpiredSessionsTask {
+    return &CleanExpiredSessionsTask{}
+}
+
+// Run executes the task logic.
+func (t *CleanExpiredSessionsTask) Run(ctx context.Context) error {
+    log.Println("Running CleanExpiredSessions task...")
+
+    // TODO: Implement task logic here
+    // Example:
+    // deleted, err := t.sessionRepo.DeleteExpired()
+    // log.Printf("Cleaned %d expired sessions", deleted)
+
+    return nil
+}
+
+// Schedule returns the cron expression for this task.
+func (t *CleanExpiredSessionsTask) Schedule() string {
+    return "0 * * * *"
+}
+
+// Timezone returns the timezone for the cron schedule.
+func (t *CleanExpiredSessionsTask) Timezone() string {
+    return "UTC"
+}
+
+// Name returns a human-readable name for logging.
+func (t *CleanExpiredSessionsTask) Name() string {
+    return "CleanExpiredSessions"
+}
+
+// OnError is called when the task execution fails.
+func (t *CleanExpiredSessionsTask) OnError(ctx context.Context, err error) {
+    log.Printf("CleanExpiredSessions task failed: %v", err)
+}
+```
+
+## Cron Expression Format
+
+The schedule uses standard cron syntax with five fields:
+
+```
+* * * * *
+| | | | |
+| | | | +-- Day of week (0-6, Sunday=0)
+| | | +---- Month (1-12)
+| | +------ Day of month (1-31)
+| +-------- Hour (0-23)
++---------- Minute (0-59)
+```
+
+| Expression | Description |
+|------------|-------------|
+| `0 * * * *` | Every hour at minute 0 |
+| `0 0 * * *` | Daily at midnight |
+| `0 9 * * 1` | Every Monday at 9:00 AM |
+| `*/5 * * * *` | Every 5 minutes |
+| `0 0 1 * *` | First day of every month at midnight |
+| `0 6,18 * * *` | Twice daily at 6:00 AM and 6:00 PM |
+
+## Task vs Job
+
+| Feature | Task | Job |
+|---------|------|-----|
+| Trigger | Cron schedule (automatic) | Dispatched from code (manual) |
+| Payload | None (runs with context only) | Carries a custom payload |
+| Use case | Periodic maintenance | Event-driven async processing |
+| Retries | Re-runs on next schedule | Configurable retry count |
+
+## Related
+
+- [gofasta g job](/docs/cli-reference/generate/job) -- generate a background job instead
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource
+- [gofasta dev](/docs/cli-reference/dev) -- start the dev server which also runs the task scheduler

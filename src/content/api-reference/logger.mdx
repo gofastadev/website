@@ -1,7 +1,153 @@
 ---
-title: logger
+title: Logger
+description: Structured logging with configurable levels, context-aware fields, and multiple output formats.
 ---
 
-# logger
+# Logger
 
-Documentation coming soon.
+The `logger` package provides structured logging with support for multiple log levels, contextual fields, JSON and text output formats, and request-scoped logging.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/logger"
+```
+
+## Key Types
+
+### Logger
+
+```go
+type Logger interface {
+    Debug(msg string, fields ...Field)
+    Info(msg string, fields ...Field)
+    Warn(msg string, fields ...Field)
+    Error(msg string, fields ...Field)
+    Fatal(msg string, fields ...Field)
+    WithFields(fields ...Field) Logger
+    WithContext(ctx context.Context) Logger
+}
+```
+
+### Field
+
+```go
+type Field struct {
+    Key   string
+    Value interface{}
+}
+```
+
+### LoggerConfig
+
+```go
+type LoggerConfig struct {
+    Level  string `yaml:"level" env:"LOG_LEVEL"`
+    Format string `yaml:"format" env:"LOG_FORMAT"`
+    Output string `yaml:"output" env:"LOG_OUTPUT"`
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `New` | `func New(cfg LoggerConfig) Logger` | Creates a new logger instance with the given configuration |
+| `F` | `func F(key string, value interface{}) Field` | Creates a structured log field |
+| `Err` | `func Err(err error) Field` | Creates an error field |
+| `FromContext` | `func FromContext(ctx context.Context) Logger` | Retrieves the logger from a context |
+| `WithContext` | `func WithContext(ctx context.Context, l Logger) context.Context` | Stores a logger in a context |
+
+## Log Levels
+
+| Level | Description |
+|-------|-------------|
+| `debug` | Detailed diagnostic information for development |
+| `info` | General operational events |
+| `warn` | Potentially harmful situations that deserve attention |
+| `error` | Error events that allow the application to continue |
+| `fatal` | Severe errors that cause the application to terminate |
+
+## Usage
+
+### Basic Logging
+
+```go
+log := logger.New(logger.LoggerConfig{
+    Level:  "info",
+    Format: "json",
+    Output: "stdout",
+})
+
+log.Info("server started", logger.F("port", 8080))
+log.Error("request failed", logger.F("path", "/api/users"), logger.Err(err))
+```
+
+Output (JSON format):
+
+```json
+{"level":"info","msg":"server started","port":8080,"timestamp":"2026-04-07T10:00:00Z"}
+{"level":"error","msg":"request failed","path":"/api/users","error":"connection refused","timestamp":"2026-04-07T10:00:01Z"}
+```
+
+### Context-Aware Logging
+
+Attach a logger to the request context to carry request-scoped fields through the call chain.
+
+```go
+func (m *LoggingMiddleware) Handle(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        reqLogger := m.logger.WithFields(
+            logger.F("request_id", r.Header.Get("X-Request-ID")),
+            logger.F("method", r.Method),
+            logger.F("path", r.URL.Path),
+        )
+        ctx := logger.WithContext(r.Context(), reqLogger)
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
+}
+
+// Later in a service or repository
+func (s *UserService) Create(ctx context.Context, input CreateUserInput) (*User, error) {
+    log := logger.FromContext(ctx)
+    log.Info("creating user", logger.F("email", input.Email))
+    // ...
+}
+```
+
+### Derived Loggers
+
+Create child loggers that inherit parent fields.
+
+```go
+serviceLog := log.WithFields(
+    logger.F("component", "user-service"),
+    logger.F("version", "1.2.0"),
+)
+
+serviceLog.Info("processing request")
+// -> {"component":"user-service","version":"1.2.0","msg":"processing request",...}
+```
+
+### Configuration via config.yaml
+
+```yaml
+logger:
+  level: info
+  format: json    # "json" or "text"
+  output: stdout  # "stdout", "stderr", or a file path
+```
+
+### Wire Integration
+
+```go
+var LoggerSet = wire.NewSet(
+    logger.New,
+)
+```
+
+## Related Pages
+
+- [Config](/docs/api-reference/config) -- Logger configuration loading
+- [Middleware](/docs/api-reference/middleware) -- Logging middleware for HTTP requests
+- [Observability](/docs/api-reference/observability) -- Metrics and tracing complement logging

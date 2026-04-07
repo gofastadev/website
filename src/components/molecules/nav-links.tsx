@@ -15,7 +15,7 @@ const linkStyles = {
 
 export function NavLinks({ variant = "header", className }: NavLinksProps) {
   return (
-    <div className={cn("flex items-center gap-6", className)}>
+    <div className={cn("flex items-center gap-3 sm:gap-6", className)}>
       <Link
         href="/docs/getting-started/introduction"
         className={linkStyles[variant]}
@@ -31,14 +31,19 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
         GitHub
       </a>
       {variant === "footer" && (
-        <a
-          href="https://github.com/gofastadev/gofasta/blob/main/LICENSE"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={linkStyles[variant]}
-        >
-          License
-        </a>
+        <>
+          <Link href="/sitemap" className={linkStyles[variant]}>
+            Sitemap
+          </Link>
+          <a
+            href="https://github.com/gofastadev/gofasta/blob/main/LICENSE"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={linkStyles[variant]}
+          >
+            License
+          </a>
+        </>
       )}
     </div>
   );

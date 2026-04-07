@@ -1,7 +1,112 @@
 ---
 title: gofasta g route
+description: Generate REST route definitions for a resource.
 ---
 
 # gofasta g route
 
-Documentation coming soon.
+Generates a route definition file that maps HTTP endpoints to controller handlers. The generated routes follow RESTful conventions with standard CRUD paths and include middleware configuration for authentication.
+
+## Usage
+
+```bash
+gofasta g route <ResourceName> [flags]
+```
+
+## Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--methods` | `-m` | `all` | Comma-separated list of routes to generate. Options: `create`, `findAll`, `findByID`, `update`, `delete` |
+| `--prefix` | | `/api/v1` | URL prefix for the routes |
+| `--auth` | | `true` | Include authentication middleware |
+
+## Examples
+
+Generate routes for a Product resource:
+
+```bash
+gofasta g route Product
+```
+
+Generate only read routes:
+
+```bash
+gofasta g route Product --methods findAll,findByID
+```
+
+Generate routes with a custom prefix:
+
+```bash
+gofasta g route Product --prefix /api/v2
+```
+
+Generate routes without authentication middleware:
+
+```bash
+gofasta g route Product --auth=false
+```
+
+## What It Generates
+
+Running `gofasta g route Product` creates one file:
+
+```
+app/rest/routes/product.routes.go
+```
+
+### Generated Code
+
+```go
+// app/rest/routes/product.routes.go
+package routes
+
+import (
+    "github.com/gin-gonic/gin"
+    "myapp/app/rest/controllers"
+    "myapp/app/rest/middlewares"
+)
+
+func RegisterProductRoutes(router *gin.RouterGroup, controller *controllers.ProductController, authMiddleware *middlewares.AuthMiddleware) {
+    products := router.Group("/products")
+    products.Use(authMiddleware.Authenticate())
+    {
+        products.POST("/", controller.Create)
+        products.GET("/", controller.FindAll)
+        products.GET("/:id", controller.FindByID)
+        products.PUT("/:id", controller.Update)
+        products.DELETE("/:id", controller.Delete)
+    }
+}
+```
+
+## Route Registration
+
+The generated route file is registered in `app/rest/routes/index.routes.go`. When using `gofasta g scaffold`, this registration is patched automatically. When generating routes standalone, you need to add the registration manually:
+
+```go
+// app/rest/routes/index.routes.go
+func RegisterRoutes(router *gin.Engine, container *di.Container) {
+    v1 := router.Group("/api/v1")
+
+    RegisterUserRoutes(v1, container.UserController, container.AuthMiddleware)
+    RegisterAuthRoutes(v1, container.AuthController)
+    RegisterProductRoutes(v1, container.ProductController, container.AuthMiddleware) // Add this line
+}
+```
+
+## Generated Endpoints
+
+| Method | Path | Handler |
+|--------|------|---------|
+| `POST` | `/api/v1/products/` | `Create` |
+| `GET` | `/api/v1/products/` | `FindAll` |
+| `GET` | `/api/v1/products/:id` | `FindByID` |
+| `PUT` | `/api/v1/products/:id` | `Update` |
+| `DELETE` | `/api/v1/products/:id` | `Delete` |
+
+## Related
+
+- [gofasta g controller](/docs/cli-reference/generate/controller) -- generate the controller these routes point to
+- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers with automatic route registration
+- [gofasta swagger](/docs/cli-reference/swagger) -- generate API documentation for these routes

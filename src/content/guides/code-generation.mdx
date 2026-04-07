@@ -1,7 +1,280 @@
 ---
-title: code-generation
+title: Code Generation
+description: Using the Gofasta CLI to generate models, services, controllers, scaffolds, and more.
 ---
 
-# code-generation
+# Code Generation
 
-Documentation coming soon.
+The Gofasta CLI includes a powerful code generation system that creates files following the framework's layered architecture. Every generated file follows consistent conventions and integrates with the existing project structure.
+
+## The Generate Command
+
+All generators are accessed through `gofasta generate` (or the shorthand `gofasta g`):
+
+```bash
+gofasta g <generator> <Name> [field:type ...]
+```
+
+The `Name` argument is automatically converted to the correct casing for each context: `PascalCase` for Go types, `snake_case` for file names and database tables, and `camelCase` for JSON fields.
+
+## Available Generators
+
+| Generator | Command | What it creates |
+|-----------|---------|----------------|
+| scaffold | `gofasta g scaffold` | All layers for a complete resource |
+| model | `gofasta g model` | Database model + migration |
+| service | `gofasta g service` | Service interface + implementation |
+| controller | `gofasta g controller` | REST controller |
+| repository | `gofasta g repository` | Repository interface + implementation |
+| dto | `gofasta g dto` | Request/response DTOs |
+| migration | `gofasta g migration` | Empty migration pair (up + down) |
+| route | `gofasta g route` | Route registration file |
+| resolver | `gofasta g resolver` | Regenerate GraphQL resolver stubs |
+| provider | `gofasta g provider` | Wire DI provider set |
+| job | `gofasta g job` | Cron job definition |
+| task | `gofasta g task` | Async task for the queue |
+| email-template | `gofasta g email-template` | HTML email template |
+
+## Scaffold: The Full Resource Generator
+
+The scaffold command is the most commonly used generator. It creates every layer of a resource and wires it into the project:
+
+```bash
+gofasta g scaffold Product name:string price:float description:text active:bool
+```
+
+### Generated Files
+
+| File | Location | Description |
+|------|----------|-------------|
+| Model | `app/models/product.model.go` | GORM model with `BaseModelImpl` |
+| Up migration | `db/migrations/000006_create_products.up.sql` | CREATE TABLE statement |
+| Down migration | `db/migrations/000006_create_products.down.sql` | DROP TABLE statement |
+| Repository interface | `app/repositories/interfaces/product_repository.go` | CRUD method signatures |
+| Repository impl | `app/repositories/product.repository.go` | GORM implementation |
+| Service interface | `app/services/interfaces/product_service.go` | Business logic signatures |
+| Service impl | `app/services/product.service.go` | Business logic implementation |
+| DTOs | `app/dtos/product.dtos.go` | Create/Update request + response types |
+| Controller | `app/rest/controllers/product.controller.go` | HTTP handlers for CRUD |
+| Routes | `app/rest/routes/product.routes.go` | Route registrations |
+| Provider | `app/di/providers/product.go` | Wire provider set |
+
+### Patched Files
+
+The scaffold command also modifies existing files to integrate the new resource:
+
+| File | What changes |
+|------|-------------|
+| `app/di/container.go` | Adds `ProductService` and `ProductController` fields |
+| `app/di/wire.go` | Adds `ProductSet` to the Wire build |
+| `app/rest/routes/index.routes.go` | Registers Product routes |
+| `cmd/serve.go` | Wires `ProductController` into the route config |
+
+After scaffolding, run `gofasta wire` to regenerate the Wire DI container, then `gofasta migrate up` to create the database table.
+
+## Field Types
+
+Fields are specified as `name:type` pairs. The type determines the Go type, SQL column type, and GraphQL type:
+
+| Type | Go type | SQL type (Postgres) | SQL type (MySQL) | GraphQL type |
+|------|---------|-------------------|-----------------|-------------|
+| `string` | `string` | `VARCHAR(255)` | `VARCHAR(255)` | `String` |
+| `text` | `string` | `TEXT` | `TEXT` | `String` |
+| `int` | `int` | `INTEGER` | `INT` | `Int` |
+| `float` | `float64` | `DECIMAL(10,2)` | `DECIMAL(10,2)` | `Float` |
+| `bool` | `bool` | `BOOLEAN` | `TINYINT(1)` | `Boolean` |
+| `uuid` | `uuid.UUID` | `UUID` | `CHAR(36)` | `ID` |
+| `time` | `time.Time` | `TIMESTAMP` | `DATETIME` | `DateTime` |
+
+SQL types are automatically adapted for the database driver configured in `config.yaml`.
+
+## Individual Generators
+
+### Model
+
+Generates the model struct and migration files:
+
+```bash
+gofasta g model Category name:string description:text
+```
+
+Creates:
+- `app/models/category.model.go`
+- `db/migrations/000007_create_categories.up.sql`
+- `db/migrations/000007_create_categories.down.sql`
+
+The model automatically embeds `models.BaseModelImpl` for standard fields.
+
+### Service
+
+Generates the service interface and implementation:
+
+```bash
+gofasta g service Notification
+```
+
+Creates:
+- `app/services/interfaces/notification_service.go`
+- `app/services/notification.service.go`
+
+The service implementation receives a repository through its constructor.
+
+### Controller
+
+Generates an HTTP controller:
+
+```bash
+gofasta g controller Payment
+```
+
+Creates:
+- `app/rest/controllers/payment.controller.go`
+
+The controller receives a service through its constructor and includes stub CRUD methods.
+
+### Repository
+
+Generates the repository interface and GORM implementation:
+
+```bash
+gofasta g repository Order
+```
+
+Creates:
+- `app/repositories/interfaces/order_repository.go`
+- `app/repositories/order.repository.go`
+
+### DTO
+
+Generates request and response data transfer objects:
+
+```bash
+gofasta g dto Invoice amount:float status:string due_date:time
+```
+
+Creates:
+- `app/dtos/invoice.dtos.go`
+
+### Migration
+
+Generates an empty migration pair for custom SQL:
+
+```bash
+gofasta g migration add_index_to_products
+```
+
+Creates:
+- `db/migrations/000008_add_index_to_products.up.sql`
+- `db/migrations/000008_add_index_to_products.down.sql`
+
+Both files are empty -- you write the SQL yourself. This is useful for schema changes that are not a simple table creation.
+
+### Route
+
+Generates a route registration file:
+
+```bash
+gofasta g route Subscription
+```
+
+Creates:
+- `app/rest/routes/subscription.routes.go`
+
+### Resolver
+
+Regenerates GraphQL resolver stubs from schema files:
+
+```bash
+gofasta g resolver
+```
+
+This runs gqlgen to regenerate resolvers. Existing implementations are preserved.
+
+### Provider
+
+Generates a Wire dependency injection provider:
+
+```bash
+gofasta g provider Analytics
+```
+
+Creates:
+- `app/di/providers/analytics.go`
+
+### Job
+
+Generates a cron job definition:
+
+```bash
+gofasta g job CleanupExpiredTokens
+```
+
+Creates:
+- `app/jobs/cleanup_expired_tokens.job.go`
+
+### Task
+
+Generates an async task for the queue:
+
+```bash
+gofasta g task SendWelcomeEmail
+```
+
+Creates:
+- `app/jobs/send_welcome_email.task.go`
+
+### Email Template
+
+Generates an HTML email template:
+
+```bash
+gofasta g email-template order-confirmation
+```
+
+Creates:
+- `templates/emails/order-confirmation.html`
+
+## Customizing Generated Code
+
+All generated code is plain Go -- there are no runtime dependencies on the generator. After generation, you own the code and can modify it freely.
+
+Common customizations:
+
+- **Add validation rules** to DTOs using `binding` struct tags
+- **Add indexes** to models using `gorm` struct tags
+- **Add custom repository methods** beyond the standard CRUD
+- **Add business logic** to services
+- **Add custom endpoints** to controllers and routes
+
+## Workflow Example
+
+A typical workflow for adding a new feature:
+
+```bash
+# 1. Generate the full resource
+gofasta g scaffold Order total:float status:string user_id:uuid
+
+# 2. Regenerate Wire DI container
+gofasta wire
+
+# 3. Run migrations
+gofasta migrate up
+
+# 4. Customize the generated code
+# - Add validation to app/dtos/order.dtos.go
+# - Add business logic to app/services/order.service.go
+# - Add auth middleware to app/rest/routes/order.routes.go
+
+# 5. Test
+curl -X POST http://localhost:8080/api/v1/orders \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"total": 99.99, "status": "pending", "user_id": "..."}'
+```
+
+## Next Steps
+
+- [Build REST endpoints](/docs/guides/rest-api)
+- [Set up GraphQL resolvers](/docs/guides/graphql)
+- [Manage database migrations](/docs/guides/database-and-migrations)
+- [CLI scaffold reference](/docs/cli-reference/generate/scaffold)

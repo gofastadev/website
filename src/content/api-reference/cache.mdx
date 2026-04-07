@@ -1,7 +1,159 @@
 ---
-title: cache
+title: Cache
+description: In-memory and Redis caching with TTL support, cache strategies, and key management.
 ---
 
-# cache
+# Cache
 
-Documentation coming soon.
+The `cache` package provides a unified caching interface with in-memory and Redis backends. It supports TTL-based expiration, cache-aside patterns, and key management utilities.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/cache"
+```
+
+## Key Types
+
+### Cache
+
+The primary caching interface implemented by all cache drivers.
+
+```go
+type Cache interface {
+    Get(ctx context.Context, key string, dest interface{}) error
+    Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+    Delete(ctx context.Context, key string) error
+    Exists(ctx context.Context, key string) (bool, error)
+    Flush(ctx context.Context) error
+    Close() error
+}
+```
+
+### CacheConfig
+
+```go
+type CacheConfig struct {
+    Driver   string        `yaml:"driver" env:"CACHE_DRIVER"`
+    Host     string        `yaml:"host" env:"CACHE_HOST"`
+    Port     int           `yaml:"port" env:"CACHE_PORT"`
+    Password string        `yaml:"password" env:"CACHE_PASSWORD"`
+    DB       int           `yaml:"db" env:"CACHE_DB"`
+    TTL      time.Duration `yaml:"ttl" env:"CACHE_TTL"`
+    Prefix   string        `yaml:"prefix" env:"CACHE_PREFIX"`
+}
+```
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewMemoryCache` | `func NewMemoryCache(cfg CacheConfig) Cache` | Creates an in-memory cache instance |
+| `NewRedisCache` | `func NewRedisCache(cfg CacheConfig) (Cache, error)` | Creates a Redis-backed cache instance |
+| `NewCache` | `func NewCache(cfg CacheConfig) (Cache, error)` | Factory function that creates a cache based on the driver config |
+| `BuildKey` | `func BuildKey(prefix string, parts ...string) string` | Constructs a namespaced cache key |
+
+## Usage
+
+### In-Memory Cache
+
+```go
+c := cache.NewMemoryCache(cache.CacheConfig{
+    TTL:    5 * time.Minute,
+    Prefix: "myapp",
+})
+defer c.Close()
+
+// Set a value
+err := c.Set(ctx, "user:123", user, 10*time.Minute)
+if err != nil {
+    log.Fatalf("failed to cache: %v", err)
+}
+
+// Retrieve the value
+var cached User
+err = c.Get(ctx, "user:123", &cached)
+if err != nil {
+    log.Println("cache miss")
+}
+```
+
+### Redis Cache
+
+```go
+c, err := cache.NewRedisCache(cache.CacheConfig{
+    Driver:   "redis",
+    Host:     "localhost",
+    Port:     6379,
+    Password: "",
+    DB:       0,
+    TTL:      15 * time.Minute,
+    Prefix:   "myapp",
+})
+if err != nil {
+    log.Fatalf("failed to connect to Redis: %v", err)
+}
+defer c.Close()
+
+err = c.Set(ctx, "session:abc", sessionData, 30*time.Minute)
+```
+
+### Cache-Aside Pattern
+
+```go
+func GetUser(ctx context.Context, c cache.Cache, repo UserRepository, id string) (*User, error) {
+    var user User
+    key := cache.BuildKey("users", id)
+
+    // Try cache first
+    err := c.Get(ctx, key, &user)
+    if err == nil {
+        return &user, nil
+    }
+
+    // Cache miss -- fetch from database
+    userPtr, err := repo.FindByID(ctx, id)
+    if err != nil {
+        return nil, err
+    }
+
+    // Populate cache
+    _ = c.Set(ctx, key, userPtr, 10*time.Minute)
+    return userPtr, nil
+}
+```
+
+### Cache Invalidation
+
+```go
+// Delete a single key
+err := c.Delete(ctx, "user:123")
+
+// Check existence before fetching
+exists, err := c.Exists(ctx, "user:123")
+if exists {
+    // use cached value
+}
+
+// Flush all keys (use with caution)
+err = c.Flush(ctx)
+```
+
+### Configuration via config.yaml
+
+```yaml
+cache:
+  driver: redis
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+  ttl: 15m
+  prefix: myapp
+```
+
+## Related Pages
+
+- [Config](/docs/api-reference/config) -- Cache configuration loading
+- [Sessions](/docs/api-reference/sessions) -- Redis-backed session storage
+- [Resilience](/docs/api-reference/resilience) -- Circuit breakers for cache backends
