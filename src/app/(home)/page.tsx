@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LandingTemplate } from "@/components/templates";
-import { Hero, FeaturesGrid, QuickStartSection } from "@/components/organisms";
+import { Hero, FeaturesGrid, QuickStartSection, ComingSoon } from "@/components/organisms";
 import { getKeywordsForPath } from "@/lib/seo-keywords";
 
 export const metadata: Metadata = {
@@ -50,7 +50,13 @@ const jsonLd = {
   ],
 };
 
+const isProduction = process.env.NODE_ENV === "production";
+
 export default function HomePage() {
+  if (isProduction) {
+    return <ComingSoon />;
+  }
+
   return (
     <LandingTemplate>
       <script

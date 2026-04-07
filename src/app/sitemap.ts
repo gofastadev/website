@@ -3,6 +3,7 @@ import { readdirSync, statSync } from "fs";
 import { join } from "path";
 
 const BASE_URL = "https://gofasta.dev";
+const isProduction = process.env.NODE_ENV === "production";
 
 function getMdxPaths(dir: string, basePath: string = ""): string[] {
   const paths: string[] = [];
@@ -29,9 +30,6 @@ function getMdxPaths(dir: string, basePath: string = ""): string[] {
 }
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const contentDir = join(process.cwd(), "src", "content");
-  const docPaths = getMdxPaths(contentDir);
-
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: BASE_URL,
@@ -39,13 +37,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 1.0,
     },
-    {
-      url: `${BASE_URL}/sitemap`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
   ];
+
+  if (isProduction) {
+    return staticPages;
+  }
+
+  const contentDir = join(process.cwd(), "src", "content");
+  const docPaths = getMdxPaths(contentDir);
 
   const docPages: MetadataRoute.Sitemap = docPaths.map((path) => ({
     url: `${BASE_URL}${path}`,
@@ -54,5 +53,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: path === "/docs" ? 0.9 : 0.7,
   }));
 
-  return [...staticPages, ...docPages];
+  return [
+    ...staticPages,
+    {
+      url: `${BASE_URL}/sitemap`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    ...docPages,
+  ];
 }
