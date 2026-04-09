@@ -5,12 +5,12 @@ description: What is Gofasta and why use it.
 
 # Introduction
 
-Gofasta is a Go web framework that provides production-ready building blocks for backend services. It handles the infrastructure plumbing — authentication, caching, database setup, email, logging, middleware, and more — so you can focus on writing business logic.
+Gofasta is a Go backend toolkit that provides production-ready, independent packages for building backend services. It handles the infrastructure plumbing — authentication, caching, database setup, email, logging, middleware, and more — so you can focus on writing business logic. Every package is independent: use what you need, ignore the rest.
 
 Gofasta is split into two parts:
 
-- **[gofastadev/gofasta](https://github.com/gofastadev/gofasta)** — A Go library your project imports. Contains packages under `pkg/` covering everything from JWT auth to WebSocket support.
-- **[gofastadev/cli](https://github.com/gofastadev/cli)** — A globally installed CLI tool that scaffolds new projects and generates code. It does not import the framework — it only manipulates files on disk.
+- **[gofastadev/gofasta](https://github.com/gofastadev/gofasta)** — A Go library of independent packages under `pkg/`. Each package (auth, cache, mailer, etc.) can be used on its own — there is no all-or-nothing dependency.
+- **[gofastadev/cli](https://github.com/gofastadev/cli)** — A globally installed CLI tool that scaffolds new projects, generates code, and deploys to remote servers. It does not import the library — it only manipulates files on disk.
 
 ## What You Get
 
@@ -40,7 +40,7 @@ Your Project (myapp)
 
 The framework never imports your code. This means:
 
-- **No vendor lock-in** — you can replace any framework package with your own implementation
+- **No vendor lock-in** — you can replace any package with your own implementation
 - **No code generation at runtime** — Wire (and gqlgen, if GraphQL is enabled) run at build time
 - **No reflection magic** — all wiring is explicit Go code
 

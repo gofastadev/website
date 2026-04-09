@@ -1,0 +1,177 @@
+---
+title: gofasta deploy
+description: Deploy a Gofasta application to a remote VPS via SSH using Docker or a compiled binary.
+---
+
+# gofasta deploy
+
+Deploys your application to a remote server via SSH. Supports two methods: **Docker** (default) — builds and transfers a Docker image, runs with Docker Compose; and **binary** — cross-compiles a Go binary, transfers via SCP, manages with systemd.
+
+## Usage
+
+```bash
+gofasta deploy [flags]
+gofasta deploy [command]
+```
+
+Run this command from the root directory of your Gofasta project.
+
+## Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--host` | string | | Deploy target (`user@server`) |
+| `--method` | string | `docker` | Deploy method: `docker` or `binary` |
+| `--port` | int | `22` | SSH port |
+| `--path` | string | `/opt/<appname>` | Remote deploy directory |
+| `--arch` | string | `amd64` | Target architecture: `amd64` or `arm64` |
+| `--dry-run` | bool | `false` | Show commands without executing |
+
+All flags can also be set in the `deploy` section of `config.yaml` or via `GOFASTA_DEPLOY_*` environment variables.
+
+## Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `gofasta deploy setup` | Prepare a fresh server (install Docker, nginx, create directories) |
+| `gofasta deploy status` | Check the status of the deployed application |
+| `gofasta deploy logs` | Tail application logs from the remote server |
+| `gofasta deploy rollback` | Rollback to the previous release |
+
+## Examples
+
+Deploy using config.yaml settings:
+
+```bash
+gofasta deploy
+```
+
+Deploy to a specific host:
+
+```bash
+gofasta deploy --host deploy@api.example.com
+```
+
+Deploy as a compiled binary instead of Docker:
+
+```bash
+gofasta deploy --method binary
+```
+
+Preview all commands without executing:
+
+```bash
+gofasta deploy --dry-run --host deploy@api.example.com
+```
+
+First-time server setup:
+
+```bash
+gofasta deploy setup --host deploy@api.example.com
+```
+
+Check status, tail logs, or rollback:
+
+```bash
+gofasta deploy status
+gofasta deploy logs
+gofasta deploy rollback
+```
+
+## Configuration
+
+Add a `deploy` section to your `config.yaml`:
+
+```yaml
+deploy:
+  host: deploy@api.example.com
+  method: docker        # docker or binary
+  port: 22
+  path: /opt/myapp
+  arch: amd64           # amd64 or arm64
+  health_path: /health
+  health_timeout: 30    # seconds
+  keep_releases: 3      # for rollback
+```
+
+Environment variable overrides use the `GOFASTA_` prefix:
+
+```bash
+export GOFASTA_DEPLOY_HOST=deploy@api.example.com
+export GOFASTA_DEPLOY_METHOD=binary
+```
+
+## How It Works
+
+### Docker Method
+
+1. Builds a Docker image locally using the project's `Dockerfile`
+2. Transfers the image to the server via `docker save | ssh docker load`
+3. Copies `.env` and `config.yaml` to a shared directory on the server
+4. Copies the production compose file to a versioned release directory
+5. Runs `docker compose up -d` on the server
+6. Runs database migrations inside the container
+7. Polls the `/health` endpoint until the app responds
+8. Updates the `current` symlink to point to the new release
+9. Cleans up old releases beyond the `keep_releases` threshold
+
+### Binary Method
+
+1. Cross-compiles a static binary (`CGO_ENABLED=0 GOOS=linux`)
+2. Transfers the binary, migrations, templates, and configs via SCP
+3. Installs the binary to `/usr/local/bin/<appname>`
+4. Installs or updates the systemd service file
+5. Runs database migrations
+6. Restarts the systemd service
+7. Polls the `/health` endpoint until the app responds
+8. Updates the `current` symlink and cleans up old releases
+
+### Release Directory Structure
+
+Deployments use a Capistrano-style release structure on the server:
+
+```
+/opt/myapp/
+  current -> releases/20260409-153000/   # symlink to active release
+  releases/
+    20260409-153000/                     # newest
+    20260409-120000/                     # previous (available for rollback)
+  shared/
+    .env                                 # shared across all releases
+    config.yaml
+```
+
+Each deploy creates a new timestamped release directory. The `current` symlink is only updated after the health check passes. If a deploy fails, the previous release remains active.
+
+### Rollback
+
+`gofasta deploy rollback` activates the previous release by:
+
+1. Finding the release before `current`
+2. Starting the previous release's containers (Docker) or installing its binary (binary method)
+3. Updating the `current` symlink
+4. Running a health check to verify
+
+## Prerequisites
+
+- **SSH key-based access** to the target server (password auth is not supported)
+- **Docker method**: Docker installed locally and on the server
+- **Binary method**: systemd on the server
+
+Use `gofasta deploy setup` to install prerequisites on a fresh Ubuntu/Debian server.
+
+## Troubleshooting
+
+**"deploy host is required"** -- Set `deploy.host` in `config.yaml` or pass `--host`.
+
+**SSH connection refused** -- Verify the host, port, and that your SSH key is authorized on the server. Test with `ssh -p <port> user@server echo ok`.
+
+**Health check failed** -- The app didn't respond at the health endpoint within the timeout. Check logs with `gofasta deploy logs`. The previous release remains active.
+
+**Docker not found on remote** -- Run `gofasta deploy setup` to install Docker on the server.
+
+## Related
+
+- [Deployment Guide](/docs/guides/deployment) -- Docker, Kubernetes, VPS, and CI/CD deployment options
+- [gofasta serve](/docs/cli-reference/serve) -- start the production server
+- [Configuration Guide](/docs/guides/configuration) -- application configuration

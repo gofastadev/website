@@ -1,0 +1,41 @@
+---
+title: gofasta routes
+description: Display all registered API routes in a formatted table.
+---
+
+# gofasta routes
+
+Parses route files in `app/rest/routes/` and displays a formatted table of all registered routes, including HTTP method, path, and source file.
+
+## Usage
+
+```bash
+gofasta routes
+```
+
+Run this command from the root directory of your Gofasta project.
+
+This command takes no flags.
+
+## Examples
+
+```bash
+$ gofasta routes
+METHOD   PATH                    FILE
+GET      /health                 routes/index.routes.go
+GET      /api/v1/users           routes/user.routes.go
+POST     /api/v1/users           routes/user.routes.go
+GET      /api/v1/users/:id       routes/user.routes.go
+PUT      /api/v1/users/:id       routes/user.routes.go
+DELETE   /api/v1/users/:id       routes/user.routes.go
+```
+
+## How It Works
+
+The command scans all `.go` files in `app/rest/routes/` and parses route registration calls (e.g., `GET`, `POST`, `PUT`, `DELETE`) to build the table. It does not start the server — it performs static analysis of the route files.
+
+## Related
+
+- [REST API Guide](/docs/guides/rest-api) -- build and customize REST endpoints
+- [gofasta generate route](/docs/cli-reference/generate/route) -- generate a route file
+- [gofasta serve](/docs/cli-reference/serve) -- start the HTTP server

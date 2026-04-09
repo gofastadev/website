@@ -3,6 +3,6 @@ export default {
   "getting-started": "Getting Started",
   guides: "Guides",
   "cli-reference": "CLI Reference",
-  "api-reference": "Framework API",
+  "api-reference": "Package Library",
   "white-paper": "White Paper",
 };
