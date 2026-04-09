@@ -1,0 +1,60 @@
+---
+title: gofasta db
+description: Database management commands for resetting and managing your development database.
+---
+
+# gofasta db
+
+Database management commands. Currently provides the `reset` subcommand for resetting your database to a clean state during development.
+
+## Usage
+
+```bash
+gofasta db [command]
+```
+
+## Subcommands
+
+### gofasta db reset
+
+Drop all tables, re-apply all migrations, and run seed functions. Useful during development when you want a clean database.
+
+```bash
+gofasta db reset
+```
+
+#### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--skip-seed` | bool | `false` | Skip running database seeds after migration |
+
+#### Examples
+
+Reset database and re-seed:
+
+```bash
+gofasta db reset
+```
+
+Reset database without seeding:
+
+```bash
+gofasta db reset --skip-seed
+```
+
+## How It Works
+
+The `gofasta db reset` command performs these steps in order:
+
+1. **Drop all tables** -- runs `migrate drop -f` to force-drop all database tables
+2. **Re-apply migrations** -- runs `migrate up` to apply all migrations from scratch
+3. **Run seeds** -- delegates to the project binary to run seed functions (unless `--skip-seed` is set)
+
+The database connection details are read from `config.yaml` and can be overridden with `GOFASTA_` prefixed environment variables.
+
+## Related
+
+- [gofasta migrate](/docs/cli-reference/migrate) -- apply or rollback individual migrations
+- [gofasta seed](/docs/cli-reference/seed) -- run database seeders
+- [Database & Migrations Guide](/docs/guides/database-and-migrations)

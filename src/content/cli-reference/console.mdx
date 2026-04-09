@@ -1,0 +1,46 @@
+---
+title: gofasta console
+description: Start an interactive Go REPL to explore your project code.
+---
+
+# gofasta console
+
+Launches [yaegi](https://github.com/traefik/yaegi) (a Go interpreter) in the current project directory for interactive exploration of your application code.
+
+## Usage
+
+```bash
+gofasta console
+```
+
+This command takes no flags.
+
+## Prerequisites
+
+Yaegi must be installed:
+
+```bash
+go install github.com/traefik/yaegi/cmd/yaegi@latest
+```
+
+## Examples
+
+Start the REPL:
+
+```bash
+gofasta console
+```
+
+Once inside, you can import and test your project's packages interactively:
+
+```go
+> import "myapp/app/models"
+> u := models.User{FirstName: "Alice"}
+> u.FirstName
+"Alice"
+```
+
+## Related
+
+- [gofasta dev](/docs/cli-reference/dev) -- start the development server
+- [gofasta doctor](/docs/cli-reference/doctor) -- check system prerequisites

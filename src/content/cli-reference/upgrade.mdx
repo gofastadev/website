@@ -1,0 +1,42 @@
+---
+title: gofasta upgrade
+description: Upgrade the Gofasta CLI to the latest version.
+---
+
+# gofasta upgrade
+
+Checks for a newer version of the Gofasta CLI and installs it. The upgrade method is automatically detected based on how gofasta was originally installed.
+
+## Usage
+
+```bash
+gofasta upgrade
+```
+
+This command takes no flags.
+
+## How It Works
+
+The command detects your installation method and runs the appropriate upgrade:
+
+| Installation method | Upgrade command |
+|--------------------|----------------|
+| Homebrew | `brew upgrade gofasta` |
+| Go install | `go install github.com/gofastadev/cli/cmd/gofasta@latest` |
+| Binary (curl install) | Downloads the latest release from GitHub and replaces the current binary |
+
+## Examples
+
+```bash
+$ gofasta upgrade
+Checking for updates...
+Current version: v0.5.0
+Latest version:  v0.6.0
+Upgrading via go install...
+✓ Upgraded to v0.6.0
+```
+
+## Related
+
+- [Installation](/docs/getting-started/installation) -- install the CLI
+- [gofasta version](/docs/cli-reference/version) -- check your current version

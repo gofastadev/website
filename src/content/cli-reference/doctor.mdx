@@ -1,0 +1,69 @@
+---
+title: gofasta doctor
+description: Check system prerequisites, project configuration, and database connectivity.
+---
+
+# gofasta doctor
+
+Verifies that required and optional tools are installed, checks project configuration, and tests database connectivity. Useful for diagnosing setup issues and for including in bug reports.
+
+## Usage
+
+```bash
+gofasta doctor
+```
+
+This command takes no flags.
+
+## Examples
+
+```bash
+$ gofasta doctor
+Required:
+  ✓ go           go version go1.25.8 darwin/arm64
+  ✓ migrate      v4.18.1
+
+Optional:
+  ✓ docker       Docker version 27.4.0
+  ✓ air          available (Go tool)
+  ✓ wire         available (Go tool)
+  ✓ gqlgen       available (Go tool)
+  ✓ swag         available (Go tool)
+
+Project:
+  ✓ config.yaml  found
+  ✓ database     reachable
+```
+
+## What It Checks
+
+### Required Tools
+
+| Tool | What it checks |
+|------|---------------|
+| `go` | Go compiler is installed and reports its version |
+| `migrate` | golang-migrate CLI is installed |
+
+### Optional Tools
+
+| Tool | What it checks |
+|------|---------------|
+| `docker` | Docker is installed (needed for `docker compose` workflows) |
+| `air` | Air hot-reload tool is available as a Go tool |
+| `wire` | Google Wire DI generator is available |
+| `gqlgen` | GraphQL code generator is available (only needed for GraphQL projects) |
+| `swag` | Swagger/OpenAPI generator is available |
+
+### Project Health
+
+When run inside a project directory (where `config.yaml` exists):
+
+| Check | What it verifies |
+|-------|-----------------|
+| `config.yaml` | Configuration file exists |
+| `database` | Database is reachable using the connection details from config |
+
+## Related
+
+- [Installation](/docs/getting-started/installation) -- install the CLI and prerequisites
+- [gofasta init](/docs/cli-reference/init) -- initialize a project after cloning
