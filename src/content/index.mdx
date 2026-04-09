@@ -1,11 +1,11 @@
 ---
 title: Documentation
-description: The official documentation for the Gofasta Go web framework and CLI tool.
+description: The official documentation for the Gofasta Go backend toolkit and CLI.
 ---
 
 # Gofasta Documentation
 
-Gofasta is a batteries-included Go web framework with a powerful CLI for scaffolding projects and generating code. This documentation covers everything you need to build, deploy, and maintain Go backend services with Gofasta.
+Gofasta is a Go backend toolkit — a CLI for scaffolding projects and generating code, backed by a library of independent, production-ready packages. Use what you need, ignore the rest. This documentation covers everything you need to build, deploy, and maintain Go backend services with Gofasta.
 
 ## Getting Started
 
@@ -35,11 +35,12 @@ Every command the Gofasta CLI provides:
 - **[gofasta new](/docs/cli-reference/new)** — Create a new project
 - **[gofasta generate](/docs/cli-reference/generate/scaffold)** — Generate code (scaffold, model, service, etc.)
 - **[gofasta migrate](/docs/cli-reference/migrate)** — Run database migrations
+- **[gofasta deploy](/docs/cli-reference/deploy)** — Deploy to a VPS via SSH
 - **[gofasta dev](/docs/cli-reference/dev)** — Start the development server
 
-## Framework API
+## Package Library
 
-Package-by-package reference for the `github.com/gofastadev/gofasta/pkg/*` library:
+Every package is independent — import only what you need. Reference for `github.com/gofastadev/gofasta/pkg/*`:
 
 - **[Config](/docs/api-reference/config)** — Configuration loading and database setup
 - **[Auth](/docs/api-reference/auth)** — JWT and RBAC

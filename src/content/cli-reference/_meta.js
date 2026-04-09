@@ -7,5 +7,6 @@ export default {
   serve: "gofasta serve",
   wire: "gofasta wire",
   swagger: "gofasta swagger",
+  deploy: "gofasta deploy",
   generate: "gofasta generate",
 };

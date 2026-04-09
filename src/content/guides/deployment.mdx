@@ -5,7 +5,42 @@ description: Deploy Gofasta applications with Docker, Docker Compose, Kubernetes
 
 # Deployment
 
-Gofasta projects include pre-configured deployment files for multiple targets. This guide covers Docker, Kubernetes, VPS deployments, and CI/CD pipelines.
+Gofasta projects include pre-configured deployment files for multiple targets. The fastest way to deploy is the built-in **[`gofasta deploy`](/docs/cli-reference/deploy)** command, which handles Docker or binary deployments to any VPS via SSH. This guide also covers manual Docker, Kubernetes, and CI/CD setups for more advanced scenarios.
+
+## Quick Deploy with the CLI
+
+The `gofasta deploy` command automates the entire deployment process:
+
+```bash
+# First-time server setup (installs Docker, nginx, creates directories)
+gofasta deploy setup --host deploy@api.example.com
+
+# Deploy via Docker (default)
+gofasta deploy
+
+# Deploy as a compiled binary
+gofasta deploy --method binary
+
+# Check status, tail logs, or rollback
+gofasta deploy status
+gofasta deploy logs
+gofasta deploy rollback
+```
+
+Configure your deploy target in `config.yaml`:
+
+```yaml
+deploy:
+  host: deploy@api.example.com
+  method: docker
+  keep_releases: 3
+```
+
+See the [full CLI reference](/docs/cli-reference/deploy) for all options.
+
+## Manual Deployment Options
+
+The sections below cover manual deployment for cases where you need more control or are deploying to managed platforms like Kubernetes or cloud container services.
 
 ## Deployment Files
 
@@ -482,6 +517,7 @@ initContainers:
 
 ## Next Steps
 
+- [gofasta deploy CLI reference](/docs/cli-reference/deploy) -- one-command deploy via SSH
 - [Configure your application](/docs/guides/configuration)
 - [Set up background jobs](/docs/guides/background-jobs)
 - [Health check API reference](/docs/api-reference/health)
