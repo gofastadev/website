@@ -1,0 +1,42 @@
+coverage:
+  precision: 2
+  round: down
+  range: "90...100"
+
+  status:
+    project:
+      default:
+        target: 100%
+        threshold: 0%
+        if_ci_failed: error
+        only_pulls: false
+    patch:
+      default:
+        target: 100%
+        threshold: 0%
+        if_ci_failed: error
+
+comment:
+  layout: "header, diff, files, components, footer"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+
+github_checks:
+  annotations: true
+
+ignore:
+  - "src/app/**"
+  - "src/content/**"
+  - "src/__tests__/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.d.ts"
+  - "src/components/**/index.ts"
+  - "mdx-components.tsx"
+  - "next.config.ts"
+  - "proxy.ts"
+  - "postcss.config.mjs"
+  - "vitest.config.ts"
+  - "eslint.config.mjs"
