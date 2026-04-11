@@ -7,7 +7,7 @@ description: Install the Gofasta CLI tool.
 
 The Gofasta CLI is a standalone Go binary. There are two ways to install it.
 
-## Option A: `go install` (recommended)
+## Option A: `go install` (recommended for Go developers)
 
 **Requires Go 1.25.8 or later.**
 
@@ -15,9 +15,9 @@ The Gofasta CLI is a standalone Go binary. There are two ways to install it.
 go install github.com/gofastadev/cli/cmd/gofasta@latest
 ```
 
-This compiles the CLI from source using your local Go toolchain and drops the `gofasta` binary into `$GOBIN` (usually `~/go/bin`). Make sure that directory is on your `PATH`.
+This compiles the CLI from source using your local Go toolchain and drops the `gofasta` binary into `$GOBIN` — or `$GOPATH/bin` when `GOBIN` is unset, which usually resolves to `~/go/bin`. If `gofasta` runs after this, you're done. If you see `command not found: gofasta`, skip to [Troubleshooting](#troubleshooting) below — it's a one-time PATH fix.
 
-Because gofasta is a tool for Go developers, this is the simplest path — you already have everything you need.
+Because gofasta is a tool for Go developers, this is the simplest path: you already have everything you need.
 
 ## Option B: Pre-built binary (no Go toolchain needed)
 
@@ -27,7 +27,7 @@ If you don't have Go installed or just want a single self-contained binary:
 curl -fsSL https://raw.githubusercontent.com/gofastadev/cli/main/dist/install.sh | sh
 ```
 
-This downloads the latest pre-built binary for your platform from [GitHub Releases](https://github.com/gofastadev/cli/releases) and installs it to `/usr/local/bin/gofasta`. Works on macOS and Linux for both `amd64` and `arm64`.
+This downloads the latest pre-built binary for your platform from [GitHub Releases](https://github.com/gofastadev/cli/releases) and installs it to `/usr/local/bin/gofasta`. Works on macOS and Linux for both `amd64` and `arm64`. The script detects your shell and prints exact `export PATH=…` instructions if the install directory isn't already on your `$PATH`, so most users are done after running it.
 
 You can also grab a binary manually from the [releases page](https://github.com/gofastadev/cli/releases) and put it on your `PATH` yourself.
 
@@ -58,6 +58,68 @@ Available Commands:
   swagger     Generate Swagger/OpenAPI docs
   help        Help about any command
 ```
+
+## Troubleshooting
+
+### `command not found: gofasta` after `go install`
+
+This is the most common first-time issue with any `go install`-distributed CLI, not specific to gofasta. Go installed the binary into `$GOPATH/bin` (typically `~/go/bin`), but that directory isn't on your shell's `$PATH`.
+
+**1. Confirm the binary is there:**
+
+```bash
+ls -l "$(go env GOPATH)/bin/gofasta"
+```
+
+If you see the file, the install succeeded — you just need to make its directory reachable by your shell.
+
+**2. Add the directory to your `$PATH` once:**
+
+```bash
+# zsh (default on macOS)
+echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.zshrc
+source ~/.zshrc
+
+# bash
+echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
+source ~/.bashrc
+
+# fish
+fish_add_path (go env GOPATH)/bin
+```
+
+**3. Verify:**
+
+```bash
+gofasta --version
+```
+
+This is a **one-time setup per machine** — every future `go install` (for any Go tool) lands in the same directory, so once `~/go/bin` is on your `$PATH` you never need to do this again.
+
+### `gofasta --version` reports `dev` (pre-v0.1.3 only)
+
+CLI versions before v0.1.3 shipped with `Version = "dev"` as a hardcoded default, only overridden for pre-built binaries at release time. `go install` never applies release-time flags, so Option A installs always reported `dev` regardless of the actual tag you installed.
+
+This was fixed in **v0.1.3**: the CLI now reads the installed module version via Go's built-in `runtime/debug.ReadBuildInfo()` at startup, so `go install` users now see the correct tag automatically. If you installed before v0.1.3, re-run:
+
+```bash
+go install github.com/gofastadev/cli/cmd/gofasta@latest
+```
+
+### `go install` picked up the wrong Go version
+
+If you see something like `go: github.com/gofastadev/cli@v0.1.2 requires go >= 1.25.8; switching to go1.25.9`, Go's auto-toolchain feature downloaded the required version for you automatically. This is expected — your install will succeed. If it fails, upgrade your local Go to 1.25.8 or later manually via [go.dev/dl](https://go.dev/dl/).
+
+### Which option should I use?
+
+| Your situation | Use |
+|---|---|
+| You have Go installed and use it day-to-day | **Option A** — no extra downloads, no version drift |
+| You don't have Go installed | **Option B** — self-contained binary, no toolchain |
+| Corporate machine where `go install` is blocked | **Option B** — downloads a pre-built binary instead |
+| You want reproducible pinned versions in CI | Either — both support version pinning (`@v0.1.3` for Option A, `GOFASTA_VERSION=v0.1.3 sh install.sh` is on the roadmap) |
+
+Both paths end up as a `gofasta` binary on disk, so pick whichever fits your environment. You can switch between them at any time.
 
 ## Prerequisites for Generated Projects
 

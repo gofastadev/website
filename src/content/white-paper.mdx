@@ -194,29 +194,86 @@ curl -fsSL https://raw.githubusercontent.com/gofastadev/cli/main/dist/install.sh
 
 ### 4.2 Commands
 
+The CLI exposes ~40 commands and subcommands, grouped below by purpose. Every command is invokable as `gofasta <command> [flags]` and supports `--help` for detailed usage.
+
+#### Project lifecycle
+
 | Command | Description |
 |---------|-------------|
-| `gofasta new <name>` | Create a new project (~78 files) |
-| `gofasta init` | Initialize a cloned project (install deps, generate Wire, detect and generate GraphQL if present) |
-| `gofasta dev` | Start development server with hot reload (Air) |
-| `gofasta serve` | Start production server |
-| `gofasta migrate up\|down\|status` | Run or roll back SQL migrations |
-| `gofasta seed` | Populate database with seed data |
-| `gofasta wire` | Regenerate Wire dependency injection code |
-| `gofasta swagger` | Generate OpenAPI/Swagger documentation |
-| `gofasta g scaffold <Name> [fields]` | Generate a complete CRUD resource (11 files) |
-| `gofasta g model <Name> [fields]` | Generate a database model and migration |
-| `gofasta g service <Name>` | Generate a service interface and implementation |
-| `gofasta g controller <Name>` | Generate a REST controller |
-| `gofasta g repository <Name>` | Generate a repository interface and implementation |
-| `gofasta g dto <Name> [fields]` | Generate request/response DTOs |
-| `gofasta g migration <Name>` | Generate an empty migration pair |
-| `gofasta g route <Name>` | Generate route registration |
-| `gofasta g resolver <Name>` | Regenerate GraphQL resolver stubs |
-| `gofasta g provider <Name>` | Generate a Wire provider set |
-| `gofasta g job <Name>` | Generate a background job |
-| `gofasta g task <Name>` | Generate a scheduled task |
-| `gofasta g email-template <Name>` | Generate an HTML email template |
+| `gofasta new <name>` | Bootstrap a new project (~78 files) with full structure, Go module, and starter User resource. Accepts a plain name (`myapp`) or a full module path (`github.com/myorg/myapp`). Add `--graphql` / `--gql` to include gqlgen schema and resolvers. |
+| `gofasta init` | Initialize a freshly cloned project: create `.env` from `.env.example`, run `go mod tidy`, generate Wire DI, generate GraphQL code (if `gqlgen.yml` exists), run database migrations, and verify the build. |
+| `gofasta doctor` | Check system prerequisites (Go, migrate, Docker, air, wire, gqlgen, swag) and project health (`config.yaml`, database connectivity). Useful for bug reports. |
+| `gofasta upgrade` | Self-update to the latest CLI release. Detects whether the binary was installed via `go install` or a pre-built binary and runs the right upgrade path. |
+| `gofasta version` | Print detailed version information including CLI version, Go runtime version, and OS/arch. |
+
+#### Development workflow
+
+| Command | Description |
+|---------|-------------|
+| `gofasta dev` | Start development server with hot reload via Air. Auto-runs migrations before starting. |
+| `gofasta serve` | Start the HTTP server (delegates to the project's own `serve` command). |
+| `gofasta console` | Launch an interactive Go REPL in the project directory using [yaegi](https://github.com/traefik/yaegi). Requires yaegi to be installed separately. |
+| `gofasta routes` | Display all registered API routes from `app/rest/routes/` in a formatted table (method, path, source file). |
+| `gofasta swagger` | Generate OpenAPI/Swagger documentation from code annotations via `swag init`. |
+| `gofasta wire` | Regenerate Wire dependency injection code. |
+
+#### Database
+
+| Command | Description |
+|---------|-------------|
+| `gofasta migrate up` | Apply all pending SQL migrations. |
+| `gofasta migrate down` | Roll back the last migration. |
+| `gofasta seed [--fresh]` | Run database seed functions. Use `--fresh` to drop all tables, re-migrate, then seed. |
+| `gofasta db reset [--skip-seed]` | Drop all tables, re-apply migrations, and seed. Use `--skip-seed` to skip seeding. |
+
+#### Code generation
+
+The `gofasta generate` command (shorthand `g`) scaffolds resources. Every generated file is auto-wired into the DI container, routes, and GraphQL schema where applicable.
+
+| Command | Description |
+|---------|-------------|
+| `gofasta g scaffold <Name> [field:type …]` | Generate a complete REST resource: model, migration, repository (+ interface), service (+ interface), DTOs, Wire provider, controller, routes. Add `--graphql` for GraphQL schema + resolver wiring. |
+| `gofasta g model <Name> [field:type …]` | Generate a GORM model and SQL migration pair. |
+| `gofasta g repository <Name> [field:type …]` | Generate model + migration + repository interface + repository implementation. Aliased `gofasta g repo`. |
+| `gofasta g service <Name> [field:type …]` | Generate through the service layer: model, repo, service interface + implementation, DTOs, Wire provider. Add `--graphql` for a resolver too. Aliased `gofasta g svc`. |
+| `gofasta g controller <Name> [field:type …]` | Generate everything up through the REST controller + routes, auto-wired end-to-end. Add `--graphql` for GraphQL support. Aliased `gofasta g ctrl`. |
+| `gofasta g dto <Name> [field:type …]` | Generate request/response DTOs only (standalone). |
+| `gofasta g migration <Name> [field:type …]` | Generate only the `.up.sql` / `.down.sql` migration pair. |
+| `gofasta g route <Name>` | Generate only the route registration file (assumes a controller already exists). |
+| `gofasta g provider <Name>` | Generate a Wire provider and auto-patch the container and wire.go. |
+| `gofasta g resolver <Name>` | Patch the GraphQL resolver to add a new service dependency. |
+| `gofasta g job <name> [cron-expr]` | Generate a **cron-scheduled** background job, register it in the scheduler, and add its schedule to `config.yaml`. Uses 6-field cron syntax (with seconds). |
+| `gofasta g task <name>` | Generate an **async task handler** for the `pkg/queue` (asynq-backed) queue system. |
+| `gofasta g email-template <name>` | Generate an HTML email template in `templates/emails/`. Aliased `gofasta g email`. |
+
+Supported field types are `string`, `text`, `int`, `float`, `bool`, `uuid`, and `time`. SQL types are automatically adapted per database driver (PostgreSQL, MySQL, SQLite, SQL Server, ClickHouse) based on `database.driver` in `config.yaml`.
+
+#### Deployment
+
+All deploy commands read configuration from the `deploy:` section of `config.yaml` and support `--host`, `--method` (`docker` or `binary`), `--port`, `--path`, `--arch`, and `--dry-run` flags.
+
+| Command | Description |
+|---------|-------------|
+| `gofasta deploy` | Deploy the application to a remote server via SSH. Defaults to the `docker` method (transfers a built Docker image); `--method binary` cross-compiles a Go binary and manages it via systemd. |
+| `gofasta deploy setup` | Prepare a fresh VPS for deployment: install system packages, Docker (for docker method) or service user (for binary method), create directory structure, install nginx reverse proxy config. |
+| `gofasta deploy status` | Check the status of the deployed application (current release, container/service state). |
+| `gofasta deploy logs` | Tail application logs from the remote server (streams `docker compose logs -f` or `journalctl -u <app> -f`). |
+| `gofasta deploy rollback` | Roll back to the previous release on the remote server. |
+
+#### Shell integration
+
+| Command | Description |
+|---------|-------------|
+| `gofasta completion <shell>` | Generate the shell completion script for bash, zsh, fish, or PowerShell. Output is shell code meant to be `source`d. |
+| `gofasta help [command]` | Show help for any command. Equivalent to `gofasta <command> --help`. |
+
+#### Global flags
+
+| Flag | Description |
+|------|-------------|
+| `-h, --help` | Show help for the current command. |
+| `-v, --version` | Print the CLI version (machine-parseable — no banner). |
+| `--no-banner` | Suppress the branded banner. Also honored via `GOFASTA_NO_BANNER=1` environment variable. The banner is also suppressed automatically for `gofasta completion` (to keep shell scripts valid) and `--version` (to keep output parseable), and when `NO_COLOR` is set the banner renders without ANSI colors. |
 
 ### 4.3 Project Creation
 
