@@ -15,7 +15,7 @@ export async function generateMetadata(props: {
   const title = mdxMeta?.title ?? "Documentation";
   const description =
     mdxMeta?.description ??
-    "Gofasta documentation — guides, CLI reference, and API reference for the Go web framework.";
+    "Gofasta documentation — guides, CLI reference, and API reference for the Go backend toolkit.";
   const section = params.mdxPath?.[0]
     ?.replace(/-/g, " ")
     .replace(/\b\w/g, (c: string) => c.toUpperCase()) ?? "Docs";
@@ -67,7 +67,7 @@ function buildStructuredData(
   const title = meta?.title ?? "Documentation";
   const description =
     meta?.description ??
-    "Gofasta documentation for the Go web framework.";
+    "Gofasta documentation for the Go backend toolkit.";
 
   const breadcrumbItems = [
     { name: "Home", url: "https://gofasta.dev" },

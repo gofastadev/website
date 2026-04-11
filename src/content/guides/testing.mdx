@@ -1,11 +1,11 @@
 ---
 title: Testing
-description: Test setup, test utilities, integration tests, mocking, and test database configuration in Gofasta.
+description: Test setup, testcontainers-backed integration tests, mocking, and the testutil/testdb helper.
 ---
 
 # Testing
 
-Gofasta projects use Go's built-in testing framework alongside the `github.com/gofastadev/gofasta/pkg/test-utilities` package, which provides helpers for setting up test databases, creating HTTP test requests, and mocking dependencies.
+Gofasta projects use Go's built-in `testing` package alongside the `github.com/gofastadev/gofasta/pkg/testutil/testdb` helper, which spins up a real PostgreSQL container via [testcontainers-go](https://github.com/testcontainers/testcontainers-go) for integration tests. For unit tests, mock your repository interfaces with hand-written stubs — Go interfaces make this trivial and no mocking library is required.
 
 ## Project Test Structure
 
@@ -36,80 +36,72 @@ Or use the Makefile shortcut:
 make test
 ```
 
-## Test Utilities Package
+## The `testutil/testdb` Package
 
-The `github.com/gofastadev/gofasta/pkg/test-utilities` package (imported as `testutil`) provides helpers that reduce boilerplate in tests.
-
-### Setting Up a Test Database
-
-`testutil.SetupTestDB` creates an isolated test database using SQLite in-memory by default:
+`github.com/gofastadev/gofasta/pkg/testutil/testdb` exposes one primary helper:
 
 ```go
-package services_test
+func SetupTestDB(t *testing.T) *gorm.DB
+```
+
+It starts a fresh PostgreSQL container, runs the framework's base migrations (the `citext` extension and the shared trigger functions), and returns a ready-to-use `*gorm.DB`. The container is automatically torn down at the end of the test via `t.Cleanup`, so every test gets an isolated database.
+
+**Requirements:** Docker must be running on the machine executing the tests. The first call pulls the `postgres:16-alpine` image.
+
+### Basic Integration Test
+
+```go
+package repositories_test
 
 import (
+    "context"
     "testing"
 
-    testutil "github.com/gofastadev/gofasta/pkg/test-utilities"
+    "github.com/gofastadev/gofasta/pkg/testutil/testdb"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+
     "myapp/app/models"
+    "myapp/app/repositories"
 )
 
-func TestProductService(t *testing.T) {
-    db := testutil.SetupTestDB(t, &models.Product{}, &models.Category{})
-    // db is a *gorm.DB connected to an in-memory SQLite database
-    // Tables for Product and Category are auto-migrated
-}
-```
-
-Pass your model structs to `SetupTestDB` and it automatically creates the tables. The database is cleaned up when the test finishes.
-
-### Using a Real Database for Tests
-
-For integration tests against your actual database driver, use `testutil.SetupTestDBFromConfig`:
-
-```go
-func TestProductRepository_Postgres(t *testing.T) {
+func TestProductRepository_Create(t *testing.T) {
     if testing.Short() {
-        t.Skip("skipping integration test")
+        t.Skip("skipping integration test (requires Docker)")
     }
 
-    db := testutil.SetupTestDBFromConfig(t, "config.test.yaml",
-        &models.Product{},
-        &models.Category{},
-    )
-    // Uses the database configured in config.test.yaml
+    db := testdb.SetupTestDB(t)
+    require.NoError(t, db.AutoMigrate(&models.Product{}))
+
+    repo := repositories.NewProductRepository(db)
+
+    product := &models.Product{Name: "Widget", Price: 9.99}
+    err := repo.Create(context.Background(), product)
+
+    require.NoError(t, err)
+    assert.NotEmpty(t, product.ID) // BaseModelImpl auto-populates the UUID
 }
 ```
 
-Create a `config.test.yaml` that points to a test database:
+### Splitting Unit and Integration Tests
 
-```yaml
-database:
-  driver: postgres
-  host: localhost
-  port: 5432
-  name: myapp_test
-  user: postgres
-  password: postgres
-```
-
-Run integration tests separately:
+Use the `testing.Short()` flag to skip container-backed tests when you want a fast unit-only run:
 
 ```bash
-# Run only unit tests (skip integration)
+# Fast unit-only run — no Docker required
 go test -short ./...
 
-# Run all tests including integration
+# Full run including container-backed integration tests
 go test ./...
 ```
 
 ## Unit Testing Services
 
-Services contain business logic and are the most important layer to test. Mock the repository interface to isolate the service.
+Services contain business logic and are the most important layer to test. They should be tested **without** hitting the database — mock the repository interface and exercise the service's logic in isolation.
 
-### Creating Mocks
+### Hand-Written Repository Mocks
 
-Define mocks that implement repository interfaces:
+Gofasta generates interface-based repositories, so you can mock them with a simple struct holding function fields. No mock-generation tool is required.
 
 ```go
 // app/repositories/mocks/product_repository_mock.go
@@ -117,33 +109,30 @@ package mocks
 
 import (
     "context"
+
     "myapp/app/models"
 )
 
 type MockProductRepository struct {
-    CreateFn    func(ctx context.Context, product *models.Product) error
-    FindAllFn   func(ctx context.Context, page, perPage int) ([]models.Product, int64, error)
-    FindByIDFn  func(ctx context.Context, id string) (*models.Product, error)
-    UpdateFn    func(ctx context.Context, product *models.Product) error
-    DeleteFn    func(ctx context.Context, id string) error
+    CreateFn   func(ctx context.Context, product *models.Product) error
+    FindAllFn  func(ctx context.Context, page, perPage int) ([]models.Product, int64, error)
+    FindByIDFn func(ctx context.Context, id string) (*models.Product, error)
+    UpdateFn   func(ctx context.Context, product *models.Product) error
+    DeleteFn   func(ctx context.Context, id string) error
 }
 
-func (m *MockProductRepository) Create(ctx context.Context, product *models.Product) error {
-    return m.CreateFn(ctx, product)
+func (m *MockProductRepository) Create(ctx context.Context, p *models.Product) error {
+    return m.CreateFn(ctx, p)
 }
-
 func (m *MockProductRepository) FindAll(ctx context.Context, page, perPage int) ([]models.Product, int64, error) {
     return m.FindAllFn(ctx, page, perPage)
 }
-
 func (m *MockProductRepository) FindByID(ctx context.Context, id string) (*models.Product, error) {
     return m.FindByIDFn(ctx, id)
 }
-
-func (m *MockProductRepository) Update(ctx context.Context, product *models.Product) error {
-    return m.UpdateFn(ctx, product)
+func (m *MockProductRepository) Update(ctx context.Context, p *models.Product) error {
+    return m.UpdateFn(ctx, p)
 }
-
 func (m *MockProductRepository) Delete(ctx context.Context, id string) error {
     return m.DeleteFn(ctx, id)
 }
@@ -158,6 +147,10 @@ import (
     "context"
     "testing"
 
+    "github.com/google/uuid"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+
     "myapp/app/dtos"
     "myapp/app/models"
     "myapp/app/repositories/mocks"
@@ -166,130 +159,93 @@ import (
 
 func TestProductService_Create(t *testing.T) {
     mockRepo := &mocks.MockProductRepository{
-        CreateFn: func(ctx context.Context, product *models.Product) error {
-            product.ID = uuid.New()
+        CreateFn: func(ctx context.Context, p *models.Product) error {
+            p.ID = uuid.New()
             return nil
         },
     }
 
     svc := services.NewProductService(mockRepo)
 
-    req := &dtos.CreateProductRequest{
+    result, err := svc.Create(context.Background(), &dtos.CreateProductRequest{
         Name:  "Widget",
         Price: 9.99,
-    }
+    })
 
-    result, err := svc.Create(context.Background(), req)
-    if err != nil {
-        t.Fatalf("expected no error, got %v", err)
-    }
-
-    if result.Name != "Widget" {
-        t.Errorf("expected name Widget, got %s", result.Name)
-    }
-
-    if result.Price != 9.99 {
-        t.Errorf("expected price 9.99, got %f", result.Price)
-    }
+    require.NoError(t, err)
+    assert.Equal(t, "Widget", result.Name)
+    assert.InDelta(t, 9.99, result.Price, 0.0001)
 }
 
 func TestProductService_Create_InvalidPrice(t *testing.T) {
-    mockRepo := &mocks.MockProductRepository{}
-    svc := services.NewProductService(mockRepo)
+    svc := services.NewProductService(&mocks.MockProductRepository{})
 
-    req := &dtos.CreateProductRequest{
+    _, err := svc.Create(context.Background(), &dtos.CreateProductRequest{
         Name:  "Widget",
         Price: -5.00,
-    }
+    })
 
-    _, err := svc.Create(context.Background(), req)
-    if err == nil {
-        t.Fatal("expected error for negative price, got nil")
-    }
+    assert.Error(t, err)
 }
 ```
 
+Because the mock repository is a plain struct, each test only has to set the function fields it actually cares about. Other methods will panic on a nil call — which is exactly the signal you want if a test exercises code it shouldn't.
+
 ## Testing Controllers
 
-Use `testutil.NewTestRouter` to create a gorilla/mux router configured for testing, and `testutil.MakeRequest` to send HTTP requests:
+Controllers are standard `net/http` handlers, so test them with the standard library's `net/http/httptest`. There is no special testing router; use the real `gorilla/mux` router and `httputil.Handle` wrapper.
 
 ```go
 package controllers_test
 
 import (
+    "bytes"
+    "encoding/json"
     "net/http"
+    "net/http/httptest"
     "testing"
 
-    testutil "github.com/gofastadev/gofasta/pkg/test-utilities"
+    "github.com/google/uuid"
+    "github.com/gorilla/mux"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+
     "github.com/gofastadev/gofasta/pkg/httputil"
-    "myapp/app/rest/controllers"
+
+    "myapp/app/models"
     "myapp/app/repositories/mocks"
+    "myapp/app/rest/controllers"
     "myapp/app/services"
 )
 
-func TestProductController_List(t *testing.T) {
-    mockRepo := &mocks.MockProductRepository{
-        FindAllFn: func(ctx context.Context, page, perPage int) ([]models.Product, int64, error) {
-            return []models.Product{
-                {Name: "Widget", Price: 9.99},
-            }, 1, nil
-        },
-    }
-
-    svc := services.NewProductService(mockRepo)
-    ctrl := controllers.NewProductController(svc)
-
-    router := testutil.NewTestRouter()
-    router.HandleFunc("/products", httputil.Handle(ctrl.List)).Methods("GET")
-
-    resp := testutil.MakeRequest(t, router, "GET", "/products", nil)
-
-    testutil.AssertStatus(t, resp, http.StatusOK)
-    testutil.AssertJSONContains(t, resp, "success", true)
-}
-
 func TestProductController_Create(t *testing.T) {
     mockRepo := &mocks.MockProductRepository{
-        CreateFn: func(ctx context.Context, product *models.Product) error {
-            product.ID = uuid.New()
+        CreateFn: func(ctx context.Context, p *models.Product) error {
+            p.ID = uuid.New()
             return nil
         },
     }
-
     svc := services.NewProductService(mockRepo)
     ctrl := controllers.NewProductController(svc)
 
-    router := testutil.NewTestRouter()
-    router.HandleFunc("/products", httputil.Handle(ctrl.Create)).Methods("POST")
+    router := mux.NewRouter()
+    router.HandleFunc("/products", httputil.Handle(ctrl.Create)).Methods(http.MethodPost)
 
-    body := map[string]interface{}{
-        "name":  "Widget",
-        "price": 9.99,
-    }
+    body, _ := json.Marshal(map[string]any{"name": "Widget", "price": 9.99})
+    req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewReader(body))
+    req.Header.Set("Content-Type", "application/json")
 
-    resp := testutil.MakeRequest(t, router, "POST", "/products", body)
+    rec := httptest.NewRecorder()
+    router.ServeHTTP(rec, req)
 
-    testutil.AssertStatus(t, resp, http.StatusCreated)
+    require.Equal(t, http.StatusCreated, rec.Code)
+    assert.Contains(t, rec.Body.String(), `"name":"Widget"`)
 }
 ```
 
-### Test Utility Functions
-
-| Function | Description |
-|----------|-------------|
-| `testutil.SetupTestDB(t, models...)` | Create in-memory SQLite test database |
-| `testutil.SetupTestDBFromConfig(t, path, models...)` | Create test database from config file |
-| `testutil.NewTestRouter()` | Create a gorilla/mux router in test mode |
-| `testutil.MakeRequest(t, router, method, path, body)` | Send an HTTP request and return the response |
-| `testutil.MakeAuthRequest(t, router, method, path, body, token)` | Send an authenticated HTTP request |
-| `testutil.AssertStatus(t, resp, code)` | Assert response status code |
-| `testutil.AssertJSONContains(t, resp, key, value)` | Assert a key-value pair in the JSON response |
-| `testutil.AssertJSONArray(t, resp, key, length)` | Assert an array field has the expected length |
-| `testutil.GenerateTestJWT(userID, role, config)` | Generate a JWT token for testing |
-
 ## Testing Repositories
 
-Repository tests use a real database (in-memory SQLite) to verify GORM queries:
+Repository tests use a **real** PostgreSQL database via `testdb.SetupTestDB` — GORM's query behavior differs subtly between drivers, so testing against Postgres directly catches dialect issues early. Guard these tests with `testing.Short()` so they can be skipped on a fast local run:
 
 ```go
 package repositories_test
@@ -298,109 +254,77 @@ import (
     "context"
     "testing"
 
-    testutil "github.com/gofastadev/gofasta/pkg/test-utilities"
+    "github.com/gofastadev/gofasta/pkg/testutil/testdb"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+
     "myapp/app/models"
     "myapp/app/repositories"
 )
 
-func TestProductRepository_Create(t *testing.T) {
-    db := testutil.SetupTestDB(t, &models.Product{})
-    repo := repositories.NewProductRepository(db)
-
-    product := &models.Product{
-        Name:  "Widget",
-        Price: 9.99,
-    }
-
-    err := repo.Create(context.Background(), product)
-    if err != nil {
-        t.Fatalf("expected no error, got %v", err)
-    }
-
-    if product.ID == uuid.Nil {
-        t.Error("expected product ID to be set")
-    }
-}
-
 func TestProductRepository_FindByID(t *testing.T) {
-    db := testutil.SetupTestDB(t, &models.Product{})
+    if testing.Short() {
+        t.Skip("skipping integration test (requires Docker)")
+    }
+
+    db := testdb.SetupTestDB(t)
+    require.NoError(t, db.AutoMigrate(&models.Product{}))
+
     repo := repositories.NewProductRepository(db)
 
-    // Seed test data
-    product := &models.Product{Name: "Widget", Price: 9.99}
-    db.Create(product)
+    // Seed
+    seed := &models.Product{Name: "Widget", Price: 9.99}
+    require.NoError(t, db.Create(seed).Error)
 
-    found, err := repo.FindByID(context.Background(), product.ID.String())
-    if err != nil {
-        t.Fatalf("expected no error, got %v", err)
-    }
-
-    if found.Name != "Widget" {
-        t.Errorf("expected name Widget, got %s", found.Name)
-    }
+    // Exercise
+    found, err := repo.FindByID(context.Background(), seed.ID.String())
+    require.NoError(t, err)
+    assert.Equal(t, "Widget", found.Name)
 }
 ```
 
-## Testing with Authentication
+## Testing Protected Endpoints
 
-Use `testutil.GenerateTestJWT` and `testutil.MakeAuthRequest` for testing protected endpoints:
+Generate a JWT for the test user using the real `pkg/auth` package and attach it to the request as a `Bearer` token.
 
 ```go
+import "github.com/gofastadev/gofasta/pkg/auth"
+
 func TestProductController_Create_Authenticated(t *testing.T) {
-    // ... setup controller ...
+    jwtSvc := auth.NewJWTService(&config.AuthConfig{
+        JWTSecret:         "test-secret-at-least-32-bytes!!",
+        AccessTokenExpiry: time.Hour,
+    })
+    token, err := jwtSvc.GenerateToken("user-123", "admin")
+    require.NoError(t, err)
 
-    router := testutil.NewTestRouter()
-    router.Use(middleware.Auth(jwtConfig))
-    router.HandleFunc("/products", httputil.Handle(ctrl.Create)).Methods("POST")
-
-    token := testutil.GenerateTestJWT("user-123", "admin", jwtConfig)
-
-    body := map[string]interface{}{
-        "name":  "Widget",
-        "price": 9.99,
-    }
-
-    resp := testutil.MakeAuthRequest(t, router, "POST", "/products", body, token)
-    testutil.AssertStatus(t, resp, http.StatusCreated)
-}
-
-func TestProductController_Create_Unauthorized(t *testing.T) {
-    // ... setup controller ...
-
-    router := testutil.NewTestRouter()
-    router.Use(middleware.Auth(jwtConfig))
-    router.HandleFunc("/products", httputil.Handle(ctrl.Create)).Methods("POST")
-
-    body := map[string]interface{}{
-        "name":  "Widget",
-        "price": 9.99,
-    }
-
-    // No auth token
-    resp := testutil.MakeRequest(t, router, "POST", "/products", body)
-    testutil.AssertStatus(t, resp, http.StatusUnauthorized)
+    // ...build router + request as usual...
+    req.Header.Set("Authorization", "Bearer "+token)
 }
 ```
+
+For an unauthenticated request, simply omit the header and assert you get `401 Unauthorized`.
 
 ## Running Tests
 
 ```bash
-# Run all tests
+# Run all tests (includes container-backed integration tests — requires Docker)
 go test ./...
 
-# Run tests with verbose output
+# Fast unit-only run (skips anything guarded by testing.Short())
+go test -short ./...
+
+# Verbose output
 go test -v ./...
 
-# Run tests for a specific package
+# A specific package
 go test ./app/services/...
 
-# Run a specific test function
+# A specific test function
 go test -run TestProductService_Create ./app/services/...
 
-# Run with coverage
+# Coverage
 go test -cover ./...
-
-# Generate coverage report
 go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```

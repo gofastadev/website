@@ -31,14 +31,14 @@ A starter `User` resource is included so the project compiles and runs out of th
 
 ## Architecture
 
-Your project has a one-way dependency on the framework:
+Your project has a one-way dependency on the gofasta library:
 
 ```
 Your Project (myapp)
     └── imports → github.com/gofastadev/gofasta/pkg/*
 ```
 
-The framework never imports your code. This means:
+The library never imports your code. This means:
 
 - **No vendor lock-in** — you can replace any package with your own implementation
 - **No code generation at runtime** — Wire (and gqlgen, if GraphQL is enabled) run at build time

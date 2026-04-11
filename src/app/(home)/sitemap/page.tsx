@@ -89,7 +89,7 @@ const sections = [
     ],
   },
   {
-    title: "Framework API",
+    title: "Library API",
     links: [
       { href: "/docs/api-reference/config", label: "Config" },
       { href: "/docs/api-reference/logger", label: "Logger" },

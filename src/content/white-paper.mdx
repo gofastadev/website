@@ -29,7 +29,7 @@ This paper describes the technical architecture, design principles, and feature 
 2. [Design Principles](#2-design-principles)
 3. [Architecture](#3-architecture)
 4. [The CLI Tool](#4-the-cli-tool)
-5. [The Framework Library](#5-the-framework-library)
+5. [The Gofasta Library](#5-the-gofasta-library)
 6. [Code Generation Strategy](#6-code-generation-strategy)
 7. [Dependency Injection](#7-dependency-injection)
 8. [Database Layer](#8-database-layer)
@@ -63,7 +63,7 @@ These are not language deficiencies — they are inherent costs of starting any 
 
 Gofasta is two things:
 
-1. **A CLI tool** (`github.com/gofastadev/cli`) installed globally via `go install`. It creates new projects, generates resource code (models, services, controllers, migrations), runs migrations, manages seeds, and regenerates dependency injection wiring. It does not import the framework library; it only manipulates files on disk.
+1. **A CLI tool** (`github.com/gofastadev/cli`) installed globally via `go install github.com/gofastadev/cli/cmd/gofasta@latest`. It creates new projects, generates resource code (models, services, controllers, migrations), runs migrations, manages seeds, and regenerates dependency injection wiring. It does not import the gofasta library; it only manipulates files on disk.
 
 2. **A Go library** (`github.com/gofastadev/gofasta`) containing multiple packages under `pkg/`. These packages provide configuration loading, structured logging, error handling, HTTP utilities, middleware, authentication, caching, storage, email, notifications, WebSockets, scheduling, queues, resilience patterns, validation, internationalization, observability, feature flags, encryption, health checks, and test utilities. Each package is independently importable and has no side effects.
 
@@ -71,7 +71,7 @@ Gofasta is two things:
 
 - **Not a custom language.** All generated code is standard Go. There is no custom syntax, no transpiler, no preprocessor, and no special file extensions.
 - **Not a runtime framework.** There is no global application object, no lifecycle hooks, and no inversion-of-control container at runtime. Dependency wiring happens at compile time via Google Wire.
-- **Not a lock-in.** Every generated file is owned by the developer. Any framework package can be replaced with a third-party alternative or a custom implementation. The CLI generates code once; it does not manage or update generated code after the fact.
+- **Not a lock-in.** Every generated file is owned by the developer. Any `pkg/*` package can be replaced with a third-party alternative or a custom implementation. The CLI generates code once; it does not manage or update generated code after the fact.
 
 ---
 
@@ -87,7 +87,7 @@ The CLI generates idiomatic Go code that the developer owns completely. Generate
 
 ### 2.3 Standard Library Compatibility
 
-Framework packages build on Go's standard interfaces wherever possible. HTTP routing uses gorilla/mux, which implements `http.Handler` and works with standard `net/http` middleware (`func(http.Handler) http.Handler`). Configuration uses struct tags and environment variables. Logging uses `slog` from the standard library. Database access uses GORM, which builds on `database/sql`. None of these choices prevent using the standard library directly.
+The `pkg/*` packages build on Go's standard interfaces wherever possible. HTTP routing uses gorilla/mux, which implements `http.Handler` and works with standard `net/http` middleware (`func(http.Handler) http.Handler`). Configuration uses struct tags and environment variables. Logging uses `slog` from the standard library. Database access uses GORM, which builds on `database/sql`. None of these choices prevent using the standard library directly.
 
 ### 2.4 Compile-Time Safety
 
@@ -286,9 +286,9 @@ After generation, run `gofasta wire` to regenerate the DI container and `gofasta
 
 ---
 
-## 5. The Framework Library
+## 5. The Gofasta Library
 
-The library (`github.com/gofastadev/gofasta`) provides packages under `pkg/`. Each package is independently importable.
+The library (`github.com/gofastadev/gofasta`) provides packages under `pkg/`. Each package is independently importable — there is no central "gofasta" import that pulls in everything.
 
 | Package | Purpose |
 |---------|---------|
@@ -302,22 +302,22 @@ The library (`github.com/gofastadev/gofasta`) provides packages under `pkg/`. Ea
 | `pkg/cache` | In-memory and Redis caching with a unified interface |
 | `pkg/storage` | Local filesystem and S3-compatible storage with signed URLs |
 | `pkg/mailer` | Email delivery via SMTP, SendGrid, or Brevo with HTML templates |
-| `pkg/notifications` | Multi-channel notifications (email, database, Slack, push) |
+| `pkg/notify` | Multi-channel notifications (email, SMS, Slack, database) |
 | `pkg/websocket` | WebSocket hub with rooms, broadcast, and direct messaging |
-| `pkg/sessions` | Cookie and Redis session management |
+| `pkg/session` | Cookie and filesystem session management (wraps gorilla/sessions) |
 | `pkg/scheduler` | Cron-based job scheduling with concurrency control |
-| `pkg/queue` | Async task queues with Redis or in-memory backends |
-| `pkg/resilience` | Circuit breaker, retry with backoff, bulkhead, timeout |
-| `pkg/validators` | Chainable field validation with built-in rules |
-| `pkg/i18n` | Internationalization with JSON translation files and plural forms |
+| `pkg/queue` | Async task queue backed by Redis via hibiken/asynq |
+| `pkg/resilience` | Retry policies and circuit breakers via failsafe-go |
+| `pkg/validators` | Struct validation via go-playground/validator/v10 with built-in gofasta rules (UUID, record existence, deletability, URL) |
+| `pkg/i18n` | Internationalization with YAML locale files via go-i18n |
 | `pkg/observability` | Prometheus metrics and OpenTelemetry distributed tracing |
-| `pkg/feature-flags` | File-based or HTTP-based feature flags with percentage rollouts |
+| `pkg/featureflag` | YAML-based feature flags (via go-feature-flag) with user targeting and percentage rollouts |
 | `pkg/encryption` | AES-256-GCM encryption, HMAC, SHA-256, random generation |
 | `pkg/seeds` | Database seeding with ordered execution and environment filtering |
 | `pkg/types` | Generic interfaces for Repository, Service, pagination, API responses |
 | `pkg/utils` | Pagination math, string helpers, generic slice/map operations |
 | `pkg/health` | Health check endpoints for Kubernetes liveness/readiness probes |
-| `pkg/test-utilities` | Test database setup, HTTP test client, fixtures, assertions |
+| `pkg/testutil/testdb` | PostgreSQL container setup via testcontainers-go + base migrations for integration tests |
 
 ### 5.1 Interface-Driven Design
 
@@ -516,7 +516,7 @@ Gofasta uses [GORM](https://gorm.io) as its database abstraction. GORM provides 
 
 ### 8.2 Base Model
 
-All models embed `models.BaseModelImpl` from the framework library, which provides:
+All models embed `models.BaseModelImpl` from the `pkg/models` package, which provides:
 
 - **UUID primary key** — auto-generated via database functions (`gen_random_uuid()` on Postgres)
 - **Timestamps** — `CreatedAt` and `UpdatedAt`, managed automatically by GORM
@@ -1127,7 +1127,7 @@ Gofasta is under active development. Current priorities:
 
 ### Medium-term
 - Plugin system for community-contributed generators
-- `gofasta upgrade` command to update framework packages in existing projects
+- `gofasta upgrade` command to update gofasta library versions in existing projects
 - IDE extensions for scaffold generation (VS Code, GoLand)
 - Interactive project creation wizard
 
@@ -1145,8 +1145,8 @@ The roadmap is driven by community feedback. Feature requests and contributions 
 Gofasta is open source under the [MIT License](https://opensource.org/licenses/MIT).
 
 **Repositories:**
-- **Framework library:** `github.com/gofastadev/gofasta`
-- **CLI tool:** `github.com/gofastadev/cli`
+- **Library:** `github.com/gofastadev/gofasta` — imported by your projects
+- **CLI tool:** `github.com/gofastadev/cli` — installed via `go install github.com/gofastadev/cli/cmd/gofasta@latest`
 - **Documentation website:** `github.com/gofastadev/website`
 
 **How to contribute:**

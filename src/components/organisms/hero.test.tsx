@@ -43,7 +43,7 @@ describe("Hero", () => {
     expect(github.tagName).toBe("BUTTON");
     fireEvent.click(github);
     expect(openSpy).toHaveBeenCalledWith(
-      "https://github.com/gofastadev/gofasta",
+      "https://github.com/gofastadev",
       "_blank"
     );
     openSpy.mockRestore();

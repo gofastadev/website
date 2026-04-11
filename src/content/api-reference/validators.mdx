@@ -30,7 +30,7 @@ type AppValidator struct {
 |----------|-----------|-------------|
 | `NewAppValidator` | `func NewAppValidator(db *gorm.DB) *AppValidator` | Creates a validator with common validations registered |
 | `ValidateStruct` | `func (v *AppValidator) ValidateStruct(input interface{}) []*types.TCommonAPIErrorDto` | Validates the input struct and returns validation errors |
-| `RegisterCommonValidators` | `func RegisterCommonValidators(validate *validator.Validate, db *gorm.DB)` | Registers framework validators on an existing validator instance |
+| `RegisterCommonValidators` | `func RegisterCommonValidators(validate *validator.Validate, db *gorm.DB)` | Registers the gofasta library's common validators on an existing validator instance |
 | `RegisterTranslation` | `func RegisterTranslation(v *validator.Validate, trans ut.Translator, tag string, message string)` | Registers a custom validation error message |
 
 ## Built-in Custom Validators

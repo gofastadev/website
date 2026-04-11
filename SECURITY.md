@@ -20,7 +20,7 @@ You should receive a response within 72 hours. Once confirmed, we will work on a
 
 ## Scope
 
-This policy covers the gofasta.dev documentation website. For issues in the Gofasta framework or CLI, report to their respective repositories:
+This policy covers the gofasta.dev documentation website. For issues in the Gofasta library or CLI, report to their respective repositories:
 
-- Framework: [gofastadev/gofasta](https://github.com/gofastadev/gofasta/security/advisories/new)
+- Library: [gofastadev/gofasta](https://github.com/gofastadev/gofasta/security/advisories/new)
 - CLI: [gofastadev/cli](https://github.com/gofastadev/cli/security/advisories/new)

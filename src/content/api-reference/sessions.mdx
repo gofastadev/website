@@ -1,53 +1,38 @@
 ---
 title: Sessions
-description: Session management with cookie and Redis stores, session middleware, and secure session handling.
+description: Server-side HTTP session management with cookie and filesystem stores, backed by gorilla/sessions.
 ---
 
 # Sessions
 
-The `sessions` package provides HTTP session management with support for cookie-based and Redis-backed stores. It includes session middleware, secure cookie configuration, and session data read/write utilities.
+The `session` package wraps [gorilla/sessions](https://github.com/gorilla/sessions) to provide server-side HTTP session management. It supports two backing stores out of the box — **cookie-based** (all data signed into the browser cookie) and **filesystem-based** (data on disk, only the session ID in the cookie) — and exposes simple get/set/destroy helpers on top of the gorilla `*sessions.Session` object.
 
 ## Import
 
 ```go
-import "github.com/gofastadev/gofasta/pkg/sessions"
+import "github.com/gofastadev/gofasta/pkg/session"
 ```
 
 ## Key Types
 
 ### Store
 
-```go
-type Store interface {
-    Get(ctx context.Context, sessionID string) (*Session, error)
-    Save(ctx context.Context, session *Session) error
-    Delete(ctx context.Context, sessionID string) error
-    Cleanup(ctx context.Context) error
-}
-```
-
-### Session
+`Store` is the package's main type — a thin wrapper around `gorilla/sessions.Store` that remembers the session name and exposes convenience methods for reading and writing values.
 
 ```go
-type Session struct {
-    ID        string                 `json:"id"`
-    Data      map[string]interface{} `json:"data"`
-    CreatedAt time.Time              `json:"created_at"`
-    ExpiresAt time.Time              `json:"expires_at"`
-    Modified  bool                   `json:"-"`
-}
+type Store struct { /* unexported fields */ }
 ```
 
-### SessionConfig
+### SessionConfig (from pkg/config)
 
-The session configuration uses koanf struct tags and is part of the root `AppConfig`. Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_SESSION_DRIVER`). Sessions use gorilla/sessions under the hood.
+The session configuration lives on `config.AppConfig` and is loaded from `config.yaml` or the `GOFASTA_SESSION_*` environment variables.
 
 ```go
 type SessionConfig struct {
-    Driver         string `koanf:"driver"`
-    Secret         string `koanf:"secret"`
-    SessionName    string `koanf:"session_name"`
-    FilesystemPath string `koanf:"filesystem_path"`
+    Driver         string `koanf:"driver"`          // "cookie" or "filesystem"
+    Secret         string `koanf:"secret"`          // 32 or 64 bytes for HMAC signing
+    SessionName    string `koanf:"session_name"`    // cookie name
+    FilesystemPath string `koanf:"filesystem_path"` // required when driver=filesystem
 }
 ```
 
@@ -55,112 +40,155 @@ type SessionConfig struct {
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `NewStore` | `func NewStore(cfg SessionConfig) (Store, error)` | Creates a session store based on the configured driver |
-| `NewCookieStore` | `func NewCookieStore(cfg SessionConfig) Store` | Creates a cookie-based session store |
-| `NewRedisStore` | `func NewRedisStore(cfg SessionConfig, redisCfg cache.CacheConfig) (Store, error)` | Creates a Redis-backed session store |
-| `Middleware` | `func Middleware(store Store, cfg SessionConfig) func(http.Handler) http.Handler` | Session middleware that loads/saves sessions per request |
-| `FromContext` | `func FromContext(ctx context.Context) *Session` | Retrieves the current session from context |
+| `NewCookieStore` | `func NewCookieStore(secret, sessionName string) *Store` | Creates a cookie-based session store. All session data is serialized into the browser cookie, signed with `secret` via HMAC. |
+| `NewFilesystemStore` | `func NewFilesystemStore(path, secret, sessionName string) *Store` | Creates a filesystem-based session store. Only the session ID is stored in the cookie; the actual values live on disk under `path`. |
 
-## Session Methods
+## Store Methods
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `Get` | `func (s *Session) Get(key string) interface{}` | Reads a value from the session |
-| `Set` | `func (s *Session) Set(key string, value interface{})` | Writes a value to the session |
-| `Delete` | `func (s *Session) Delete(key string)` | Removes a key from the session |
-| `Clear` | `func (s *Session) Clear()` | Removes all data from the session |
-| `IsExpired` | `func (s *Session) IsExpired() bool` | Returns true if the session has expired |
+| `Get` | `func (s *Store) Get(r *http.Request) (*sessions.Session, error)` | Returns the gorilla `*sessions.Session` for the current request. |
+| `Save` | `func (s *Store) Save(r *http.Request, w http.ResponseWriter, session *sessions.Session) error` | Persists the session to the response (writes the Set-Cookie header and/or flushes the filesystem file). |
+| `SetValue` | `func (s *Store) SetValue(r *http.Request, w http.ResponseWriter, key string, value interface{}) error` | Convenience helper: fetches the session, writes one key, saves. |
+| `GetValue` | `func (s *Store) GetValue(r *http.Request, key string) (interface{}, error)` | Convenience helper: fetches the session and returns the value under `key`. |
+| `Destroy` | `func (s *Store) Destroy(r *http.Request, w http.ResponseWriter) error` | Marks the session for deletion by setting `MaxAge = -1` and saving. |
 
 ## Usage
 
-### Setting Up Sessions
+### Creating a Store
+
+Choose one of the two constructors. Both return a `*Store` you can use from any handler.
 
 ```go
-store, err := sessions.NewStore(sessions.SessionConfig{
-    Driver:         "cookie",
-    Secret:         "change-me-in-production-32bytes!",
-    SessionName:    "app_session",
-    FilesystemPath: "./sessions",
-})
-if err != nil {
-    log.Fatalf("failed to create session store: %v", err)
-}
+import "github.com/gofastadev/gofasta/pkg/session"
 
-handler := sessions.Middleware(store, sessionCfg)(mux)
+// Cookie store — simplest, all data lives in the signed cookie.
+store := session.NewCookieStore(
+    "change-me-in-production-32bytes!",
+    "app_session",
+)
+
+// Filesystem store — cookie carries only the ID, data lives on disk.
+store := session.NewFilesystemStore(
+    "./sessions",
+    "change-me-in-production-32bytes!",
+    "app_session",
+)
 ```
 
-### Reading and Writing Session Data
+### Writing Values on Login
 
 ```go
-func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
-    // Authenticate user...
+func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) error {
+    // ...authenticate the user first...
 
-    session := sessions.FromContext(r.Context())
-    session.Set("user_id", user.ID)
-    session.Set("email", user.Email)
-    session.Set("role", user.Role)
-
-    httputil.Success(w, "logged in", nil)
+    if err := c.store.SetValue(r, w, "user_id", user.ID.String()); err != nil {
+        return apperrors.NewInternal("failed to save session", err)
+    }
+    if err := c.store.SetValue(r, w, "role", user.Role); err != nil {
+        return apperrors.NewInternal("failed to save session", err)
+    }
+    return httputil.OK(w, map[string]string{"status": "logged in"})
 }
+```
 
-func (c *AuthController) Profile(w http.ResponseWriter, r *http.Request) {
-    session := sessions.FromContext(r.Context())
+### Reading Values on a Protected Route
 
-    userID := session.Get("user_id")
-    if userID == nil {
-        httputil.Error(w, errors.Unauthorized("not logged in"))
-        return
+```go
+func (c *AuthController) Profile(w http.ResponseWriter, r *http.Request) error {
+    userID, err := c.store.GetValue(r, "user_id")
+    if err != nil || userID == nil {
+        return apperrors.NewUnauthorized("not logged in", nil)
     }
 
     user, err := c.service.FindByID(r.Context(), userID.(string))
     if err != nil {
-        httputil.Error(w, err)
-        return
+        return err
     }
-    httputil.Success(w, "profile", user)
+    return httputil.OK(w, user)
+}
+```
+
+### Writing Multiple Values in One Save
+
+For efficiency, fetch the underlying `*sessions.Session` once, mutate its `Values` map, then save it manually.
+
+```go
+sess, err := c.store.Get(r)
+if err != nil {
+    return err
+}
+sess.Values["user_id"] = user.ID.String()
+sess.Values["email"]   = user.Email
+sess.Values["role"]    = user.Role
+if err := c.store.Save(r, w, sess); err != nil {
+    return err
 }
 ```
 
 ### Logout and Session Destruction
 
 ```go
-func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
-    session := sessions.FromContext(r.Context())
-    session.Clear()
-
-    httputil.Success(w, "logged out", nil)
+func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) error {
+    if err := c.store.Destroy(r, w); err != nil {
+        return apperrors.NewInternal("failed to destroy session", err)
+    }
+    return httputil.OK(w, map[string]string{"status": "logged out"})
 }
 ```
 
-### Session Cleanup
+### Building the Store from Config
 
-Periodically clean up expired sessions (useful for Redis store).
+Load `SessionConfig` from `config.AppConfig` and branch on the driver:
 
 ```go
-sched.Register("cleanup-sessions", "*/30 * * * *", func(ctx context.Context) error {
-    return store.Cleanup(ctx)
-})
+func buildStore(cfg config.SessionConfig) *session.Store {
+    switch cfg.Driver {
+    case "filesystem":
+        return session.NewFilesystemStore(cfg.FilesystemPath, cfg.Secret, cfg.SessionName)
+    default:
+        return session.NewCookieStore(cfg.Secret, cfg.SessionName)
+    }
+}
 ```
 
-### Configuration via config.yaml
+## Configuration
+
+Add a `session:` block to your `config.yaml`:
 
 ```yaml
 session:
-  driver: cookie           # "cookie" or "redis"
+  driver: cookie                           # "cookie" or "filesystem"
   secret: "change-me-in-production-32bytes!"
   session_name: app_session
-  filesystem_path: "./sessions"
+  filesystem_path: "./sessions"            # only used when driver=filesystem
 ```
 
-Environment variable overrides use the `GOFASTA_` prefix:
+Any field can be overridden via environment variables with the `GOFASTA_` prefix:
 
 ```bash
-export GOFASTA_SESSION_DRIVER=cookie
-export GOFASTA_SESSION_SECRET=my-secure-secret-32bytes!
+export GOFASTA_SESSION_DRIVER=filesystem
+export GOFASTA_SESSION_SECRET="my-secure-secret-32bytes!"
+export GOFASTA_SESSION_FILESYSTEM_PATH="/var/lib/myapp/sessions"
 ```
+
+The `pkg/config` package's `LoadConfig()` populates these fields automatically and provides sane defaults (`driver: cookie`, `session_name: app_session`, `filesystem_path: ./sessions`) when they are missing.
+
+## Sessions vs JWT
+
+The `session` and `auth` packages cover two different authentication styles:
+
+| Concern | Sessions (`session`) | JWT (`auth`) |
+|---|---|---|
+| **State** | Server-side (cookie or filesystem) | Stateless — the token is self-contained |
+| **Invalidation** | Destroy the server-side entry | Rotate the signing key or maintain a denylist |
+| **Cross-origin / mobile** | Harder — cookies are domain-scoped | Easy — clients send `Authorization: Bearer …` |
+| **Best for** | Server-rendered web apps on one domain | REST / GraphQL APIs consumed by SPAs or mobile |
+
+A gofasta project can use either, or both, depending on the surface area of the API.
 
 ## Related Pages
 
-- [Auth](/docs/api-reference/auth) -- JWT-based authentication alternative
-- [Cache](/docs/api-reference/cache) -- Redis connection shared with session store
-- [Middleware](/docs/api-reference/middleware) -- Session middleware in the middleware chain
+- [Auth](/docs/api-reference/auth) — JWT-based authentication for stateless APIs
+- [Config](/docs/api-reference/config) — where `SessionConfig` lives
+- [Middleware](/docs/api-reference/middleware) — wrap your router with logging, CORS, etc.

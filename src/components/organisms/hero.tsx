@@ -35,7 +35,7 @@ export function Hero() {
         <Button
           variant="secondary"
           size="lg"
-          onClick={() => window.open("https://github.com/gofastadev/gofasta", "_blank")}
+          onClick={() => window.open("https://github.com/gofastadev", "_blank")}
         >
           View on GitHub
         </Button>
