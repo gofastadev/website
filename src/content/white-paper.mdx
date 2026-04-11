@@ -70,8 +70,9 @@ Gofasta is two things:
 ### 1.3 What Gofasta Is Not
 
 - **Not a custom language.** All generated code is standard Go. There is no custom syntax, no transpiler, no preprocessor, and no special file extensions.
-- **Not a runtime framework.** There is no global application object, no lifecycle hooks, and no inversion-of-control container at runtime. Dependency wiring happens at compile time via Google Wire.
-- **Not a lock-in.** Every generated file is owned by the developer. Any `pkg/*` package can be replaced with a third-party alternative or a custom implementation. The CLI generates code once; it does not manage or update generated code after the fact.
+- **Not a runtime wrapper.** There is no global application object, no lifecycle hooks, and no inversion-of-control container at runtime. Dependency wiring happens at compile time via Google Wire. Gofasta is a toolkit — a CLI plus a library of independent packages — not a runtime layer your code sits inside.
+- **Not a lock-in.** Every generated file is owned by the developer. The scaffold imports a curated set of `pkg/*` packages as its defaults — configuration, logging, HTTP utilities, authentication, and so on — the same way a typical Go backend imports a curated set of community libraries. These are *defaults, not requirements*. Each `pkg/*` package is independently importable, so a developer who prefers a different library for any single concern (a different config loader, a different cache, a different JWT implementation) can delete the default import, `go get` their preferred alternative, and swap it in without touching the rest of the project. "Not a lock-in" means any package can be replaced — not that no package is used.
+- **Not an all-or-nothing commitment.** A project can use `pkg/cache` without `pkg/mailer`, or `pkg/resilience` without `pkg/queue`. There is no umbrella import that drags everything in. The CLI also generates code once and does not manage or update generated code after the fact — once a project is scaffolded, the CLI is optional.
 
 ---
 
@@ -79,7 +80,7 @@ Gofasta is two things:
 
 ### 2.1 Explicit Over Implicit
 
-All behavior in a Gofasta project is visible in the source code. There is no convention-based discovery, no auto-registration, no struct-tag-driven routing, and no runtime reflection for dependency injection. If a route exists, there is a line of code registering it. If a dependency is injected, there is a Wire provider set declaring it. A developer reading the code can trace the full request path without knowing any framework conventions.
+All behavior in a Gofasta project is visible in the source code. There is no convention-based discovery, no auto-registration, no struct-tag-driven routing, and no runtime reflection for dependency injection. If a route exists, there is a line of code registering it. If a dependency is injected, there is a Wire provider set declaring it. A developer reading the code can trace the full request path without needing to know any toolkit-specific conventions — everything that happens at runtime is a plain Go function call they can follow.
 
 ### 2.2 Generate, Then Own
 
@@ -95,7 +96,7 @@ Gofasta prefers compile-time checks over runtime checks. Dependency injection is
 
 ### 2.5 Composable Packages
 
-The packages in `pkg/` are independently importable. A project can use `pkg/cache` without `pkg/mailer`, or `pkg/resilience` without `pkg/queue`. There is no central "framework" import that pulls in everything. Each package declares its own dependencies, and they are minimal.
+The packages in `pkg/` are independently importable. A project can use `pkg/cache` without `pkg/mailer`, or `pkg/resilience` without `pkg/queue`. There is no umbrella import that pulls in everything — no single `gofasta.App` type a project has to construct, no meta-package that transitively drags in every other package. Each `pkg/*` is self-contained, declares its own minimal dependencies, and can be replaced individually.
 
 ### 2.6 No Shortcuts
 
@@ -476,7 +477,9 @@ The generated output is:
 - **Readable** — generated code looks like code a developer would write by hand
 - **Committed** — generated files are checked into version control
 - **Editable** — developers can and should modify generated code to fit their needs
-- **Independent** — after generation, the CLI is not needed to build or run the project
+- **CLI-independent** — once a project is generated, the `gofasta` CLI is not needed to build, run, migrate, or deploy it. A developer can uninstall the CLI and the project keeps working. The CLI is a generation tool, not a runtime dependency.
+
+Generated projects do import the toolkit's `pkg/*` packages as their default building blocks (for config loading, logging, JWT, caching, mailing, and so on), just as any Go backend imports a set of community libraries. Those defaults are *opt-out*: any single `pkg/*` import can be deleted and replaced with an alternative library or a local implementation without touching the rest of the project. The toolkit never installs a runtime wrapper around your code — your `main.go` calls standard `net/http`, your HTTP handlers return plain errors, your models are plain GORM structs.
 
 ### 6.2 What Gets Generated
 
@@ -1137,7 +1140,7 @@ GitHub Actions workflows are generated for:
 
 ### 16.1 Positioning
 
-Gofasta occupies a specific niche: it provides more structure than a router library but less magic than a full framework. The closest analogies in other ecosystems are Ruby on Rails' `rails new` + generators, or Nest CLI's `nest generate` — but producing plain Go that doesn't require a runtime framework.
+Gofasta occupies a specific niche in the Go ecosystem: it sits between a bare HTTP router (which leaves every project-level decision to the developer) and a monolithic runtime wrapper (which dictates every project-level decision). It is a *toolkit* — a CLI that generates standard Go code plus a library of independently importable packages — and the developer is always in control of which pieces they use. The goal is to compress the repetitive parts of starting a backend project (wiring, CRUD boilerplate, deployment scaffolding) without introducing a runtime layer the developer's code has to live inside.
 
 ### 16.2 Comparison Matrix
 
@@ -1156,7 +1159,7 @@ Gofasta occupies a specific niche: it provides more structure than a router libr
 | Health checks | No | No | No | Yes |
 | Test utilities | No | No | No | Yes |
 | Deployment manifests | No | No | No | Yes |
-| Runtime framework required | Yes | No | Yes | No |
+| Runtime wrapper required | Yes | No | Yes | No |
 | Custom syntax | No | No | No | No |
 
 ### 16.3 Key Differentiators
@@ -1165,7 +1168,7 @@ Gofasta occupies a specific niche: it provides more structure than a router libr
 
 **vs. go-blueprint:** go-blueprint generates project scaffolding with a choice of router and database driver. Gofasta goes further with resource-level code generation (`gofasta g scaffold`), a library of production packages, and generated deployment manifests. go-blueprint generates the starting point; Gofasta generates the starting point and the ongoing CRUD boilerplate.
 
-**vs. Buffalo:** Buffalo was a full-stack Go framework with its own ORM (Pop), template engine (Plush), and asset pipeline. It required buying into the Buffalo ecosystem. Gofasta generates standalone Go code that imports individual packages. There is no monolithic framework to maintain, and no single point of failure if maintenance slows.
+**vs. Buffalo:** Buffalo bundled a full set of components — its own ORM (Pop), template engine (Plush), and asset pipeline — as a single runtime layer a project had to buy into all at once. Gofasta takes the opposite approach: it generates standalone Go code and lets the developer import only the `pkg/*` packages they actually need. There is no monolithic layer to maintain, and if any single package stops fitting a project's needs it can be replaced in isolation without touching the rest of the code.
 
 ---
 
