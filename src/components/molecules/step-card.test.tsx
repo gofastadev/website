@@ -14,8 +14,16 @@ describe("StepCard", () => {
   });
 
   it("renders the code", () => {
-    render(<StepCard step={1} title="Install" code="go install gofasta" />);
-    expect(screen.getByText("go install gofasta")).toBeInTheDocument();
+    render(
+      <StepCard
+        step={1}
+        title="Install"
+        code="go install github.com/gofastadev/cli/cmd/gofasta@latest"
+      />,
+    );
+    expect(
+      screen.getByText("go install github.com/gofastadev/cli/cmd/gofasta@latest"),
+    ).toBeInTheDocument();
   });
 
   it("renders the code in a pre/code block", () => {

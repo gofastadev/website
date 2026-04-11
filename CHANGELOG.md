@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 - Initial website built with Next.js 16.2 and Nextra 4
 - Landing page with hero, features grid, and quick start section
-- Documentation structure with 4 sections: Getting Started, Guides, CLI Reference, Framework API
+- Documentation structure with 4 sections: Getting Started, Guides, CLI Reference, Library API
 - Full content for Getting Started pages (introduction, installation, quick start, project structure)
 - Stub pages for all remaining 57 documentation pages
 - Dark mode support via next-themes

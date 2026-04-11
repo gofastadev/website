@@ -46,7 +46,7 @@ Gofasta supports five database drivers:
 | SQL Server | `sqlserver` | 1433 |
 | ClickHouse | `clickhouse` | 9000 |
 
-Switch databases by changing the `database.driver` value in `config.yaml`. The framework handles driver-specific connection strings and dialect differences automatically.
+Switch databases by changing the `database.driver` value in `config.yaml`. `pkg/config.SetupDB` handles driver-specific connection strings and dialect differences automatically.
 
 For SQLite, set the `database.name` to a file path:
 
@@ -58,7 +58,7 @@ database:
 
 ## Models
 
-Models live in `app/models/` and represent your database tables. Every model embeds `models.BaseModelImpl` from the framework, which provides standard fields.
+Models live in `app/models/` and represent your database tables. Every model embeds `models.BaseModelImpl` from `pkg/models`, which provides standard fields.
 
 ### BaseModelImpl
 

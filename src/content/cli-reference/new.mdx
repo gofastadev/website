@@ -51,7 +51,7 @@ When you run `gofasta new myapp`, the CLI performs the following steps in order:
 1. **Create project directory** -- creates the `myapp/` directory
 2. **Initialize Go module** -- runs `go mod init` with the appropriate module path
 3. **Copy skeleton files** -- writes template files into the project, including a starter User resource
-4. **Install Gofasta and Cobra** -- runs `go get` to add the gofasta framework and cobra CLI dependencies
+4. **Install Gofasta and Cobra** -- runs `go get github.com/gofastadev/gofasta@latest` (the gofasta library) and `go get github.com/spf13/cobra@latest` to add them to `go.mod`
 5. **Install tools** -- runs `go get` to add tool dependencies (wire, air, swag) and `go mod edit -tool` for each. If `--graphql` is passed, gqlgen is also installed.
 6. **Tidy modules** -- runs `go mod tidy` to synchronize dependencies
 7. **Generate Wire DI code** -- runs `go tool wire ./app/di/` to generate the dependency injection container

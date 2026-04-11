@@ -1,153 +1,202 @@
 ---
 title: Notifications
-description: Multi-channel notification dispatch with support for email, database, Slack, push, and custom notification channels.
+description: Multi-channel notification dispatch for email, SMS, Slack, and in-app (database) delivery.
 ---
 
 # Notifications
 
-The `notifications` package provides a unified notification dispatch system that supports multiple channels including email, database, Slack, push notifications, and custom channels. It uses the mailer package internally for the email channel. It decouples notification logic from delivery mechanisms.
+The `notify` package provides a unified notification dispatch system that supports multiple delivery channels: **email** (via the `mailer` package), **SMS** (via Twilio), **Slack** (via incoming webhooks), and **database** (for in-app notification centers). Each channel is an independent struct that implements a small `ChannelSender` interface, so you can add your own channels without modifying the package.
 
 ## Import
 
 ```go
-import "github.com/gofastadev/gofasta/pkg/notifications"
+import "github.com/gofastadev/gofasta/pkg/notify"
 ```
 
 ## Key Types
 
-### Notifier
-
-```go
-type Notifier interface {
-    Send(ctx context.Context, notification Notification) error
-    SendTo(ctx context.Context, notification Notification, channels ...string) error
-    RegisterChannel(name string, channel Channel)
-}
-```
-
 ### Channel
 
 ```go
-type Channel interface {
-    Deliver(ctx context.Context, recipient Recipient, notification Notification) error
-    Name() string
-}
+// Channel represents a notification delivery channel.
+type Channel string
+
+const (
+    ChannelEmail    Channel = "email"
+    ChannelSMS      Channel = "sms"
+    ChannelSlack    Channel = "slack"
+    ChannelDatabase Channel = "database"
+)
 ```
 
 ### Notification
 
 ```go
+// Notification holds the content to be sent across channels.
 type Notification struct {
-    Type    string                 `json:"type"`
-    Title   string                 `json:"title"`
-    Body    string                 `json:"body"`
-    Data    map[string]interface{} `json:"data,omitempty"`
+    Subject  string         // email subject / SMS prefix
+    Body     string         // plain text body
+    HTMLBody string         // HTML body (for email)
+    Template string         // email template name (optional)
+    Data     map[string]any // template data
+    Channels []Channel      // which channels to use (empty = all registered)
 }
 ```
 
 ### Recipient
 
 ```go
+// Recipient represents who receives the notification.
 type Recipient struct {
-    ID       string            `json:"id"`
-    Email    string            `json:"email,omitempty"`
-    DeviceID string            `json:"device_id,omitempty"`
-    Meta     map[string]string `json:"meta,omitempty"`
-    Channels []string          `json:"channels"`
+    ID    string // user ID (for database channel)
+    Email string // for email channel
+    Phone string // for SMS channel
+    Name  string // display name
 }
+```
+
+### ChannelSender
+
+```go
+// ChannelSender is implemented by each channel (email, SMS, Slack, database).
+type ChannelSender interface {
+    Channel() Channel
+    Send(ctx context.Context, recipient Recipient, notification Notification) error
+}
+```
+
+### Notifier
+
+```go
+// Notifier dispatches notifications to multiple channels.
+type Notifier struct { /* unexported fields */ }
 ```
 
 ## Key Functions
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `NewNotifier` | `func NewNotifier() Notifier` | Creates a new notifier instance |
-| `NewEmailChannel` | `func NewEmailChannel(m mailer.Mailer, templatePath string) Channel` | Creates an email delivery channel (uses the mailer package internally) |
-| `NewDatabaseChannel` | `func NewDatabaseChannel(db *gorm.DB) Channel` | Creates a database-backed notification channel |
-| `NewSlackChannel` | `func NewSlackChannel(cfg SlackConfig) Channel` | Creates a Slack notification channel |
-| `NewPushChannel` | `func NewPushChannel(cfg PushConfig) Channel` | Creates a push notification channel (FCM/APNs) |
+| `NewNotifier` | `func NewNotifier(logger *slog.Logger, senders ...ChannelSender) *Notifier` | Creates a notifier wired to the given channel senders |
+| `(n *Notifier).Send` | `func (n *Notifier) Send(ctx context.Context, recipient Recipient, notification Notification) error` | Dispatches the notification to every channel listed in `notification.Channels` (or all registered channels if empty) |
+| `(n *Notifier).RegisterChannel` | `func (n *Notifier) RegisterChannel(sender ChannelSender)` | Adds a channel sender at runtime |
+| `NewEmailChannel` | `func NewEmailChannel(sender mailer.EmailSender) *EmailChannel` | Email channel backed by the `mailer` package |
+| `NewSMSChannel` | `func NewSMSChannel(accountSID, authToken, fromNumber string) *SMSChannel` | Twilio-backed SMS channel |
+| `NewSlackChannel` | `func NewSlackChannel(webhookURL string) *SlackChannel` | Slack incoming-webhook channel |
+| `NewDatabaseChannel` | `func NewDatabaseChannel(db *gorm.DB) *DatabaseChannel` | Persists notifications to the `notifications` table for in-app delivery |
 
 ## Usage
 
-### Setting Up Notifications
+### Setting Up a Notifier
 
 ```go
-notifier := notifications.NewNotifier()
+import (
+    "log/slog"
 
-// Register email channel (uses the mailer package internally)
-emailCh := notifications.NewEmailChannel(mailClient, "templates/notifications/")
-notifier.RegisterChannel("email", emailCh)
+    "github.com/gofastadev/gofasta/pkg/mailer"
+    "github.com/gofastadev/gofasta/pkg/notify"
+)
 
-// Register database channel
-dbCh := notifications.NewDatabaseChannel(db)
-notifier.RegisterChannel("database", dbCh)
+// Build your channels first (each channel is independent).
+emailCh := notify.NewEmailChannel(smtpSender) // any mailer.EmailSender
+slackCh := notify.NewSlackChannel("https://hooks.slack.com/services/...")
+smsCh   := notify.NewSMSChannel(accountSID, authToken, "+15551234567")
+dbCh    := notify.NewDatabaseChannel(db) // *gorm.DB
 
-// Register Slack channel
-slackCh := notifications.NewSlackChannel(notifications.SlackConfig{
-    WebhookURL: "https://hooks.slack.com/services/...",
-})
-notifier.RegisterChannel("slack", slackCh)
-
-// Register push notification channel
-pushCh := notifications.NewPushChannel(notifications.PushConfig{
-    FCMServerKey: "your-fcm-key",
-})
-notifier.RegisterChannel("push", pushCh)
+// Wire them into a notifier.
+notifier := notify.NewNotifier(slog.Default(), emailCh, slackCh, smsCh, dbCh)
 ```
 
-### Sending a Notification
+### Sending a Notification to All Registered Channels
 
 ```go
-notification := notifications.Notification{
-    Type:  "order_confirmed",
-    Title: "Order Confirmed",
-    Body:  "Your order #12345 has been confirmed.",
-    Data: map[string]interface{}{
-        "order_id": "12345",
-        "amount":   99.99,
+err := notifier.Send(ctx,
+    notify.Recipient{
+        ID:    "user-123",
+        Email: "user@example.com",
+        Phone: "+15551234567",
+        Name:  "Jane Doe",
     },
-}
-
-recipient := notifications.Recipient{
-    ID:       "user-123",
-    Email:    "user@example.com",
-    DeviceID: "fcm-device-token",
-    Channels: []string{"email", "push"},
-}
-
-err := notifier.Send(ctx, notification)
+    notify.Notification{
+        Subject:  "Order confirmed",
+        Body:     "Your order #12345 has been confirmed.",
+        HTMLBody: "<h1>Order confirmed</h1><p>Your order #12345 has been confirmed.</p>",
+        Data:     map[string]any{"order_id": "12345"},
+    },
+)
 ```
 
-### Sending to Specific Channels
+When `Notification.Channels` is empty, the notifier fans out to every registered channel. Individual channel failures are logged and the last error is returned.
+
+### Targeting Specific Channels
 
 ```go
-// Send only via push, skipping email
-err := notifier.SendTo(ctx, notification, "push")
+// Slack-only alert
+err := notifier.Send(ctx, notify.Recipient{Name: "ops"},
+    notify.Notification{
+        Subject:  "Deploy started",
+        Body:     "Release v1.4.2 is deploying to production.",
+        Channels: []notify.Channel{notify.ChannelSlack},
+    },
+)
 ```
 
-### Creating a Custom Channel
+### Using an Email Template
 
-Implement the `Channel` interface to add custom delivery mechanisms.
+When `Notification.Template` is set, the email channel renders the named template from the mailer's template directory, passing `Data` as the template context. Otherwise it falls back to `HTMLBody`, then wraps `Body` in a `<p>` tag.
 
 ```go
-type SMSChannel struct {
-    client *twilio.Client
-}
-
-func (s *SMSChannel) Name() string {
-    return "sms"
-}
-
-func (s *SMSChannel) Deliver(ctx context.Context, recipient Recipient, n Notification) error {
-    phone := recipient.Meta["phone"]
-    return s.client.SendSMS(phone, n.Body)
-}
-
-// Register it
-notifier.RegisterChannel("sms", &SMSChannel{client: twilioClient})
+err := notifier.Send(ctx, recipient, notify.Notification{
+    Subject:  "Welcome",
+    Template: "welcome",
+    Data: map[string]any{
+        "Name":    recipient.Name,
+        "AppName": "Acme",
+    },
+    Channels: []notify.Channel{notify.ChannelEmail},
+})
 ```
 
-### Notification in Service Layer
+### Registering a Channel at Runtime
+
+```go
+notifier.RegisterChannel(notify.NewSlackChannel(altWebhook))
+```
+
+### Writing a Custom Channel
+
+Implement `ChannelSender` — two methods — and register it with the notifier.
+
+```go
+type WebhookChannel struct {
+    url string
+    hc  *http.Client
+}
+
+func (c *WebhookChannel) Channel() notify.Channel { return "webhook" }
+
+func (c *WebhookChannel) Send(ctx context.Context, r notify.Recipient, n notify.Notification) error {
+    body, _ := json.Marshal(map[string]any{
+        "to":      r.Email,
+        "subject": n.Subject,
+        "body":    n.Body,
+    })
+    req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.url, bytes.NewReader(body))
+    req.Header.Set("Content-Type", "application/json")
+    resp, err := c.hc.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+    if resp.StatusCode >= 400 {
+        return fmt.Errorf("webhook returned %d", resp.StatusCode)
+    }
+    return nil
+}
+
+notifier.RegisterChannel(&WebhookChannel{url: "https://example.com/hook", hc: http.DefaultClient})
+```
+
+### Notification in a Service Layer
 
 ```go
 func (s *OrderService) ConfirmOrder(ctx context.Context, orderID string) error {
@@ -161,17 +210,39 @@ func (s *OrderService) ConfirmOrder(ctx context.Context, orderID string) error {
         return err
     }
 
-    return s.notifier.Send(ctx, notifications.Notification{
-        Type:  "order_confirmed",
-        Title: "Order Confirmed",
-        Body:  fmt.Sprintf("Your order #%s has been confirmed.", order.ID),
-        Data:  map[string]interface{}{"order_id": order.ID},
-    })
+    return s.notifier.Send(ctx,
+        notify.Recipient{ID: order.UserID, Email: order.CustomerEmail},
+        notify.Notification{
+            Subject:  "Order confirmed",
+            Body:     fmt.Sprintf("Your order #%s has been confirmed.", order.ID),
+            Template: "order_confirmed",
+            Data:     map[string]any{"OrderID": order.ID, "Total": order.Total},
+            Channels: []notify.Channel{notify.ChannelEmail, notify.ChannelDatabase},
+        },
+    )
 }
 ```
 
+## Database Channel Schema
+
+The database channel writes rows to a `notifications` table with this GORM model:
+
+```go
+type DBNotification struct {
+    ID        uuid.UUID  `gorm:"type:uuid;primary_key" json:"id"`
+    UserID    string     `gorm:"not null;index"        json:"userId"`
+    Subject   string     `gorm:"not null"              json:"subject"`
+    Body      string     `                             json:"body"`
+    Data      string     `gorm:"type:text"             json:"data"` // JSON-encoded
+    ReadAt    *time.Time `                             json:"readAt,omitempty"`
+    CreatedAt time.Time  `gorm:"not null"              json:"createdAt"`
+}
+```
+
+Run a migration to create this table before using the database channel.
+
 ## Related Pages
 
-- [Mailer](/docs/api-reference/mailer) -- Email channel uses the mailer package
-- [Queue](/docs/api-reference/queue) -- Queue notifications for async delivery
-- [WebSocket](/docs/api-reference/websocket) -- Real-time notifications via WebSocket
+- [Mailer](/docs/api-reference/mailer) — the email channel delegates to `mailer.EmailSender`
+- [Queue](/docs/api-reference/queue) — enqueue `Send` calls for async delivery
+- [WebSocket](/docs/api-reference/websocket) — push real-time notifications to connected clients

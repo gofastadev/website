@@ -296,15 +296,23 @@ features:
   registration: true         # Enable user registration endpoint
 ```
 
-You can also manage feature flags through the `configs/` directory for more complex scenarios. The `github.com/gofastadev/gofasta/pkg/feature-flags` package provides runtime feature flag checking:
+For more complex scenarios — user-targeted rollouts, percentage-based releases, A/B tests — the `github.com/gofastadev/gofasta/pkg/featureflag` package wraps [go-feature-flag](https://github.com/thomaspoignant/go-feature-flag) and reads its rules from a YAML file (typically `configs/features.yaml`):
 
 ```go
-import featureflags "github.com/gofastadev/gofasta/pkg/feature-flags"
+import "github.com/gofastadev/gofasta/pkg/featureflag"
 
-if featureflags.IsEnabled(cfg, "registration") {
+ff, err := featureflag.NewFeatureFlagService("configs/features.yaml", logger)
+if err != nil {
+    return err
+}
+defer ff.Close()
+
+if ff.IsEnabled("registration", user.ID.String(), map[string]interface{}{"plan": user.Plan}) {
     RegisterAuthRoutes(router, deps.AuthController)
 }
 ```
+
+See the [Feature Flags API reference](/docs/api-reference/feature-flags) for the flag file format and the full `FeatureFlagService` API.
 
 ## Accessing Configuration in Code
 

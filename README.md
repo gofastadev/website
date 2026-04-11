@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/gofastadev/website/actions/workflows/ci.yml/badge.svg)](https://github.com/gofastadev/website/actions/workflows/ci.yml) [![CodeQL](https://github.com/gofastadev/website/actions/workflows/codeql.yml/badge.svg)](https://github.com/gofastadev/website/actions/workflows/codeql.yml) [![codecov](https://codecov.io/gh/gofastadev/website/branch/main/graph/badge.svg)](https://codecov.io/gh/gofastadev/website) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/gofastadev/website/blob/main/LICENSE) [![Next.js](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js)](https://nextjs.org) [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org) [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com) [![Nextra](https://img.shields.io/badge/Nextra-4-000?logo=nextra)](https://nextra.site) [![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-black?logo=vercel)](https://gofasta.dev)
 
-The official documentation website for the [Gofasta](https://github.com/gofastadev/gofasta) Go web framework and its [CLI tool](https://github.com/gofastadev/cli). Live at **[gofasta.dev](https://gofasta.dev)**.
+The official documentation website for [Gofasta](https://github.com/gofastadev/gofasta) — a Go backend toolkit — and its [CLI tool](https://github.com/gofastadev/cli). Live at **[gofasta.dev](https://gofasta.dev)**.
 
 ## What This Repo Contains
 
@@ -11,7 +11,7 @@ This is the source code for the Gofasta documentation site. It is built with [Ne
 The site has two parts:
 
 - **Landing page** (`/`) — A custom React page with a hero section, feature grid, and quick start guide
-- **Documentation** (`/docs`) — 60+ pages of guides, CLI reference, and framework API documentation, all written in MDX
+- **Documentation** (`/docs`) — 60+ pages of guides, CLI reference, and gofasta library API documentation, all written in MDX
 
 ## Tech Stack
 
@@ -90,7 +90,7 @@ website/
 │   │   ├── guides/                   # REST, GraphQL, auth, deployment, etc.
 │   │   ├── cli-reference/            # Every CLI command
 │   │   │   └── generate/             # Code generation subcommands
-│   │   └── api-reference/            # Every framework package
+│   │   └── api-reference/            # Every gofasta library package
 │   └── components/
 │       └── landing/                  # Landing page components
 ├── mdx-components.tsx                # MDX component overrides
@@ -167,7 +167,7 @@ Nextra provides built-in components you can use in any MDX file without importin
 | Getting Started | `content/getting-started/` | 4 | Introduction, installation, quick start, project structure |
 | Guides | `content/guides/` | 10 | REST, GraphQL, auth, database, deployment, etc. |
 | CLI Reference | `content/cli-reference/` | 21 | Every CLI command and generation subcommand |
-| Framework API | `content/api-reference/` | 26 | Package-by-package reference for all `pkg/*` packages |
+| Library API | `content/api-reference/` | 26 | Package-by-package reference for all `pkg/*` packages |
 
 ## License
 

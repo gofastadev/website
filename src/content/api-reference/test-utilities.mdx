@@ -63,7 +63,7 @@ func TestUserRepository_Create(t *testing.T) {
 - Creates a `prevent_delete_non_deletable()` trigger function
 - Creates an `increment_record_version()` trigger function
 
-These match the framework's expected database infrastructure. You then add your own model migrations with `db.AutoMigrate(...)`.
+These match the trigger functions that gofasta-generated models expect (updated_at maintenance, soft-delete guards, record versioning). You then add your own model migrations with `db.AutoMigrate(...)`.
 
 ### HTTP Integration Test
 

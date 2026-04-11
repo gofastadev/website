@@ -65,7 +65,7 @@ This is where you spend most of your time. It follows a layered architecture:
 Request → Controller → Service → Repository → Database
 ```
 
-- **`models/`** — GORM database models. Each model embeds `models.BaseModelImpl` from the framework to get standard fields (ID, timestamps, soft delete, versioning).
+- **`models/`** — GORM database models. Each model embeds `models.BaseModelImpl` from the gofasta library to get standard fields (ID, timestamps, soft delete, versioning).
 - **`dtos/`** — Data Transfer Objects for request parsing and response formatting. Keeps your API contract separate from your database models.
 - **`repositories/`** — Data access layer. Each repository has an interface in `interfaces/` and an implementation that uses GORM.
 - **`services/`** — Business logic layer. Receives DTOs, calls repositories, applies rules. This is where your domain logic goes.
@@ -129,10 +129,10 @@ redis:
 
 Settings can be overridden with environment variables using the prefix `GOFASTA_` with the pattern `GOFASTA_SECTION_KEY` (e.g., `GOFASTA_DATABASE_HOST=db`).
 
-## What the Framework Provides vs. What You Write
+## What You Write vs. What the Library Provides
 
-| You write | The framework provides |
-|-----------|----------------------|
+| You write | The gofasta library provides |
+|-----------|------------------------------|
 | `app/models/product.model.go` | `pkg/models` — BaseModelImpl with UUID, timestamps, soft delete |
 | `app/services/product.service.go` | `pkg/validators` — Input validation, `pkg/utils` — Pagination |
 | `app/rest/controllers/product.controller.go` | `pkg/httputil` — Bind, Handle, JSON responses |

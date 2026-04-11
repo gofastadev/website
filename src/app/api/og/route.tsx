@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
             gofasta.dev/docs
           </span>
           <span style={{ fontSize: "16px", color: "#475569" }}>
-            Go Web Framework
+            Go Backend Toolkit
           </span>
         </div>
       </div>

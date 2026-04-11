@@ -222,74 +222,67 @@ See the [Background Jobs guide](/docs/guides/background-jobs) for details on set
 
 ## Notifications
 
-The `github.com/gofastadev/gofasta/pkg/notifications` package provides a multi-channel notification system. Notifications can be delivered through multiple channels simultaneously.
+The `github.com/gofastadev/gofasta/pkg/notify` package provides a multi-channel notification system. A single `Notifier` fans out one `Notification` to every registered channel that the caller targets.
 
-### Notification Channels
+### Available Channels
 
-| Channel | Description |
-|---------|-------------|
-| `email` | Send notification via email |
-| `database` | Store notification in the database |
-| `slack` | Send to a Slack webhook |
+| Channel | Constructor | Backend |
+|---------|-------------|---------|
+| `notify.ChannelEmail` | `notify.NewEmailChannel(sender)` | Uses your existing `mailer.EmailSender` (SMTP, SendGrid, or Brevo) |
+| `notify.ChannelSMS` | `notify.NewSMSChannel(accountSID, authToken, fromNumber)` | Twilio |
+| `notify.ChannelSlack` | `notify.NewSlackChannel(webhookURL)` | Slack incoming webhooks |
+| `notify.ChannelDatabase` | `notify.NewDatabaseChannel(db)` | GORM — persists to a `notifications` table for in-app centers |
 
-### Defining a Notification
+### Building the Notifier
 
 ```go
-import "github.com/gofastadev/gofasta/pkg/notifications"
+import (
+    "log/slog"
 
-type OrderShippedNotification struct {
-    Order *models.Order
-}
+    "github.com/gofastadev/gofasta/pkg/mailer"
+    "github.com/gofastadev/gofasta/pkg/notify"
+)
 
-func (n *OrderShippedNotification) Channels() []string {
-    return []string{"email", "database"}
-}
+emailCh := notify.NewEmailChannel(smtpSender) // any mailer.EmailSender
+slackCh := notify.NewSlackChannel("https://hooks.slack.com/services/xxx/yyy/zzz")
+dbCh    := notify.NewDatabaseChannel(db)      // *gorm.DB
 
-func (n *OrderShippedNotification) ToEmail() *mailer.Message {
-    return &mailer.Message{
+notifier := notify.NewNotifier(slog.Default(), emailCh, slackCh, dbCh)
+```
+
+### Sending a Notification
+
+```go
+err := notifier.Send(ctx,
+    notify.Recipient{
+        ID:    user.ID.String(),
+        Email: user.Email,
+        Name:  user.Name,
+    },
+    notify.Notification{
         Subject:  "Your order has shipped",
-        Template: "order-shipped",
-        Data: map[string]interface{}{
-            "OrderNumber":  n.Order.Number,
-            "TrackingCode": n.Order.TrackingCode,
+        Body:     "Order #" + order.Number + " is on its way.",
+        Template: "order-shipped", // email channel renders this template with Data
+        Data: map[string]any{
+            "OrderNumber":  order.Number,
+            "TrackingCode": order.TrackingCode,
         },
-    }
-}
-
-func (n *OrderShippedNotification) ToDatabase() map[string]interface{} {
-    return map[string]interface{}{
-        "type":    "order_shipped",
-        "title":   "Your order has shipped",
-        "message": "Order #" + n.Order.Number + " is on its way",
-        "data": map[string]string{
-            "order_id":     n.Order.ID.String(),
-            "tracking_code": n.Order.TrackingCode,
-        },
-    }
-}
+        Channels: []notify.Channel{notify.ChannelEmail, notify.ChannelDatabase},
+    },
+)
 ```
 
-### Sending Notifications
+Leave `Channels` empty to fan out to every registered channel.
+
+### Custom Channels
+
+Implement `ChannelSender` (`Channel()` + `Send()`) and register it with the notifier:
 
 ```go
-notifier := notifications.New(mailer, db)
-
-// Send to a single user
-notifier.Send(ctx, user, &OrderShippedNotification{Order: order})
-
-// Send to multiple users
-notifier.SendBulk(ctx, users, &MaintenanceNotification{
-    StartTime: scheduledTime,
-})
+notifier.RegisterChannel(myCustomChannel)
 ```
 
-### Notification Configuration
-
-```yaml
-notifications:
-  slack:
-    webhook_url: https://hooks.slack.com/services/xxx/yyy/zzz
-```
+See the [Notifications API reference](/docs/api-reference/notifications) for the full interface definition.
 
 ## Development Tips
 
