@@ -1485,37 +1485,86 @@ Gofasta occupies a specific niche in the Go ecosystem: it sits between a bare HT
 
 ### 23.2 Comparison Matrix
 
-| Capability | mux/chi/Gin/Echo | go-blueprint | Buffalo | Encore | Gofasta |
-|-----------|-------------|-------------|---------|--------|---------|
-| HTTP routing | Yes | Yes | Yes | Yes (annotations) | Yes |
-| Project scaffolding | No | Yes | Yes | Yes | Yes |
-| Resource code generation | No | No | Yes | No | Yes |
-| Compile-time DI | No | No | No | No | Yes (Wire) |
-| Database migrations | No | No | Yes (Pop) | Yes (auto-provisioned) | Yes (SQL files) |
-| Multi-database support | N/A | Yes | Yes (Pop) | No (PostgreSQL only) | Yes (5 drivers) |
-| GraphQL support | No | No | No | No | Yes (opt-in, gqlgen) |
-| Background jobs | No | No | Yes | Yes (cron) | Yes |
-| Pub/Sub | No | No | No | Yes (cloud-agnostic) | No (roadmap) |
-| Email support | No | No | No | No | Yes (SMTP, SendGrid, Brevo) |
-| Multi-channel notifications | No | No | No | No | Yes (email, SMS, Slack, database) |
-| WebSocket support | No | No | No | No | Yes |
-| File storage | No | No | No | Yes (S3/GCS) | Yes (local, S3) |
-| Internationalization | No | No | No | No | Yes |
-| Feature flags | No | No | No | No | Yes |
-| Resilience patterns | No | No | No | No | Yes |
-| Observability | No | No | No | Yes (auto-instrumented) | Yes (Prometheus, OpenTelemetry) |
-| Security middleware | Partial | No | Partial | Partial (auth handler) | Yes (headers, CORS, rate limit, auth) |
-| Health checks | No | No | No | No | Yes |
-| Test utilities | No | No | No | Yes (auto test DB) | Yes (testcontainers) |
-| Deployment manifests | No | No | No | No (cloud-managed) | Yes (Docker, K8s, CI/CD, VPS) |
-| VPS deployment command | No | No | No | No | Yes |
-| Auto infrastructure provisioning | No | No | No | Yes | No |
-| Local dev dashboard | No | No | No | Yes | No (roadmap) |
-| Standard `go build` / `go test` | Yes | Yes | Yes | No (custom compiler) | Yes |
-| `net/http` middleware compatible | Yes | Yes | Yes | No | Yes |
-| Runtime wrapper required | Yes | No | Yes | Yes (custom runtime) | No |
-| Custom syntax or annotations | No | No | No | Yes (`//encore:api`) | No |
-| Free and open source | Yes | Yes | Yes | Partial (cloud is paid) | Yes |
+The following matrix compares Gofasta against the tools a Go backend developer is most likely to evaluate. The tools are grouped by category: HTTP routers, project scaffolders, backend development platforms, microservice toolkits, and design-first generators.
+
+#### vs. Routers and Scaffolders
+
+| Capability | mux/chi/Gin/Echo | go-blueprint | Buffalo | Gofasta |
+|-----------|-------------|-------------|---------|---------|
+| HTTP routing | Yes | Yes | Yes | Yes |
+| Project scaffolding | No | Yes | Yes | Yes |
+| Resource code generation | No | No | Yes | Yes |
+| Compile-time DI | No | No | No | Yes (Wire) |
+| Database migrations | No | No | Yes (Pop) | Yes (SQL files) |
+| Multi-database support | N/A | Yes | Yes (Pop) | Yes (5 drivers) |
+| GraphQL support | No | No | No | Yes (opt-in, gqlgen) |
+| Background jobs | No | No | Yes | Yes |
+| Email / notifications | No | No | No | Yes |
+| WebSocket support | No | No | No | Yes |
+| File storage | No | No | No | Yes (local, S3) |
+| Observability | No | No | No | Yes (Prometheus, OpenTelemetry) |
+| Security middleware | Partial | No | Partial | Yes (headers, CORS, rate limit, auth) |
+| Deployment manifests | No | No | No | Yes (Docker, K8s, CI/CD, VPS) |
+| Standard `go build` / `go test` | Yes | Yes | Yes | Yes |
+| Runtime wrapper required | Yes | No | Yes | No |
+
+#### vs. Backend Platforms and Full Toolkits
+
+| Capability | Encore | go-zero | GoFrame | Gofasta |
+|-----------|--------|---------|---------|---------|
+| HTTP routing | Yes (annotations) | Yes | Yes | Yes |
+| Project scaffolding | Yes | Yes (`goctl`) | Yes (`gf`) | Yes |
+| Resource code generation | No | Yes (from `.api` files) | Yes (from DB schemas) | Yes (from CLI args) |
+| Compile-time DI | No | No | No | Yes (Wire) |
+| Database migrations | Yes (auto-provisioned) | No | Yes | Yes (SQL files) |
+| Multi-database support | No (PostgreSQL only) | Yes (MySQL, PostgreSQL, MongoDB) | Yes (6 drivers) | Yes (5 drivers) |
+| GraphQL support | No | No | No | Yes (opt-in, gqlgen) |
+| Background jobs | Yes (cron) | No | Yes | Yes |
+| Pub/Sub | Yes (cloud-agnostic) | No | No | No (roadmap) |
+| Email / notifications | No | No | No | Yes (SMTP, SendGrid, Brevo, SMS, Slack) |
+| WebSocket support | No | No | Yes | Yes |
+| File storage | Yes (S3/GCS) | No | No | Yes (local, S3) |
+| Internationalization | No | No | Yes | Yes |
+| Feature flags | No | No | No | Yes |
+| Resilience patterns | No | Yes (circuit breaker, load shedding) | No | Yes (retry, circuit breaker) |
+| Observability | Yes (auto-instrumented) | Yes (OpenTelemetry) | Yes | Yes (Prometheus, OpenTelemetry) |
+| Service discovery | Yes (automatic) | Yes (etcd, Consul, K8s) | Yes (etcd, ZooKeeper) | No |
+| Security middleware | Partial (auth handler) | Yes (JWT) | Yes | Yes (headers, CORS, rate limit, auth) |
+| Health checks | No | No | No | Yes |
+| Test utilities | Yes (auto test DB) | No | No | Yes (testcontainers) |
+| Deployment manifests | No (cloud-managed) | No | No | Yes (Docker, K8s, CI/CD, VPS) |
+| VPS deployment command | No | No | No | Yes |
+| Auto infrastructure provisioning | Yes | No | No | No |
+| Local dev dashboard | Yes | No | No | No (roadmap) |
+| Standard `go build` / `go test` | No (custom compiler) | Yes | Yes | Yes |
+| `net/http` middleware compatible | No | No (custom middleware) | Partial | Yes |
+| Runtime wrapper required | Yes (custom runtime) | Yes | Yes | No |
+| Custom syntax or annotations | Yes (`//encore:api`) | Yes (`.api` DSL) | No | No |
+| API definition format | Annotations in Go | Proprietary `.api` files | Standard Go | Standard Go |
+| Free and open source | Partial (cloud is paid) | Yes | Yes | Yes |
+
+#### vs. Microservice Toolkits and Design-First Generators
+
+| Capability | go-kit | Kratos | Goa | Gofasta |
+|-----------|--------|--------|-----|---------|
+| HTTP routing | Yes (transport layer) | Yes (HTTP + gRPC) | Yes (generated) | Yes |
+| Project scaffolding | No | Yes (from protobuf) | Yes (from Go DSL) | Yes |
+| Resource code generation | No | Yes (from `.proto`) | Yes (from DSL) | Yes (from CLI args) |
+| Compile-time DI | No | Yes (Wire) | No | Yes (Wire) |
+| API definition format | Go interfaces | Protocol Buffers | Go DSL | Standard Go |
+| gRPC support | Yes | Yes (first-class) | Yes (generated) | No |
+| Multi-database support | N/A | N/A | N/A | Yes (5 drivers) |
+| Database migrations | No | No | No | Yes (SQL files) |
+| Background jobs | No | No | No | Yes |
+| Email / notifications | No | No | No | Yes |
+| Resilience patterns | Yes (circuit breaker) | Yes | No | Yes (retry, circuit breaker) |
+| Service discovery | Yes (etcd, Consul, DNS) | Yes (etcd, Consul, K8s) | No | No |
+| Observability | Yes (OpenTracing) | Yes (OpenTelemetry) | No | Yes (Prometheus, OpenTelemetry) |
+| OpenAPI generation | No | No | Yes (from DSL) | Yes (from code annotations) |
+| Standard `go build` / `go test` | Yes | Yes | Yes | Yes |
+| Runtime wrapper required | No (pattern library) | Yes | No (generated code) | No |
+| Deployment manifests | No | No | No | Yes (Docker, K8s, CI/CD, VPS) |
+| Actively maintained | Maintenance mode | Yes | Yes | Yes |
 
 ### 23.3 Key Differentiators
 
@@ -1526,6 +1575,18 @@ Gofasta occupies a specific niche in the Go ecosystem: it sits between a bare HT
 **vs. Buffalo:** Buffalo bundled a full set of components — its own ORM (Pop), template engine (Plush), and asset pipeline — as a single runtime layer a project had to buy into all at once. Gofasta takes the opposite approach: it generates standalone Go code and lets the developer import only the `pkg/*` packages they actually need. There is no monolithic layer to maintain, and if any single package stops fitting a project's needs it can be replaced in isolation without touching the rest of the code.
 
 **vs. Encore:** Encore is a backend development platform that provides automatic infrastructure provisioning, zero-config distributed tracing, and cloud deployment via a custom Go compiler fork. It trades standard toolchain compatibility for reduced boilerplate — projects cannot use `go build` or `go test` directly, must use Encore's proprietary `//encore:api` annotations for endpoint definition, and are limited to PostgreSQL as the only supported database. Encore's infrastructure declarations use proprietary APIs (`encore.dev/storage/sqldb`, `encore.dev/pubsub`, `encore.dev/storage/cache`) that create a compile-time dependency on the Encore toolchain; migrating away requires rewriting all API endpoint definitions, replacing infrastructure declarations with direct client libraries, and setting up independent observability. Gofasta takes the opposite approach: it generates standard Go code that compiles with `go build`, tests with `go test`, and deploys with any CI/CD pipeline. Generated projects use gorilla/mux with standard `net/http` middleware — the entire Go middleware ecosystem is compatible. Gofasta supports five database drivers, and every `pkg/*` import is a standard Go dependency that can be individually replaced without touching the rest of the project. The tradeoff is explicit: Encore automates more at the cost of toolchain control and vendor dependency; Gofasta automates the generation step and then returns full control to the developer.
+
+**vs. go-zero:** go-zero is a microservices toolkit with a powerful CLI (`goctl`) that generates complete services from `.api` definition files or Protocol Buffers. It includes built-in resilience patterns (circuit breaking, adaptive load shedding), service discovery, and distributed tracing — capabilities proven at massive scale at Tal Education. However, go-zero requires a proprietary `.api` definition format that is not OpenAPI, generates code tightly coupled to the go-zero runtime, and uses custom middleware signatures incompatible with standard `net/http` middleware. Its project structure is opinionated and difficult to deviate from. Gofasta generates standard Go code from CLI arguments (no proprietary definition file), uses `net/http`-compatible middleware, and produces projects that compile without any toolkit-specific runtime. go-zero is purpose-built for high-scale microservice architectures with service discovery and inter-service communication; Gofasta targets the broader case of production-ready backend services — monoliths, modular monoliths, or services that may grow into microservices later — with a wider feature set (email, notifications, file storage, i18n, feature flags, deployment manifests) and no commitment to a specific architectural pattern.
+
+**vs. GoFrame:** GoFrame is a comprehensive runtime toolkit originating from the Chinese Go community. It provides an HTTP server, ORM (`gdb`), configuration, logging, caching, i18n, and a CLI (`gf`) that can reverse-engineer database schemas into Go code. Its feature breadth is comparable to Gofasta's, and it supports six database drivers. The key difference is architectural: GoFrame is a runtime toolkit — the HTTP server, ORM, config loader, and logger are all GoFrame-specific APIs that your application imports and runs inside. Replacing one component (swapping the ORM, or using a different config loader) means fighting the integration between modules. Gofasta generates standalone Go code that uses well-known community libraries (gorilla/mux, GORM, slog) rather than toolkit-specific equivalents. Each `pkg/*` package can be replaced individually because it builds on standard Go interfaces — swapping `pkg/cache` does not require changing `pkg/config` or `pkg/middleware`. GoFrame's English documentation is significantly weaker than its Chinese documentation, which limits adoption outside Chinese-speaking teams.
+
+**vs. Kratos:** Kratos is a microservices toolkit from Bilibili that shares several design choices with Gofasta: both use Google Wire for compile-time dependency injection, and both enforce layered architecture with clean separation between transport, service, and data layers. The fundamental difference is the API definition workflow. Kratos requires Protocol Buffers for service definitions and generates both HTTP and gRPC transport from `.proto` files — this is powerful for teams that need dual-protocol support but adds significant ceremony for REST-only projects. Gofasta defines APIs in standard Go code with explicit route registration, which requires no schema language and no code generation step for the HTTP layer itself. Kratos provides first-class service discovery (etcd, Consul, Kubernetes) and is built for distributed microservice deployments; Gofasta provides first-class deployment automation (Docker, Kubernetes manifests, VPS deployment) and a wider set of application-level packages (email, notifications, file storage, i18n, feature flags) for teams building complete backend services rather than individual microservice components.
+
+**vs. Goa:** Goa takes a design-first approach: developers describe their API using a Go DSL, and the `goa` CLI generates server handlers, client packages, and OpenAPI documentation from that single source of truth. This ensures documentation and code never drift apart — a genuine advantage for API-first organizations. Goa generates both HTTP and gRPC transport from one design, and its generated code is clean and idiomatic. However, Goa's scope is limited to the API layer. It does not provide database access, migrations, authentication, caching, background jobs, email, file storage, or deployment manifests — the developer must assemble these independently. Gofasta covers the full backend stack, from database migrations and GORM repositories through authentication and background processing to deployment automation. Goa's DSL also has a significant learning curve; Gofasta uses standard Go code for everything, so the developer's existing Go knowledge applies directly.
+
+**vs. go-kit:** go-kit is a pattern library for building microservices, providing a three-layer architecture (transport → endpoint → service) with pluggable middleware for logging, metrics, rate limiting, and circuit breaking. It is not a code generator or a scaffolding tool — it is a set of Go packages that embody microservice best practices. go-kit's flexibility comes at the cost of extreme verbosity: even a simple service requires many files and significant boilerplate for transport encoding, endpoint wiring, and middleware composition. go-kit is in maintenance mode — the maintainer has stated it is "done" and no major features are planned. Gofasta eliminates the boilerplate that go-kit leaves to the developer while preserving the same architectural principles (explicit wiring, interface-based design, middleware composition). Where go-kit provides the patterns, Gofasta generates the code that implements them.
+
+**vs. Ent:** Ent is a graph-based ORM and code generation tool from Meta that generates a complete type-safe data access layer from schema definitions in Go. It is not a direct competitor — it solves a different layer of the stack (data access rather than full backend tooling) — but teams evaluating Gofasta's default choice of GORM will often consider Ent as an alternative. Ent's strengths are compile-time query safety (no `interface{}` in query results), graph-based relationship traversal, first-class GraphQL integration via `entgql`, and a schema-level privacy layer for multi-tenant authorization. Gofasta uses GORM as its default ORM because GORM has broader database driver support (five drivers vs. Ent's three), a larger community, and a lower learning curve for developers familiar with active-record patterns. Ent could be used in a Gofasta project by replacing the generated GORM repository implementations with Ent clients — the service and controller layers would remain unchanged because they depend on repository interfaces, not on GORM directly. This is the opt-out-defaults design in practice: the ORM is a swappable default, not a locked-in requirement.
 
 ---
 
