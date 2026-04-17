@@ -1,11 +1,11 @@
 ---
 title: Feature Flags
-description: Feature flag evaluation with file-based YAML provider and user-targeted flag checks.
+description: Feature flag evaluation through the OpenFeature Go SDK. Swap providers (in-memory, Flagd, LaunchDarkly, go-feature-flag, custom) without touching application code.
 ---
 
 # Feature Flags
 
-The `featureflag` package provides feature flag evaluation using [go-feature-flag](https://github.com/thomaspoignant/go-feature-flag). It supports file-based (YAML) flag providers with periodic polling, user-targeted evaluation, and boolean flag variations.
+The `featureflag` package is a thin wrapper around the [OpenFeature Go SDK](https://github.com/open-feature/go-sdk) — the [CNCF](https://www.cncf.io/) standard for feature-flag evaluation. Your application code calls one method (`IsEnabled`), and the actual flag storage + rule engine lives in a **provider** that you register at startup. Swap providers (in-memory for dev, LaunchDarkly for production, go-feature-flag for self-hosted, or a custom implementation) by changing a single line.
 
 ## Import
 
@@ -19,89 +19,155 @@ import "github.com/gofastadev/gofasta/pkg/featureflag"
 
 ```go
 type FeatureFlagService struct {
-    logger *slog.Logger
+    // unexported fields
 }
 ```
+
+A thin wrapper around an OpenFeature `*openfeature.Client`. Every evaluation delegates to whichever provider the application has registered globally via `openfeature.SetProvider`.
 
 ## Key Functions
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `NewFeatureFlagService` | `func NewFeatureFlagService(configPath string, logger *slog.Logger) (*FeatureFlagService, error)` | Initializes the feature flag system from a YAML config file |
-| `IsEnabled` | `func (s *FeatureFlagService) IsEnabled(flagKey string, userID string, attributes map[string]interface{}) bool` | Checks if a feature flag is enabled for a given user context |
-| `Close` | `func (s *FeatureFlagService) Close()` | Shuts down the feature flag client |
+| `NewFeatureFlagService` | `func NewFeatureFlagService(logger *slog.Logger) *FeatureFlagService` | Returns a service bound to whichever OpenFeature provider is currently registered. Falls back to the SDK's `NoopProvider` if none has been set — flag checks then resolve to the caller-supplied default. |
+| `NewInMemoryService` | `func NewInMemoryService(flags map[string]memprovider.InMemoryFlag, logger *slog.Logger) (*FeatureFlagService, error)` | Bootstraps the SDK with an in-memory provider populated from `flags` and returns a service wired against it. Convenience for local development, tests, and small apps that don't need a rule engine. |
+| `IsEnabled` | `func (s *FeatureFlagService) IsEnabled(ctx context.Context, flagKey, userID string, attributes map[string]any) bool` | Evaluates a boolean flag for the given user context. Returns `false` on evaluation error (logged at debug level) — flag checks must never take the app down. |
+| `Close` | `func (s *FeatureFlagService) Close()` | Calls `openfeature.Shutdown` to release any provider-held resources. Safe to call without a registered provider. |
 
-## Flag Definition File
+## The Provider Model
 
-Flags are defined in a YAML file that follows the [go-feature-flag format](https://gofeatureflag.org/docs/):
+OpenFeature is the **interface contract**. Providers are **adapters** that plug any flag system behind that contract. Think of the relationship the same way you think about `database/sql` + a driver:
 
-`flags.yaml`:
-
-```yaml
-new-dashboard:
-  variations:
-    enabled: true
-    disabled: false
-  targeting:
-    - query: key eq "user-123"
-      variation: enabled
-  defaultRule:
-    percentage:
-      enabled: 50
-      disabled: 50
-
-dark-mode:
-  variations:
-    enabled: true
-    disabled: false
-  defaultRule:
-    variation: enabled
 ```
+your app   →   openfeature.Client   →   Provider (adapter)   →   flag source
+```
+
+- **SDK** — stable public API (`openfeature.Client.BooleanValue(...)`), never changes regardless of backend.
+- **Provider** — the swappable plugin that actually resolves flag values. Registered once at startup via `openfeature.SetProvider(someProvider)`.
 
 ## Usage
 
-### Initializing the Service
+### Zero-Config: No Provider Registered
+
+With no provider registered, the SDK's default `NoopProvider` answers every evaluation with the caller-supplied default. This is safe — your application runs without a feature-flag backend; every flag simply takes its default branch.
 
 ```go
-ffService, err := featureflag.NewFeatureFlagService("flags.yaml", logger)
-if err != nil {
-    log.Fatalf("failed to load flags: %v", err)
+svc := featureflag.NewFeatureFlagService(logger)
+if svc.IsEnabled(ctx, "dark-mode", userID, nil) {
+    // never true — NoopProvider always returns the default (false)
 }
-defer ffService.Close()
 ```
 
-### Basic Flag Checking
+Useful for first-run scaffolds, test fixtures, or services where feature flagging is not yet wired up.
+
+### In-Memory Provider (recommended default)
+
+For local development, CI, and small applications, the in-memory provider is the lowest-friction choice — flags are defined in Go code, evaluated instantly, zero network traffic:
 
 ```go
-if ffService.IsEnabled("dark-mode", userID, nil) {
+import "github.com/open-feature/go-sdk/openfeature/memprovider"
+
+flags := map[string]memprovider.InMemoryFlag{
+    "dark-mode": {
+        Key:            "dark-mode",
+        State:          memprovider.Enabled,
+        DefaultVariant: "on",
+        Variants:       map[string]any{"on": true, "off": false},
+    },
+    "new-checkout": {
+        Key:            "new-checkout",
+        State:          memprovider.Enabled,
+        DefaultVariant: "off",
+        Variants:       map[string]any{"on": true, "off": false},
+    },
+}
+
+svc, err := featureflag.NewInMemoryService(flags, logger)
+if err != nil {
+    log.Fatalf("failed to init feature flags: %v", err)
+}
+defer svc.Close()
+```
+
+### Swapping to a Production Provider
+
+For file-based rules + AB testing + usage tracking, register the [go-feature-flag provider](https://gofeatureflag.org/) before constructing the service:
+
+```go
+import (
+    "github.com/open-feature/go-sdk/openfeature"
+    gff "github.com/thomaspoignant/go-feature-flag/providers/go-feature-flag-in-process-provider"
+    "github.com/thomaspoignant/go-feature-flag/retriever/fileretriever"
+)
+
+provider, err := gff.NewProvider(gff.ProviderOptions{
+    Retrievers: []retriever.Retriever{
+        &fileretriever.Retriever{Path: "configs/features.yaml"},
+    },
+    PollingInterval: 60 * time.Second,
+})
+if err != nil {
+    log.Fatalf("init go-feature-flag provider: %v", err)
+}
+if err := openfeature.SetProviderAndWait(provider); err != nil {
+    log.Fatalf("register provider: %v", err)
+}
+
+svc := featureflag.NewFeatureFlagService(logger)
+```
+
+For a commercial SaaS like [LaunchDarkly](https://launchdarkly.com), swap the provider constructor — the rest of the code stays identical:
+
+```go
+import ldprovider "github.com/launchdarkly/openfeature-go-server-sdk-provider"
+
+ldClient, _ := ldclient.MakeClient("sdk-key", 5*time.Second)
+openfeature.SetProvider(ldprovider.NewProvider(ldClient))
+
+svc := featureflag.NewFeatureFlagService(logger)
+```
+
+For [Flagd](https://flagd.dev) (CNCF, gRPC-based):
+
+```go
+import "github.com/open-feature/go-sdk-contrib/providers/flagd/pkg"
+
+openfeature.SetProvider(flagd.NewProvider())
+svc := featureflag.NewFeatureFlagService(logger)
+```
+
+**In every case, application code is identical.** Only the provider registration line changes.
+
+### Evaluating Flags
+
+```go
+// Simple check — no user context
+if svc.IsEnabled(ctx, "dark-mode", userID, nil) {
     // serve dark mode UI
 }
-```
 
-### User-Targeted Flags with Attributes
-
-```go
-attributes := map[string]interface{}{
+// With evaluation-context attributes for targeting rules
+attrs := map[string]any{
     "plan":    "premium",
     "country": "US",
 }
-
-if ffService.IsEnabled("new-dashboard", userID, attributes) {
+if svc.IsEnabled(ctx, "new-dashboard", userID, attrs) {
     // show new dashboard
 }
 ```
 
+The `userID` becomes the OpenFeature **targeting key**. Providers that support segment/percentage rollout use it (together with `attributes`) to decide which variant to return.
+
 ### Using in Controllers
 
 ```go
-func (c *DashboardController) Index(w http.ResponseWriter, r *http.Request) {
+func (c *DashboardController) Index(w http.ResponseWriter, r *http.Request) error {
     claims := auth.ClaimsFromContext(r.Context())
 
-    if c.ffService.IsEnabled("new-dashboard", claims.UserID, nil) {
-        httputil.JSON(w, http.StatusOK, newDashboardData)
-        return
+    if c.ffService.IsEnabled(r.Context(), "new-dashboard", claims.UserID, nil) {
+        return httputil.OK(w, newDashboardData)
     }
-    httputil.JSON(w, http.StatusOK, legacyDashboardData)
+    return httputil.OK(w, legacyDashboardData)
 }
 ```
 
@@ -110,10 +176,32 @@ func (c *DashboardController) Index(w http.ResponseWriter, r *http.Request) {
 ```yaml
 feature_flag:
   enabled: true
-  config_path: flags.yaml
+  config_path: configs/features.yaml
 ```
 
+`enabled` is a master switch your application reads before constructing the service. `config_path` is provider-specific — if the provider you register is file-driven (like go-feature-flag), point it at this path; other providers can ignore the field.
+
 Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_FEATURE_FLAG_ENABLED`, `GOFASTA_FEATURE_FLAG_CONFIG_PATH`).
+
+### Writing a Custom Provider
+
+Any type that implements [`openfeature.FeatureProvider`](https://pkg.go.dev/github.com/open-feature/go-sdk/openfeature#FeatureProvider) is a valid provider. The interface is small — a few resolution methods plus metadata — so wiring flags sourced from a Postgres table, a Consul KV store, or an internal config service is ~20 lines:
+
+```go
+type myProvider struct{ /* ... */ }
+
+func (p *myProvider) Metadata() openfeature.Metadata { /* ... */ }
+func (p *myProvider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx openfeature.FlattenedContext) openfeature.BoolResolutionDetail {
+    // your logic here
+}
+// ... plus String, Float, Int, Object evaluation methods
+
+openfeature.SetProvider(&myProvider{})
+```
+
+## Why OpenFeature
+
+Gofasta wraps OpenFeature (not any one engine) to uphold its opt-out-default philosophy: the default provider is swappable without touching the application's flag-checking code. The same interface binds in-memory dev flags, self-hosted rule engines, commercial SaaS, and your own custom backends — you pick whichever fits this deployment without rewriting controllers.
 
 ## Related Pages
 

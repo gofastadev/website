@@ -394,7 +394,7 @@ The library (`github.com/gofastadev/gofasta`) provides packages under `pkg/`. Ea
 | `pkg/validators` | Struct validation via go-playground/validator/v10 with custom rules |
 | `pkg/i18n` | Internationalization with YAML locale files via go-i18n |
 | `pkg/observability` | Prometheus metrics and OpenTelemetry distributed tracing |
-| `pkg/featureflag` | YAML-based feature flags with user targeting via go-feature-flag |
+| `pkg/featureflag` | Feature flag evaluation via the OpenFeature Go SDK with a swappable provider (in-memory, Flagd, LaunchDarkly, go-feature-flag, or custom) |
 | `pkg/utils` | Pagination math, string helpers, generic slice/map operations |
 | `pkg/testutil/testdb` | PostgreSQL container setup via testcontainers-go for integration tests |
 
@@ -1146,38 +1146,32 @@ The function `i18n.CreateDefaultLocaleFile("locales")` generates a starter Engli
 
 ## 17. Feature Flags
 
-The `pkg/featureflag` package provides feature flag evaluation for gradual rollouts and A/B testing:
+The `pkg/featureflag` package is a thin wrapper around the [OpenFeature Go SDK](https://github.com/open-feature/go-sdk) — the CNCF-standard flag-evaluation contract. Application code calls one method (`IsEnabled`); the actual flag storage and rule engine live in a **provider** the application registers at startup. Providers are swappable: an in-memory provider for local development, Flagd or go-feature-flag for self-hosted rule engines, LaunchDarkly for commercial SaaS, or a custom implementation — the application's flag-checking code never changes.
 
 ```go
-flagService, err := featureflag.NewFeatureFlagService("configs/features.yaml", logger)
+// Register any OpenFeature-compatible provider at startup.
+// Example: in-memory provider for local dev.
+flags := map[string]memprovider.InMemoryFlag{
+    "new_checkout_flow": {
+        Key:            "new_checkout_flow",
+        State:          memprovider.Enabled,
+        DefaultVariant: "off",
+        Variants:       map[string]any{"on": true, "off": false},
+    },
+}
+flagService, _ := featureflag.NewInMemoryService(flags, logger)
 defer flagService.Close()
 
-if flagService.IsEnabled("new_checkout_flow", userID, map[string]interface{}{
-    "plan": "premium",
+// Evaluation is provider-independent.
+if flagService.IsEnabled(ctx, "new_checkout_flow", userID, map[string]any{
+    "plan":    "premium",
     "country": "US",
 }) {
     // New checkout logic
 }
 ```
 
-Feature flags are defined in a YAML configuration file:
-
-```yaml
-# configs/features.yaml
-new_checkout_flow:
-  variations:
-    enabled: true
-    disabled: false
-  defaultRule:
-    percentage:
-      enabled: 20
-      disabled: 80
-  targeting:
-    - query: plan eq "premium"
-      variation: enabled
-```
-
-The service uses [go-feature-flag](https://gofeatureflag.org) with a 60-second polling interval for configuration changes. Flags support percentage-based rollouts, user targeting by attributes, and boolean evaluation.
+Swapping to a production rule engine is a one-line change: call `openfeature.SetProvider(...)` with the target provider before constructing the service. Every call site that evaluates flags continues to work unchanged. This keeps `pkg/featureflag` consistent with gofasta's opt-out-default philosophy — the package ships a contract, not a locked-in backend.
 
 ---
 
@@ -1676,7 +1670,7 @@ Gofasta is open source under the [MIT License](https://opensource.org/licenses/M
 12. Cobra — CLI library for Go, https://github.com/spf13/cobra
 13. swaggo/swag — Swagger documentation generator for Go, https://github.com/swaggo/swag
 14. failsafe-go — Fault tolerance for Go, https://github.com/failsafe-go/failsafe-go
-15. go-feature-flag — Feature flag solution for Go, https://gofeatureflag.org
+15. OpenFeature — Vendor-neutral feature flagging specification (CNCF), https://openfeature.dev
 16. testcontainers-go — Docker containers for integration testing, https://github.com/testcontainers/testcontainers-go
 17. unrolled/secure — HTTP security headers for Go, https://github.com/unrolled/secure
 

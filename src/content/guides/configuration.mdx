@@ -296,21 +296,34 @@ features:
   registration: true         # Enable user registration endpoint
 ```
 
-For more complex scenarios — user-targeted rollouts, percentage-based releases, A/B tests — the `github.com/gofastadev/gofasta/pkg/featureflag` package wraps [go-feature-flag](https://github.com/thomaspoignant/go-feature-flag) and reads its rules from a YAML file (typically `configs/features.yaml`):
+For more complex scenarios — user-targeted rollouts, percentage-based releases, A/B tests — the `github.com/gofastadev/gofasta/pkg/featureflag` package wraps the [OpenFeature Go SDK](https://github.com/open-feature/go-sdk) so you can plug in whichever flag backend you prefer (in-memory, [Flagd](https://flagd.dev), [LaunchDarkly](https://launchdarkly.com), [go-feature-flag](https://gofeatureflag.org), or a custom provider). The simplest production-ready setup is the in-memory provider:
 
 ```go
-import "github.com/gofastadev/gofasta/pkg/featureflag"
+import (
+    "github.com/gofastadev/gofasta/pkg/featureflag"
+    "github.com/open-feature/go-sdk/openfeature/memprovider"
+)
 
-ff, err := featureflag.NewFeatureFlagService("configs/features.yaml", logger)
+flags := map[string]memprovider.InMemoryFlag{
+    "registration": {
+        Key:            "registration",
+        State:          memprovider.Enabled,
+        DefaultVariant: "on",
+        Variants:       map[string]any{"on": true, "off": false},
+    },
+}
+ff, err := featureflag.NewInMemoryService(flags, logger)
 if err != nil {
     return err
 }
 defer ff.Close()
 
-if ff.IsEnabled("registration", user.ID.String(), map[string]interface{}{"plan": user.Plan}) {
+if ff.IsEnabled(ctx, "registration", user.ID.String(), map[string]any{"plan": user.Plan}) {
     RegisterAuthRoutes(router, deps.AuthController)
 }
 ```
+
+To swap to a real rule engine, call `openfeature.SetProvider(...)` at startup with any [OpenFeature-compatible provider](https://openfeature.dev/ecosystem). Application code stays unchanged.
 
 See the [Feature Flags API reference](/docs/api-reference/feature-flags) for the flag file format and the full `FeatureFlagService` API.
 
