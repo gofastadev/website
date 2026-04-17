@@ -215,7 +215,7 @@ go install github.com/gofastadev/cli/cmd/gofasta@latest
 curl -fsSL https://raw.githubusercontent.com/gofastadev/cli/main/dist/install.sh | sh
 ```
 
-**Requirement:** Go 1.25.8 or later (Option A only). Option B downloads a self-contained binary.
+**Requirement:** Go 1.25.0 or later (Option A only). Option B downloads a self-contained binary.
 
 ### 4.2 Commands
 
@@ -1372,7 +1372,7 @@ The generated `Dockerfile` uses a multi-stage build:
 
 ```dockerfile
 # Build stage
-FROM golang:1.25.8-alpine AS builder
+FROM golang:1.25.0-alpine AS builder
 WORKDIR /app
 COPY . .
 RUN CGO_ENABLED=0 go build -o server ./app/main

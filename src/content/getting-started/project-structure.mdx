@@ -73,7 +73,7 @@ Request → Controller → Service → Repository → Database
 - **`rest/routes/`** — Route definitions. Maps HTTP methods and paths to controller methods.
 - **`graphql/`** — Schema files (`.gql`) and resolvers. gqlgen generates resolver stubs from your schema. This directory is only present when the project was created with `gofasta new --graphql`.
 - **`validators/`** — Custom validation rules using `go-playground/validator/v10` struct tags.
-- **`di/`** — Google Wire dependency injection. `wire.go` defines how to build the container; `wire_gen.go` is the generated output. Tools are registered via `go mod edit -tool` (Go 1.25.8 tool dependencies) and invoked via `go tool wire`, `go tool gqlgen`, etc.
+- **`di/`** — Google Wire dependency injection. `wire.go` defines how to build the container; `wire_gen.go` is the generated output. Tools are registered via `go mod edit -tool` (Go 1.24+ tool dependencies) and invoked via `go tool wire`, `go tool gqlgen`, etc.
 - **`jobs/`** — Cron jobs for scheduled background work.
 - **`tasks/`** — Async task handlers using `hibiken/asynq`.
 
