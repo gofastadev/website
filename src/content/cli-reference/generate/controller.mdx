@@ -5,7 +5,7 @@ description: Generate a REST controller with CRUD handlers and all prerequisite 
 
 # gofasta g controller
 
-Generates a REST controller for a given resource with full CRUD endpoint handlers, along with all prerequisite layers (model, migration, repository, service, DTOs, Wire provider, and routes). The controller delegates all business logic to the service layer and uses gorilla/mux for HTTP routing with `httputil.Handle()` for error-returning handlers.
+Generates a REST controller for a given resource with full CRUD endpoint handlers, along with all prerequisite layers (model, migration, repository, service, DTOs, Wire provider, and routes). The controller delegates all business logic to the service layer and uses [go-chi/chi](https://github.com/go-chi/chi) for HTTP routing with `httputil.Handle()` for error-returning handlers. The router is an opt-out default — see [Swapping the router](/docs/guides/rest-api#swapping-the-router) for alternatives.
 
 **Aliases:** `ctrl`
 
@@ -71,7 +71,7 @@ import (
     "net/http"
     "strconv"
 
-    "github.com/gorilla/mux"
+    "github.com/go-chi/chi/v5"
     "github.com/go-playground/validator/v10"
     "myapp/app/dtos"
     svcInterfaces "myapp/app/services/interfaces"
@@ -124,7 +124,7 @@ func (c *ProductController) FindAll(w http.ResponseWriter, r *http.Request) erro
 
 // FindByID handles GET /api/v1/products/{id}
 func (c *ProductController) FindByID(w http.ResponseWriter, r *http.Request) error {
-    id := mux.Vars(r)["id"]
+    id := chi.URLParam(r, "id")
     result, err := c.service.FindByID(id)
     if err != nil {
         return err
@@ -157,7 +157,7 @@ HTTP Request --> Controller --> Service --> Repository --> Database
 
 - Controllers use standard `net/http` types (`http.ResponseWriter`, `*http.Request`)
 - Handler methods return `error` and are wrapped with `httputil.Handle()`
-- Route parameters are extracted via `mux.Vars(r)`
+- Route parameters are extracted via `chi.URLParam(r, "name")`
 - Request validation uses `go-playground/validator`
 - All business logic is delegated to the service layer
 

@@ -43,7 +43,7 @@ const PAGE_KEYWORDS: Record<string, string[]> = {
     "dependency injection",
     "Google Wire",
     "GORM",
-    "gorilla mux",
+    "chi router",
     "compile-time DI",
     "scaffolding",
     "REST API",

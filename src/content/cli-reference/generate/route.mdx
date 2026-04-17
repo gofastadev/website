@@ -5,7 +5,7 @@ description: Generate REST route definitions for a resource.
 
 # gofasta g route
 
-Generates a route definition file that maps HTTP endpoints to controller handlers using gorilla/mux. The generated routes follow RESTful conventions with standard CRUD paths.
+Generates a route definition file that maps HTTP endpoints to controller handlers using [go-chi/chi](https://github.com/go-chi/chi) as the default router. The generated routes follow RESTful conventions with standard CRUD paths. The router is an opt-out default — see [Swapping the router](/docs/guides/rest-api#swapping-the-router) for alternatives.
 
 ## Usage
 
@@ -38,19 +38,17 @@ app/rest/routes/product.routes.go
 package routes
 
 import (
-    "github.com/gorilla/mux"
+    "github.com/go-chi/chi/v5"
     "myapp/app/rest/controllers"
     "myapp/pkg/httputil"
 )
 
-func RegisterProductRoutes(router *mux.Router, controller *controllers.ProductController) {
-    sub := router.PathPrefix("/api/v1/products").Subrouter()
-
-    sub.HandleFunc("", httputil.Handle(controller.Create)).Methods("POST")
-    sub.HandleFunc("", httputil.Handle(controller.FindAll)).Methods("GET")
-    sub.HandleFunc("/{id}", httputil.Handle(controller.FindByID)).Methods("GET")
-    sub.HandleFunc("/{id}", httputil.Handle(controller.Update)).Methods("PUT")
-    sub.HandleFunc("/{id}", httputil.Handle(controller.Delete)).Methods("DELETE")
+func RegisterProductRoutes(r chi.Router, controller *controllers.ProductController) {
+    r.Post("/products", httputil.Handle(controller.Create))
+    r.Get("/products", httputil.Handle(controller.FindAll))
+    r.Get("/products/{id}", httputil.Handle(controller.FindByID))
+    r.Put("/products/{id}", httputil.Handle(controller.Update))
+    r.Delete("/products/{id}", httputil.Handle(controller.Delete))
 }
 ```
 
@@ -60,10 +58,10 @@ The generated route file is registered in `app/rest/routes/index.routes.go`. Whe
 
 ```go
 // app/rest/routes/index.routes.go
-func RegisterRoutes(router *mux.Router, container *di.Container) {
-    RegisterUserRoutes(router, container.UserController)
-    RegisterAuthRoutes(router, container.AuthController)
-    RegisterProductRoutes(router, container.ProductController) // Add this line
+func RegisterRoutes(r chi.Router, container *di.Container) {
+    RegisterUserRoutes(r, container.UserController)
+    RegisterAuthRoutes(r, container.AuthController)
+    RegisterProductRoutes(r, container.ProductController) // Add this line
 }
 ```
 

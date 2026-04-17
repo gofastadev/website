@@ -90,7 +90,7 @@ type MessageHandler func(client *Client, msg Message)
 hub := websocket.NewHub()
 go hub.Run(ctx)
 
-mux.HandleFunc("/ws", hub.HandleConnection)
+r.Get("/ws", hub.HandleConnection)
 ```
 
 ### Handling Messages

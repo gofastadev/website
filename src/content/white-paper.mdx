@@ -1,6 +1,6 @@
 ---
 title: "Technical White Paper"
-description: "Gofasta technical white paper — design principles, architecture, code generation strategy, dependency injection with Google Wire, database layer with GORM, HTTP routing with gorilla/mux, authentication, background processing, real-time communication, email and notifications, file storage, internationalization, feature flags, observability, resilience patterns, security defaults, testing, deployment, and adoption path for Go web services."
+description: "Gofasta technical white paper — design principles, architecture, code generation strategy, dependency injection with Google Wire, database layer with GORM, HTTP routing with chi, authentication, background processing, real-time communication, email and notifications, file storage, internationalization, feature flags, observability, resilience patterns, security defaults, testing, deployment, and adoption path for Go web services."
 ---
 
 # Gofasta: Batteries-Included Tooling for Go Web Services
@@ -110,7 +110,7 @@ The CLI generates idiomatic Go code that the developer owns completely. Generate
 
 ### 2.3 Standard Library Compatibility
 
-The `pkg/*` packages build on Go's standard interfaces wherever possible. HTTP routing uses gorilla/mux, which implements `http.Handler` and works with standard `net/http` middleware (`func(http.Handler) http.Handler`). Configuration uses struct tags and environment variables. Logging uses `slog` from the standard library. Database access uses GORM, which builds on `database/sql`. None of these choices prevent using the standard library directly.
+The `pkg/*` packages build on Go's standard interfaces wherever possible. HTTP routing uses chi, which implements `http.Handler` and works with standard `net/http` middleware (`func(http.Handler) http.Handler`). Configuration uses struct tags and environment variables. Logging uses `slog` from the standard library. Database access uses GORM, which builds on `database/sql`. None of these choices prevent using the standard library directly, and each is a swappable default — for example, the scaffold's router can be replaced with gorilla/mux or stdlib `http.ServeMux` without touching any `pkg/*` code.
 
 A Gofasta project compiles with `go build`, tests with `go test`, lints with `golangci-lint`, and debugs with Delve. It does not require a custom compiler, a patched Go runtime, or a proprietary build command. Any tool that works with standard Go works with a Gofasta project — including IDE support, CI/CD pipelines, and profiling tools. This is a deliberate design constraint, not a limitation.
 
@@ -181,7 +181,7 @@ The request flow is linear and traceable:
 
 ```
 HTTP Request
-  → Router (gorilla/mux)
+  → Router (chi)
     → Middleware (auth, CORS, logging, rate limiting)
       → Controller (parses request, calls service)
         → Service (business logic, calls repository)
@@ -672,16 +672,15 @@ gofasta seed --fresh      # Drop tables, re-migrate, then seed
 
 ### 9.1 Routing
 
-Gofasta uses [gorilla/mux](https://github.com/gorilla/mux) as its HTTP router, which builds on Go's standard `net/http` interfaces. Routes are registered explicitly in Go code:
+Gofasta uses [chi](https://github.com/go-chi/chi) as its default HTTP router, which builds on Go's standard `net/http` interfaces. The router is an opt-out default — it can be replaced with gorilla/mux, stdlib `http.ServeMux`, or any `http.Handler`-compatible router without touching the rest of the project. Routes are registered explicitly in Go code:
 
 ```go
-func ProductRoutes(api *mux.Router, ctrl *controllers.ProductController) {
-    r := api.PathPrefix("/products").Subrouter()
-    r.HandleFunc("", httputil.Handle(ctrl.List)).Methods("GET")
-    r.HandleFunc("", httputil.Handle(ctrl.Create)).Methods("POST")
-    r.HandleFunc("/{id}", httputil.Handle(ctrl.GetByID)).Methods("GET")
-    r.HandleFunc("/{id}", httputil.Handle(ctrl.Update)).Methods("PUT")
-    r.HandleFunc("/{id}", httputil.Handle(ctrl.Archive)).Methods("DELETE")
+func ProductRoutes(r chi.Router, ctrl *controllers.ProductController) {
+    r.Get("/products", httputil.Handle(ctrl.List))
+    r.Post("/products", httputil.Handle(ctrl.Create))
+    r.Get("/products/{id}", httputil.Handle(ctrl.GetByID))
+    r.Put("/products/{id}", httputil.Handle(ctrl.Update))
+    r.Delete("/products/{id}", httputil.Handle(ctrl.Archive))
 }
 ```
 
@@ -705,7 +704,7 @@ func (c *ProductController) Create(w http.ResponseWriter, r *http.Request) error
 }
 ```
 
-Path parameters are extracted via `mux.Vars(r)["id"]`. Request context is available via `r.Context()`.
+Path parameters are extracted via `chi.URLParam(r, "id")`. Request context is available via `r.Context()`.
 
 ### 9.3 Request Binding
 
@@ -1568,17 +1567,17 @@ The following matrix compares Gofasta against the tools a Go backend developer i
 
 ### 23.3 Key Differentiators
 
-**vs. gorilla/mux, chi, Gin, Echo:** These are HTTP routers. Gofasta uses gorilla/mux (which builds on `net/http`) as its router but adds project structure, code generation, database management, authentication, background processing, and utility packages. A developer using any router still needs to set all of this up manually.
+**vs. HTTP routers (chi, gorilla/mux, Gin, Echo):** These are HTTP routers. Gofasta uses chi (which builds on `net/http`) as its default router but adds project structure, code generation, database management, authentication, background processing, and utility packages. The router itself is a swappable default — a developer can replace it with gorilla/mux, stdlib `http.ServeMux`, or any other `http.Handler`-compatible router without touching `pkg/*` code. A developer using any router still needs to set all of the surrounding structure up manually.
 
 **vs. go-blueprint:** go-blueprint generates project scaffolding with a choice of router and database driver. Gofasta goes further with resource-level code generation (`gofasta g scaffold`), a library of production packages, and generated deployment manifests. go-blueprint generates the starting point; Gofasta generates the starting point and the ongoing CRUD boilerplate.
 
 **vs. Buffalo:** Buffalo bundled a full set of components — its own ORM (Pop), template engine (Plush), and asset pipeline — as a single runtime layer a project had to buy into all at once. Gofasta takes the opposite approach: it generates standalone Go code and lets the developer import only the `pkg/*` packages they actually need. There is no monolithic layer to maintain, and if any single package stops fitting a project's needs it can be replaced in isolation without touching the rest of the code.
 
-**vs. Encore:** Encore is a backend development platform that provides automatic infrastructure provisioning, zero-config distributed tracing, and cloud deployment via a custom Go compiler fork. It trades standard toolchain compatibility for reduced boilerplate — projects cannot use `go build` or `go test` directly, must use Encore's proprietary `//encore:api` annotations for endpoint definition, and are limited to PostgreSQL as the only supported database. Encore's infrastructure declarations use proprietary APIs (`encore.dev/storage/sqldb`, `encore.dev/pubsub`, `encore.dev/storage/cache`) that create a compile-time dependency on the Encore toolchain; migrating away requires rewriting all API endpoint definitions, replacing infrastructure declarations with direct client libraries, and setting up independent observability. Gofasta takes the opposite approach: it generates standard Go code that compiles with `go build`, tests with `go test`, and deploys with any CI/CD pipeline. Generated projects use gorilla/mux with standard `net/http` middleware — the entire Go middleware ecosystem is compatible. Gofasta supports five database drivers, and every `pkg/*` import is a standard Go dependency that can be individually replaced without touching the rest of the project. The tradeoff is explicit: Encore automates more at the cost of toolchain control and vendor dependency; Gofasta automates the generation step and then returns full control to the developer.
+**vs. Encore:** Encore is a backend development platform that provides automatic infrastructure provisioning, zero-config distributed tracing, and cloud deployment via a custom Go compiler fork. It trades standard toolchain compatibility for reduced boilerplate — projects cannot use `go build` or `go test` directly, must use Encore's proprietary `//encore:api` annotations for endpoint definition, and are limited to PostgreSQL as the only supported database. Encore's infrastructure declarations use proprietary APIs (`encore.dev/storage/sqldb`, `encore.dev/pubsub`, `encore.dev/storage/cache`) that create a compile-time dependency on the Encore toolchain; migrating away requires rewriting all API endpoint definitions, replacing infrastructure declarations with direct client libraries, and setting up independent observability. Gofasta takes the opposite approach: it generates standard Go code that compiles with `go build`, tests with `go test`, and deploys with any CI/CD pipeline. Generated projects use chi with standard `net/http` middleware — the entire Go middleware ecosystem is compatible. Gofasta supports five database drivers, and every `pkg/*` import is a standard Go dependency that can be individually replaced without touching the rest of the project. The tradeoff is explicit: Encore automates more at the cost of toolchain control and vendor dependency; Gofasta automates the generation step and then returns full control to the developer.
 
 **vs. go-zero:** go-zero is a microservices toolkit with a powerful CLI (`goctl`) that generates complete services from `.api` definition files or Protocol Buffers. It includes built-in resilience patterns (circuit breaking, adaptive load shedding), service discovery, and distributed tracing — capabilities proven at massive scale at Tal Education. However, go-zero requires a proprietary `.api` definition format that is not OpenAPI, generates code tightly coupled to the go-zero runtime, and uses custom middleware signatures incompatible with standard `net/http` middleware. Its project structure is opinionated and difficult to deviate from. Gofasta generates standard Go code from CLI arguments (no proprietary definition file), uses `net/http`-compatible middleware, and produces projects that compile without any toolkit-specific runtime. go-zero is purpose-built for high-scale microservice architectures with service discovery and inter-service communication; Gofasta targets the broader case of production-ready backend services — monoliths, modular monoliths, or services that may grow into microservices later — with a wider feature set (email, notifications, file storage, i18n, feature flags, deployment manifests) and no commitment to a specific architectural pattern.
 
-**vs. GoFrame:** GoFrame is a comprehensive runtime toolkit originating from the Chinese Go community. It provides an HTTP server, ORM (`gdb`), configuration, logging, caching, i18n, and a CLI (`gf`) that can reverse-engineer database schemas into Go code. Its feature breadth is comparable to Gofasta's, and it supports six database drivers. The key difference is architectural: GoFrame is a runtime toolkit — the HTTP server, ORM, config loader, and logger are all GoFrame-specific APIs that your application imports and runs inside. Replacing one component (swapping the ORM, or using a different config loader) means fighting the integration between modules. Gofasta generates standalone Go code that uses well-known community libraries (gorilla/mux, GORM, slog) rather than toolkit-specific equivalents. Each `pkg/*` package can be replaced individually because it builds on standard Go interfaces — swapping `pkg/cache` does not require changing `pkg/config` or `pkg/middleware`. GoFrame's English documentation is significantly weaker than its Chinese documentation, which limits adoption outside Chinese-speaking teams.
+**vs. GoFrame:** GoFrame is a comprehensive runtime toolkit originating from the Chinese Go community. It provides an HTTP server, ORM (`gdb`), configuration, logging, caching, i18n, and a CLI (`gf`) that can reverse-engineer database schemas into Go code. Its feature breadth is comparable to Gofasta's, and it supports six database drivers. The key difference is architectural: GoFrame is a runtime toolkit — the HTTP server, ORM, config loader, and logger are all GoFrame-specific APIs that your application imports and runs inside. Replacing one component (swapping the ORM, or using a different config loader) means fighting the integration between modules. Gofasta generates standalone Go code that uses well-known community libraries (chi, GORM, slog) rather than toolkit-specific equivalents. Each `pkg/*` package can be replaced individually because it builds on standard Go interfaces — swapping `pkg/cache` does not require changing `pkg/config` or `pkg/middleware`. GoFrame's English documentation is significantly weaker than its Chinese documentation, which limits adoption outside Chinese-speaking teams.
 
 **vs. Kratos:** Kratos is a microservices toolkit from Bilibili that shares several design choices with Gofasta: both use Google Wire for compile-time dependency injection, and both enforce layered architecture with clean separation between transport, service, and data layers. The fundamental difference is the API definition workflow. Kratos requires Protocol Buffers for service definitions and generates both HTTP and gRPC transport from `.proto` files — this is powerful for teams that need dual-protocol support but adds significant ceremony for REST-only projects. Gofasta defines APIs in standard Go code with explicit route registration, which requires no schema language and no code generation step for the HTTP layer itself. Kratos provides first-class service discovery (etcd, Consul, Kubernetes) and is built for distributed microservice deployments; Gofasta provides first-class deployment automation (Docker, Kubernetes manifests, VPS deployment) and a wider set of application-level packages (email, notifications, file storage, i18n, feature flags) for teams building complete backend services rather than individual microservice components.
 
@@ -1666,7 +1665,7 @@ Gofasta is open source under the [MIT License](https://opensource.org/licenses/M
 1. Go Developer Survey 2024 Results — The Go Blog, https://go.dev/blog/survey2024-h2-results
 2. Google Wire — Compile-time Dependency Injection for Go, https://github.com/google/wire
 3. GORM — The fantastic ORM library for Go, https://gorm.io
-4. gorilla/mux — HTTP request multiplexer for Go, https://github.com/gorilla/mux
+4. go-chi/chi — Lightweight, idiomatic HTTP router for Go, https://github.com/go-chi/chi
 5. gqlgen — Go library for building GraphQL servers, https://gqlgen.com
 6. go-playground/validator — Struct and field validation for Go, https://github.com/go-playground/validator
 7. hibiken/asynq — Distributed task queue for Go, https://github.com/hibiken/asynq
