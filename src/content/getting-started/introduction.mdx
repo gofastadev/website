@@ -24,8 +24,9 @@ When you run `gofasta new myapp`, the CLI creates a complete, ready-to-run proje
 - **Background jobs** — cron scheduling and async task queues
 - **Email** — SMTP, SendGrid, and Brevo with HTML templates
 - **Observability** — Prometheus metrics and OpenTelemetry tracing
-- **Docker** — Dockerfile, Docker Compose, and Kubernetes manifests
-- **CI/CD** — GitHub Actions workflows for testing, releasing, and deploying
+- **Docker** — Production Dockerfile and Docker Compose configuration
+- **Deployment** — One-command VPS deploy via `gofasta deploy` (Docker or binary over SSH), with generated systemd units and nginx reverse-proxy config
+- **CI/CD** — GitHub Actions workflow templates for testing, releasing, and deploying
 
 A starter `User` resource is included so the project compiles and runs out of the box.
 

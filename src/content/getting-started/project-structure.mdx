@@ -41,7 +41,7 @@ myapp/
 │   ├── migrations/         # SQL migration files (up + down)
 │   └── seeds/              # Database seed functions
 ├── configs/                # RBAC policies, feature flags
-├── deployments/            # Docker, Kubernetes, CI/CD, nginx, systemd
+├── deployments/            # Docker, CI/CD workflows, nginx, systemd
 ├── templates/emails/       # HTML email templates
 │   └── layouts/            # Email layout templates
 ├── locales/                # Translation files (i18n YAML)
@@ -92,13 +92,12 @@ Your project has its own CLI built with Cobra:
 
 ### `deployments/` — Infrastructure
 
-Pre-configured deployment files for multiple targets:
+Configuration for the deployment target gofasta natively supports: a Linux VPS running Docker or systemd, reached over SSH via [`gofasta deploy`](/docs/cli-reference/deploy).
 
-- **`ci/`** — GitHub Actions workflows (test, release, deploy to AWS/GCP/Azure/VPS)
-- **`docker/`** — Development Dockerfile, production compose file
-- **`k8s/`** — Kubernetes deployment, service, and ingress manifests
-- **`nginx/`** — Reverse proxy configuration
-- **`systemd/`** — Service file and deploy script for VPS deployments
+- **`ci/`** — GitHub Actions workflow templates (test, release, deploy-vps). These ship as inert YAML; copy them into `.github/workflows/` to activate — see the [deployment guide](/docs/guides/deployment#github-actions-workflows) for details.
+- **`docker/`** — Production compose file used by `gofasta deploy`, plus a development Dockerfile with Air for hot reload.
+- **`nginx/`** — Reverse proxy configuration with TLS termination.
+- **`systemd/`** — Service unit and reference deploy script used by the `binary` deploy method.
 
 ### `config.yaml` — Application Configuration
 

@@ -66,7 +66,6 @@ const PAGE_KEYWORDS: Record<string, string[]> = {
     "SQLite",
     "deployment",
     "Docker",
-    "Kubernetes",
     "CI/CD",
     "health checks",
     "middleware",

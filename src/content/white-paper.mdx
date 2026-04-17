@@ -65,7 +65,7 @@ However, assembling these building blocks into a production-ready application im
 - **Design a project layout.** Go does not prescribe a project structure. Teams must decide where to put models, handlers, services, repositories, DTOs, and configuration — and these decisions vary across projects within the same organization.
 - **Write structural wiring.** Connecting routers, middleware, database connections, authentication, logging, and health checks requires hundreds of lines of setup code that looks nearly identical across projects. This code is not business logic — it is infrastructure glue.
 - **Produce CRUD boilerplate.** For each resource, developers write a model, migration, repository, service, DTO, controller, and route registration file. The pattern is the same every time; only the field names change.
-- **Prepare deployment artifacts.** Dockerfiles, Kubernetes manifests, CI/CD workflows, and reverse proxy configurations are needed before the first deploy, and they follow predictable patterns.
+- **Prepare deployment artifacts.** Dockerfiles, systemd unit files, CI/CD workflows, and reverse proxy configurations are needed before the first deploy, and they follow predictable patterns.
 
 This overhead is measurable. A production-ready Go backend — with structured logging, JWT authentication, role-based access control, database migrations, input validation, health checks, Swagger documentation, Docker configuration, and CI/CD workflows — typically requires 2,000–4,000 lines of non-business-logic code and 40–80 files before the first domain endpoint can be implemented. For an experienced Go developer, this represents days of work. For a developer new to Go, it can represent weeks.
 
@@ -165,7 +165,7 @@ myapp/
 │   ├── migrations/             # SQL migration pairs (.up.sql / .down.sql)
 │   └── seeds/                  # Seed data functions
 ├── configs/                    # RBAC policies, feature flag definitions
-├── deployments/                # Docker, Kubernetes, CI/CD, nginx, systemd
+├── deployments/                # Docker, CI/CD workflows, nginx, systemd
 ├── templates/emails/           # HTML email templates
 ├── locales/                    # Translation files (i18n)
 ├── config.yaml                 # Application configuration
@@ -1238,10 +1238,10 @@ router.HandleFunc("/health/ready", httputil.Handle(healthCtrl.Ready))
 | Endpoint | Purpose | Checks |
 |----------|---------|--------|
 | `/health` | Basic liveness | Process is running, reports uptime |
-| `/health/live` | Kubernetes liveness probe | Process is alive |
-| `/health/ready` | Kubernetes readiness probe | Database connectivity (with latency), cache connectivity (if configured) |
+| `/health/live` | Liveness probe | Process is alive |
+| `/health/ready` | Readiness probe | Database connectivity (with latency), cache connectivity (if configured) |
 
-The readiness endpoint checks database and cache health with timing information, making it suitable for Kubernetes readiness probes and load balancer health checks.
+The readiness endpoint checks database and cache health with timing information, making it suitable for load balancer health checks, uptime monitors, and orchestrator-style probes.
 
 ---
 
@@ -1355,16 +1355,17 @@ Run unit tests with `go test -short ./...` and integration tests with `go test .
 
 ### 21.1 Generated Deployment Files
 
-Every Gofasta project includes deployment configurations out of the box:
+Every Gofasta project includes deployment configurations out of the box, scoped to the deployment target gofasta natively supports — a Linux VPS running Docker or systemd, reached over SSH:
 
 ```
 deployments/
-├── ci/              # GitHub Actions workflows (test, release, deploy)
-├── docker/          # Development Dockerfile with hot reload
-├── k8s/             # Kubernetes deployment, service, ingress
+├── ci/              # GitHub Actions workflow templates (test, release, deploy-vps)
+├── docker/          # Production compose file + dev Dockerfile with hot reload
 ├── nginx/           # Reverse proxy configuration
-└── systemd/         # Service file and deploy script for VPS
+└── systemd/         # Service unit and reference deploy script
 ```
+
+Cloud-managed platforms (ECS, Cloud Run, App Service) are out of scope for the current release. Projects that require them are expected to import their own infrastructure-as-code manifests — `pkg/*` packages impose no runtime assumptions that prevent this.
 
 ### 21.2 Docker
 
@@ -1393,17 +1394,9 @@ make up    # Start application + database
 make dev   # Start with hot reload
 ```
 
-### 21.3 Kubernetes
+### 21.3 VPS Deployment
 
-Generated manifests include:
-
-- **Deployment** — 3 replicas, resource limits, liveness/readiness probes pointing to `/health`
-- **Service** — ClusterIP exposing port 80 → 8080
-- **Ingress** — TLS with cert-manager annotation
-
-### 21.4 VPS Deployment
-
-The `gofasta deploy` command deploys directly to a remote server via SSH:
+The `gofasta deploy` command deploys directly to a remote Linux server via SSH:
 
 ```bash
 gofasta deploy setup           # Prepare server (Docker, nginx, directories)
@@ -1414,18 +1407,18 @@ gofasta deploy rollback        # Roll back to previous release
 ```
 
 Two deployment methods are supported:
-- **Docker** (default): builds a Docker image locally, transfers it via SSH, runs via Docker Compose on the server.
+- **Docker** (default): builds a Docker image locally, transfers it via SSH (`docker save | ssh docker load` — no registry required), runs via Docker Compose on the server.
 - **Binary**: cross-compiles a Go binary, transfers it via SCP, manages it via systemd.
 
-Both methods use nginx as a reverse proxy and support zero-downtime rollbacks.
+Both methods use a Capistrano-style release-directory layout (`/opt/<app>/releases/<timestamp>/` plus a `current` symlink atomically flipped after the health check passes), support zero-downtime rollback via `gofasta deploy rollback`, and optionally front the application with the generated nginx reverse-proxy config.
 
-### 21.5 CI/CD
+### 21.4 CI/CD
 
-GitHub Actions workflows are generated for:
+GitHub Actions workflow templates ship under `deployments/ci/` as inert YAML — they do not run until the developer copies them into `.github/workflows/`. This opt-in pattern prevents a first push from triggering deploys against unset secrets. The templates provided:
 
-- **Test** — Runs on push/PR with a PostgreSQL service container
-- **Release** — Builds and pushes a Docker image to GHCR on tag push
-- **Deploy** — Platform-specific deployment steps (AWS, GCP, Azure, VPS)
+- **Test** — runs on push/PR with a PostgreSQL service container; uploads coverage to Codecov.
+- **Release** — on `v*` tag push, builds and pushes a Docker image to GHCR using the default `GITHUB_TOKEN`.
+- **Deploy (VPS)** — on push to `main` or manual dispatch, runs `gofasta deploy` against the configured VPS. Requires `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, and `DEPLOY_PORT` repository secrets.
 
 ---
 
@@ -1497,7 +1490,7 @@ The following matrix compares Gofasta against the tools a Go backend developer i
 | File storage | No | No | No | Yes (local, S3) |
 | Observability | No | No | No | Yes (Prometheus, OpenTelemetry) |
 | Security middleware | Partial | No | Partial | Yes (headers, CORS, rate limit, auth) |
-| Deployment manifests | No | No | No | Yes (Docker, K8s, CI/CD, VPS) |
+| Deployment manifests | No | No | No | Yes (Docker, CI/CD, VPS) |
 | Standard `go build` / `go test` | Yes | Yes | Yes | Yes |
 | Runtime wrapper required | Yes | No | Yes | No |
 
@@ -1525,7 +1518,7 @@ The following matrix compares Gofasta against the tools a Go backend developer i
 | Security middleware | Partial (auth handler) | Yes (JWT) | Yes | Yes (headers, CORS, rate limit, auth) |
 | Health checks | No | No | No | Yes |
 | Test utilities | Yes (auto test DB) | No | No | Yes (testcontainers) |
-| Deployment manifests | No (cloud-managed) | No | No | Yes (Docker, K8s, CI/CD, VPS) |
+| Deployment manifests | No (cloud-managed) | No | No | Yes (Docker, CI/CD, VPS) |
 | VPS deployment command | No | No | No | Yes |
 | Auto infrastructure provisioning | Yes | No | No | No |
 | Local dev dashboard | Yes | No | No | No (roadmap) |
@@ -1556,7 +1549,7 @@ The following matrix compares Gofasta against the tools a Go backend developer i
 | OpenAPI generation | No | No | Yes (from DSL) | Yes (from code annotations) |
 | Standard `go build` / `go test` | Yes | Yes | Yes | Yes |
 | Runtime wrapper required | No (pattern library) | Yes | No (generated code) | No |
-| Deployment manifests | No | No | No | Yes (Docker, K8s, CI/CD, VPS) |
+| Deployment manifests | No | No | No | Yes (Docker, CI/CD, VPS) |
 | Actively maintained | Maintenance mode | Yes | Yes | Yes |
 
 ### 23.3 Key Differentiators
@@ -1618,12 +1611,13 @@ Gofasta is under active development. The roadmap is organized by impact on produ
 - **Multi-service project support** — Monorepo layout with shared packages, per-service scaffolding, and cross-service type generation.
 - **IDE extensions** — VS Code and GoLand extensions for running generators, viewing routes, and navigating the project structure from the editor.
 - **CockroachDB support** — Additional database driver for distributed SQL deployments.
-- **Cloud deployment manifests** — `gofasta deploy aws` and `gofasta deploy gcp` commands that generate Terraform or CDK definitions for ECS/Fargate, Cloud Run, or equivalent managed container services. Following the "generate then own" principle, these commands produce infrastructure-as-code files the developer commits and manages — not a managed cloud platform. The generated manifests target the project's configured database driver, cache backend, and queue backend.
+- **Kubernetes manifests** — Generated `deployment.yaml`, `service.yaml`, and `ingress.yaml` scoped to the project's configured database and cache backends, as an optional complement to the existing VPS deploy flow for teams running Kubernetes clusters.
+- **Cloud deployment manifests** — `gofasta deploy aws` and `gofasta deploy gcp` commands that generate Terraform or CDK definitions for ECS/Fargate, Cloud Run, or equivalent managed container services. Following the "generate then own" principle, these commands would produce infrastructure-as-code files the developer commits and manages — not a managed cloud platform.
 
 ### Explicitly out of scope
 
 - **Custom compiler or runtime fork** — Gofasta will never require a patched Go compiler, a custom build command, or a proprietary runtime. Projects compile with `go build`, test with `go test`, and work with every standard Go tool. This is a permanent design constraint.
-- **Managed cloud platform** — Gofasta is a toolkit, not a hosting service. Deployment automation generates configuration files (Dockerfiles, Terraform, Kubernetes manifests) that the developer owns and deploys to their own infrastructure. There is no Gofasta-hosted cloud, no per-seat pricing, and no telemetry phone-home.
+- **Managed cloud platform** — Gofasta is a toolkit, not a hosting service. Any future deployment automation will generate configuration files the developer owns and deploys to their own infrastructure. There is no Gofasta-hosted cloud, no per-seat pricing, and no telemetry phone-home.
 - **CQRS / Event Sourcing** — These are architectural patterns, not toolkit concerns. They are deeply domain-specific, and a generic implementation is either too abstract to be useful or too opinionated to be swappable. Projects that need CQRS should use [Watermill](https://github.com/ThreeDotsLabs/watermill) directly. A toolkit that provides CQRS pushes users toward a specific architecture, which conflicts with gofasta's identity as composable, opt-out-default packages.
 - **Message broker abstraction** — Abstracting over Kafka, NATS, and RabbitMQ is Watermill's job. Gofasta's `pkg/pubsub` will provide in-process and Redis-backed pub/sub; distributed messaging beyond Redis is left to purpose-built libraries.
 - **SAML implementation** — SAML is an extremely complex protocol. Enterprise SSO is better delegated to specialized providers (WorkOS, Auth0, Clerk). Gofasta will provide integration guides rather than a direct SAML implementation.
