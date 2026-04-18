@@ -19,14 +19,16 @@ Go is an excellent language for building backend services, but starting a new pr
 
 Gofasta is an open-source toolkit that eliminates this setup overhead. It consists of two components: a **CLI tool** (`gofastadev/cli`) that scaffolds projects and generates idiomatic Go code, and a **library** (`gofastadev/gofasta`) of production-ready packages covering common backend concerns. Generated code is plain Go — no custom syntax, no transpilation, no runtime magic. Developers own every line of output and can modify or replace any component independently.
 
-This paper describes the technical architecture, design principles, and feature set of Gofasta, and explains how it fits into the Go ecosystem.
+Gofasta is also **agent-native by default**. Every CLI command emits structured JSON output, every error carries a stable machine-readable code and a remediation hint, every resource is inspectable as structured data, and every scaffolded project ships with the configuration files AI coding agents read at startup. The design goal is that an AI agent working on a Gofasta project should be measurably faster and more accurate than one working on a hand-rolled Go project — not as an afterthought but as a first-class constraint on every feature.
+
+This paper describes the technical architecture, design principles, agent-ergonomics model, and feature set of Gofasta, and explains how it fits into the Go ecosystem.
 
 ---
 
 ## Table of Contents
 
-1. [Introduction](#1-introduction)
-2. [Design Principles](#2-design-principles)
+1. [Introduction](#1-introduction) — setup tax, what Gofasta is and is not, curated defaults
+2. [Design Principles](#2-design-principles) — including §2.7 Agent-Native by Default
 3. [Architecture](#3-architecture)
 4. [The CLI Tool](#4-the-cli-tool)
 5. [The Gofasta Library](#5-the-gofasta-library)
@@ -73,13 +75,15 @@ This is not a deficiency of the language. Go's explicitness — the property tha
 
 ### 1.2 What Gofasta Is
 
-Gofasta is two things:
+Gofasta is two things, plus an audience commitment:
 
-1. **A CLI tool** (`github.com/gofastadev/cli`) installed globally via `go install github.com/gofastadev/cli/cmd/gofasta@latest`. It creates new projects, generates resource code (models, services, controllers, migrations), runs migrations, manages seeds, and regenerates dependency injection wiring. It does not import the gofasta library; it only manipulates files on disk.
+1. **A CLI tool** (`github.com/gofastadev/cli`) installed globally via `go install github.com/gofastadev/cli/cmd/gofasta@latest`. It creates new projects, generates resource code (models, services, controllers, migrations), runs migrations, manages seeds, regenerates dependency injection wiring, and provides introspection + verification commands that serve humans and AI coding agents equally well. It does not import the gofasta library; it only manipulates files on disk.
 
 2. **A Go library** (`github.com/gofastadev/gofasta`) containing multiple packages under `pkg/`. These packages provide configuration loading, structured logging, error handling, HTTP utilities, middleware, authentication, caching, storage, email, notifications, WebSockets, scheduling, queues, resilience patterns, validation, internationalization, observability, feature flags, encryption, health checks, and test utilities. Each package is independently importable and has no side effects.
 
-The CLI generates plain Go code — the same code a senior engineer would write by hand — and then gets out of the way. After generation, there is no gofasta runtime, no application wrapper, no hidden lifecycle. The project is standard Go: `main.go` calls `net/http`, handlers return errors, models are GORM structs, dependency injection is resolved at compile time by Google Wire. A developer can read every line top to bottom and know exactly what runs.
+3. **A toolkit designed to be driven by AI coding agents as first-class users.** Every scaffolded project ships with an `AGENTS.md` briefing, a JSON-Schema-aware config helper, a structured-error protocol, and an opt-in installer (`gofasta ai <agent>`) that wires per-agent configuration for Claude Code, OpenAI Codex, Cursor, Aider, and Windsurf. The documentation site publishes [`/llms.txt`](https://gofasta.dev/llms.txt) and [`/llms-full.txt`](https://gofasta.dev/llms-full.txt) so agents reason about current features rather than stale training data. This is not a bolt-on layer — it is a design constraint that shapes every CLI command and every scaffold default. See [§2.7 Agent-Native by Default](#27-agent-native-by-default) and [§4.5 Agent Ergonomics](#45-agent-ergonomics).
+
+The CLI generates plain Go code — the same code a senior engineer would write by hand — and then gets out of the way. After generation, there is no gofasta runtime, no application wrapper, no hidden lifecycle. The project is standard Go: `main.go` calls `net/http`, handlers return errors, models are GORM structs, dependency injection is resolved at compile time by Google Wire. A developer can read every line top to bottom and know exactly what runs. An AI agent can introspect every line structurally (`gofasta inspect`, `gofasta routes --json`), verify every change holistically (`gofasta verify`), and detect drift before committing (`gofasta status`).
 
 ### 1.3 What Gofasta Is Not
 
@@ -87,6 +91,7 @@ The CLI generates plain Go code — the same code a senior engineer would write 
 - **Not a runtime wrapper.** There is no global application object, no lifecycle hooks, and no inversion-of-control container at runtime. Dependency wiring happens at compile time via Google Wire. Gofasta is a toolkit — a CLI plus a library of independent packages — not a runtime layer your code sits inside.
 - **Not a lock-in.** Every generated file is owned by the developer. The scaffold imports a curated set of `pkg/*` packages as its defaults — configuration, logging, HTTP utilities, authentication, and so on — the same way a typical Go backend imports a curated set of community libraries. These are *defaults, not requirements*. Each `pkg/*` package is independently importable, so a developer who prefers a different library for any single concern (a different config loader, a different cache, a different JWT implementation) can delete the default import, `go get` their preferred alternative, and swap it in without touching the rest of the project. "Not a lock-in" means any package can be replaced — not that no package is used.
 - **Not an all-or-nothing commitment.** A project can use `pkg/cache` without `pkg/mailer`, or `pkg/resilience` without `pkg/queue`. There is no umbrella import that drags everything in. The CLI also generates code once and does not manage or update generated code after the fact — once a project is scaffolded, the CLI is optional.
+- **Not an AI runtime library.** While Gofasta is *agent-native* at the development-tooling level (the CLI, the scaffold, and the docs are designed for AI agents to drive), it does not include runtime LLM SDKs, prompt-engineering abstractions, vector-database wrappers, or agent-orchestration frameworks. Applications that need to call LLMs at runtime import a provider SDK (`anthropic-sdk-go`, `openai-go`, the Google Generative AI SDK) directly, the same way they'd import any other third-party library. Agent-native refers to the **development experience** of building Gofasta apps, not to the runtime capabilities of the apps themselves.
 
 ### 1.4 Curated Defaults, Not Lock-In
 
@@ -125,6 +130,22 @@ The packages in `pkg/` are independently importable. A project can use `pkg/cach
 ### 2.6 No Shortcuts
 
 Gofasta does not optimize for the shortest possible demo. It optimizes for codebases that remain readable and maintainable after six months of active development by a team. Patterns like interface-based repositories, separate DTOs, and explicit route registration add a small amount of initial code but pay dividends in testability, clarity, and flexibility.
+
+### 2.7 Agent-Native by Default
+
+Gofasta treats AI coding agents (Claude Code, OpenAI Codex, Cursor, Aider, Windsurf, and successors) as first-class users of the CLI and the scaffold — not as an afterthought layered on top of an otherwise human-only tool. The practical consequences:
+
+- **Every CLI command that emits structured output honors a global `--json` flag.** The JSON shape is stable API. Agents parse it mechanically; they do not regex-scan English text.
+- **Every CLI error carries a stable machine-readable code, a one-line message, a remediation hint, and a documentation URL.** Agents pattern-match on the code (e.g., `WIRE_MISSING_PROVIDER`, `HEALTH_CHECK_FAILED`), read the hint for the exact fix, and link to the docs when they need deeper context. No error propagation relies on string parsing.
+- **Every scaffolded project ships with `AGENTS.md`** at the project root. This file — the emerging universal format adopted by every major AI coding agent — tells agents the directory layout, the command surface, the conventions to follow, the failure modes to avoid (most critically: *do not edit `wire_gen.go`*), and a pre-commit self-check list. Agents read it automatically at startup.
+- **Every scaffolded project ships with `cmd/schema/main.go`** — a 10-line helper that emits the JSON Schema for `config.yaml`, invoked by `gofasta config schema`. Agents validate proposed config edits before writing them, instead of guessing key names from stale training data.
+- **The documentation site publishes `/llms.txt` and `/llms-full.txt`** following the [llmstxt.org](https://llmstxt.org) spec. Agents asking "how does gofasta's `pkg/featureflag` work?" fetch one file and read current, version-matched documentation instead of relying on training-set recall that may be months out of date.
+- **The `gofasta ai <agent>` command** installs per-agent configuration (permission allowlists, pre-commit hooks, project slash commands, conventions files) without cluttering projects that don't use that particular agent. Opt-in, idempotent, and trivially extensible to new agents as they emerge.
+- **Higher-level commands like `gofasta verify`, `gofasta status`, `gofasta inspect <Resource>`, and `gofasta do <workflow>` exist specifically to collapse what would otherwise be multi-round-trip agent workflows into single calls.** An agent asked to "add an Invoice resource and confirm the project still compiles" runs two commands (`gofasta do new-rest-endpoint Invoice ...` + `gofasta verify`), not seven.
+
+This is *not* a claim that Gofasta generates better code when an agent writes it — generated code is identical whether a human or an agent typed the command. The claim is about *development throughput*: an agent working in a Gofasta codebase has structured-output commands, stable error codes, resource introspection, drift detection, and named workflow chains available, all of which reduce the number of wrong turns and tool calls it takes to complete a task correctly. The whitepaper's [§4.5 Agent Ergonomics](#45-agent-ergonomics) documents each capability in detail.
+
+The design constraint follows from a simple observation: AI-assisted development is no longer a niche workflow, and Go toolchains that treat it as one will be slower to use for a large and growing fraction of developers. Gofasta builds for this explicitly, the same way Go's standard library builds for `go build` + `go test` + `go vet` as the assumed tooling surface.
 
 ---
 
@@ -1499,6 +1520,8 @@ This is possible because every `pkg/*` package implements a standard pattern (in
 
 Gofasta occupies a specific niche in the Go ecosystem: it sits between a bare HTTP router (which leaves every project-level decision to the developer) and a monolithic runtime wrapper (which dictates every project-level decision). It is a *toolkit* — a CLI that generates standard Go code plus a library of independently importable packages — and the developer is always in control of which pieces they use. The goal is to compress the repetitive parts of starting a backend project (wiring, CRUD boilerplate, deployment scaffolding) without introducing a runtime layer the developer's code has to live inside.
 
+Gofasta also occupies a second niche that no other Go toolkit currently targets as a first-class audience: **AI coding agents**. The design principles in §2.7 and the agent-ergonomics surface in §4.5 treat agents as peer developers of the project — every command accepts `--json`, every error carries a stable machine-parseable code, the scaffold ships an `AGENTS.md` briefing plus editor-specific rule files via `gofasta ai install`, and high-level commands (`verify`, `status`, `inspect`, `do`) collapse long multi-step procedures into single calls with structured output. This is what distinguishes Gofasta's positioning from every comparable tool in the matrix below: the matrix lists capabilities an application needs; the agent-native design decides *how an agent interacts with the toolchain to build and maintain that application*. The rest of this section evaluates feature breadth against other tools; the agent-native distinction cuts across all of them.
+
 ### 23.2 Comparison Matrix
 
 The following matrix compares Gofasta against the tools a Go backend developer is most likely to evaluate. The tools are grouped by category: HTTP routers, project scaffolders, backend development platforms, microservice toolkits, and design-first generators.
@@ -1583,6 +1606,8 @@ The following matrix compares Gofasta against the tools a Go backend developer i
 | Actively maintained | Maintenance mode | Yes | Yes | Yes |
 
 ### 23.3 Key Differentiators
+
+**vs. every other Go toolkit (on agent-native support):** None of the tools in the matrix above treats AI coding agents as a first-class audience. Routers expose no structured command surface at all. Scaffolders (go-blueprint, Buffalo) emit projects with no embedded briefing for agents, no `--json` on their generators, and unstructured error strings that agents have to regex to understand. Platform toolkits (Encore, go-zero, GoFrame, Kratos) are built around proprietary runtimes, DSLs, or annotation systems that existing agents do not have stable priors for — an agent working inside these toolchains is guessing about non-Go syntax instead of applying its considerable knowledge of standard Go. Gofasta inverts this: it generates standard Go code (so agents can rely on their existing Go knowledge), ships a scaffolded `AGENTS.md` that briefs any agent on project conventions, installs editor-specific rule files for Claude Code / Cursor / Codex / Aider / Windsurf via `gofasta ai install`, adds a universal `--json` flag across every command, returns structured errors with stable codes (see §4.5), and exposes higher-level commands (`verify`, `status`, `inspect`, `do`) that collapse multi-step procedures into one call. The result: an agent opening a fresh Gofasta project has a machine-readable entry point (`AGENTS.md` + `llms.txt`), a machine-readable operational surface (every command), and machine-readable failure modes (error codes). This is a category distinction, not a feature comparison.
 
 **vs. HTTP routers (chi, gorilla/mux, Gin, Echo):** These are HTTP routers. Gofasta uses chi (which builds on `net/http`) as its default router but adds project structure, code generation, database management, authentication, background processing, and utility packages. The router itself is a swappable default — a developer can replace it with gorilla/mux, stdlib `http.ServeMux`, or any other `http.Handler`-compatible router without touching `pkg/*` code. A developer using any router still needs to set all of the surrounding structure up manually.
 
