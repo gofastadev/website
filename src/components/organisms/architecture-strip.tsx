@@ -75,13 +75,15 @@ export function ArchitectureStrip() {
         {principles.map((p) => (
           <div
             key={p.title}
-            className="gofasta-icon-draw group relative bg-surface p-8 transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-900/40"
+            className="gofasta-icon-draw group relative bg-surface p-8 transition-colors hover:bg-primary-800"
           >
-            <div className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors duration-200 group-hover:bg-primary/20">
+            <div className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors duration-200 group-hover:bg-white/15 group-hover:text-white">
               {p.icon}
             </div>
-            <h3 className="text-lg font-semibold tracking-tight">{p.title}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+            <h3 className="text-lg font-semibold tracking-tight text-foreground transition-colors group-hover:text-white">
+              {p.title}
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600 transition-colors group-hover:text-white/85 dark:text-gray-400">
               {p.description}
             </p>
           </div>
