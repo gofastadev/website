@@ -1,52 +1,80 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafbfc;
-  --foreground: #1a202c;
-  --primary: #00add8;
-  --primary-dark: #0097be;
-  --accent: #00283a;
-  --surface: #ffffff;
-  --code-bg: #f1f5f9;
-  --muted: #64748b;
+  /* ═════════════════════════════════════════════════════════════════
+     Brand colour system — everything is a variation of Go Cyan
+     (hue 193°). Instead of pure black / white / neutral gray, every
+     surface, text colour, and border carries the primary hue at low
+     saturation, so the whole site reads as one cohesive brand.
+     ═════════════════════════════════════════════════════════════════ */
 
-  /* Space-separated RGB channels so `rgb(var(--primary-rgb) / 0.2)` can
-     build themed, semi-transparent primaries without hard-coding the
-     hex anywhere else. */
+  /* Primary scale — 50 (subtle wash) → 900 (deepest). Every step
+     shares hue 193°; saturation + lightness vary. */
+  --primary-50:  #e6f6fa;
+  --primary-100: #cfeef5;
+  --primary-200: #a2dff0;
+  --primary-300: #69cbe4;
+  --primary-400: #1cbbe0;
+  --primary-500: #00add8;   /* the brand colour */
+  --primary-600: #0095ba;
+  --primary-700: #00728f;
+  --primary-800: #06556b;
+  --primary-900: #0b3846;
+
+  /* Tinted neutral scale — hue 193° with 5–20% saturation. Replaces
+     the default gray palette everywhere, so every "gray" on the site
+     subtly leans toward the brand. */
+  --neutral-50:  #f6fafb;
+  --neutral-100: #eaf1f3;
+  --neutral-200: #d7e1e4;
+  --neutral-300: #b8c5c9;
+  --neutral-400: #8a9ba0;
+  --neutral-500: #5f7177;
+  --neutral-600: #465358;
+  --neutral-700: #2e3a3f;
+  --neutral-800: #1d2a2e;
+  --neutral-900: #0f191d;
+
+  /* Semantic aliases — these are what components and the rest of the
+     stylesheet read. No pure white / black anywhere in the site. */
+  --primary: var(--primary-500);
+  --primary-dark: var(--primary-600);
   --primary-rgb: 0 173 216;
-  --background-rgb: 250 251 252;
+  --background: var(--neutral-100);
+  --background-rgb: 234 241 243;
+  --surface: var(--neutral-50);
+  --foreground: var(--neutral-900);
+  --muted: var(--neutral-500);
+  --code-bg: var(--neutral-200);
+  --accent: var(--primary-800);
 
-  /* Terminal surfaces — always dark regardless of theme. Terminal
-     mockups should look like a terminal in light mode too. */
+  /* Terminal surfaces — intentionally the Go-ecosystem slate/navy
+     palette regardless of theme, so terminal mock-ups look like a
+     terminal in every mode. */
   --terminal-surface: #0d1117;
   --terminal-bg: #1e293b;
   --terminal-accent: #4fd1e5;
 
-  /* Contrast helper: text colour when placed on top of --primary.
-     White matches the branded-selection pattern used on comparable
-     product sites — the selection highlight is a brief visual cue and
-     the brand colour + white reads as a strong "selected" state in
-     both themes. */
+  /* Contrast helper — white text on --primary for selection and any
+     primary-filled button. Pure white is the single exception to the
+     "no white" rule because short bursts of selected text need max
+     contrast. */
   --on-primary: #ffffff;
 }
 
 .dark {
-  --background: #0d1117;
-  --foreground: #e2e8f0;
+  /* Flip the neutral ramp + brighten the primary for dark surfaces.
+     Every alias still resolves to the same tinted scale — dark mode
+     isn't "gray mode", it's the same brand turned inside-out. */
   --primary: #4fd1e5;
-  --primary-dark: #00add8;
-  --accent: #38bdf8;
-  --surface: #161b22;
-  --code-bg: #1e293b;
-  --muted: #94a3b8;
-
   --primary-rgb: 79 209 229;
-  --background-rgb: 13 17 23;
-
-  /* Terminal surfaces stay the same across themes by design.
-     --on-primary inherits from :root — dark text works on both the
-     light-mode cyan (#00add8) and the dark-mode brighter cyan
-     (#4fd1e5). */
+  --background: var(--neutral-900);
+  --background-rgb: 15 25 29;
+  --surface: var(--neutral-800);
+  --foreground: var(--neutral-100);
+  --muted: var(--neutral-400);
+  --code-bg: var(--neutral-800);
+  --accent: var(--primary-300);
 }
 
 @theme inline {
@@ -62,6 +90,49 @@
   --color-terminal-bg: var(--terminal-bg);
   --color-terminal-accent: var(--terminal-accent);
   --color-on-primary: var(--on-primary);
+
+  /* Expose the full primary scale so Tailwind classes like
+     `bg-primary-50`, `text-primary-700`, `border-primary-200` are
+     available site-wide without hard-coding any hex. */
+  --color-primary-50:  var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-200: var(--primary-200);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary-800: var(--primary-800);
+  --color-primary-900: var(--primary-900);
+
+  /* Override Tailwind's default gray palette with the brand-tinted
+     neutrals. Every existing text-gray-*, bg-gray-*, border-gray-*
+     class in the codebase now resolves to a gray with a hint of the
+     primary hue — no component changes required. */
+  --color-gray-50:  var(--neutral-50);
+  --color-gray-100: var(--neutral-100);
+  --color-gray-200: var(--neutral-200);
+  --color-gray-300: var(--neutral-300);
+  --color-gray-400: var(--neutral-400);
+  --color-gray-500: var(--neutral-500);
+  --color-gray-600: var(--neutral-600);
+  --color-gray-700: var(--neutral-700);
+  --color-gray-800: var(--neutral-800);
+  --color-gray-900: var(--neutral-900);
+
+  /* Mirror the same palette under `neutral-*` so components that
+     prefer the semantic name pick up the same values. */
+  --color-neutral-50:  var(--neutral-50);
+  --color-neutral-100: var(--neutral-100);
+  --color-neutral-200: var(--neutral-200);
+  --color-neutral-300: var(--neutral-300);
+  --color-neutral-400: var(--neutral-400);
+  --color-neutral-500: var(--neutral-500);
+  --color-neutral-600: var(--neutral-600);
+  --color-neutral-700: var(--neutral-700);
+  --color-neutral-800: var(--neutral-800);
+  --color-neutral-900: var(--neutral-900);
+
   --font-sans: var(--font-poppins);
   --font-mono: var(--font-geist-mono);
 }
