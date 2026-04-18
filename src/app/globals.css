@@ -22,12 +22,11 @@
   --terminal-bg: #1e293b;
   --terminal-accent: #4fd1e5;
 
-  /* Contrast helper: text colour when placed on top of --primary. */
-  --on-primary: #ffffff;
-
-  /* Navbar blur layer — pre-composed so components never need opacity
-     modifiers in arbitrary-value classes. */
-  --navbar-bg: rgb(255 255 255 / 0.8);
+  /* Contrast helper: text colour when placed on top of --primary.
+     Go cyan is mid-brightness in light mode and bright cyan in dark
+     mode — dark text reads cleanly against both (≈8.7:1 and ≈11:1
+     contrast respectively), while white would fail WCAG in light mode. */
+  --on-primary: #0d1117;
 }
 
 .dark {
@@ -43,10 +42,10 @@
   --primary-rgb: 79 209 229;
   --background-rgb: 13 17 23;
 
-  /* Terminal surfaces stay the same across themes by design. */
-  --on-primary: #0d1117;
-
-  --navbar-bg: rgb(13 17 23 / 0.8);
+  /* Terminal surfaces stay the same across themes by design.
+     --on-primary inherits from :root — dark text works on both the
+     light-mode cyan (#00add8) and the dark-mode brighter cyan
+     (#4fd1e5). */
 }
 
 @theme inline {
@@ -62,7 +61,6 @@
   --color-terminal-bg: var(--terminal-bg);
   --color-terminal-accent: var(--terminal-accent);
   --color-on-primary: var(--on-primary);
-  --color-navbar-bg: var(--navbar-bg);
   --font-sans: var(--font-poppins);
   --font-mono: var(--font-geist-mono);
 }
