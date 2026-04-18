@@ -23,10 +23,11 @@
   --terminal-accent: #4fd1e5;
 
   /* Contrast helper: text colour when placed on top of --primary.
-     Go cyan is mid-brightness in light mode and bright cyan in dark
-     mode — dark text reads cleanly against both (≈8.7:1 and ≈11:1
-     contrast respectively), while white would fail WCAG in light mode. */
-  --on-primary: #0d1117;
+     White matches the branded-selection pattern used on comparable
+     product sites — the selection highlight is a brief visual cue and
+     the brand colour + white reads as a strong "selected" state in
+     both themes. */
+  --on-primary: #ffffff;
 }
 
 .dark {
