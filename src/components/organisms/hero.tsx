@@ -67,27 +67,57 @@ export function Hero() {
         </p>
 
         <TerminalBlock className="mt-14 max-w-2xl">
-          <span className="text-gray-500">$</span>{" "}
-          <span className="text-[#4FD1E5]">gofasta</span> new myapp
-          {"\n"}
-          <span className="text-gray-500">→ Creating project...</span>
-          {"\n"}
-          <span className="text-gray-500">→ Copying 78 template files...</span>
-          {"\n"}
-          <span className="text-gray-500">→ Generating Wire DI code...</span>
-          {"\n"}
-          <span className="text-green-400">
-            ✓ Ready — standard Go, zero lock-in, AGENTS.md scaffolded.
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "0.1s" } as React.CSSProperties}
+          >
+            <span className="text-gray-500">$</span>{" "}
+            <span className="text-[#4FD1E5]">gofasta</span> new myapp
           </span>
-          {"\n\n"}
-          <span className="text-gray-500">$</span> cd myapp &&{" "}
-          <span className="text-[#4FD1E5]">gofasta</span> dev
-          {"\n"}
-          <span className="text-green-400">
-            ✓ Listening on :8080 — /health, /metrics, /swagger live.
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "0.5s" } as React.CSSProperties}
+          >
+            <span className="text-gray-500">→ Creating project...</span>
           </span>
-          {"\n"}
-          <span className="gofasta-cursor" aria-hidden="true" />
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "0.8s" } as React.CSSProperties}
+          >
+            <span className="text-gray-500">→ Copying 78 template files...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "1.1s" } as React.CSSProperties}
+          >
+            <span className="text-gray-500">→ Generating Wire DI code...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "1.5s" } as React.CSSProperties}
+          >
+            <span className="text-green-400">
+              ✓ Ready — standard Go, zero lock-in, AGENTS.md scaffolded.
+            </span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "2.0s" } as React.CSSProperties}
+          >
+            {"\n"}
+            <span className="text-gray-500">$</span> cd myapp &&{" "}
+            <span className="text-[#4FD1E5]">gofasta</span> dev
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "2.5s" } as React.CSSProperties}
+          >
+            <span className="text-green-400">
+              ✓ Listening on :8080 — /health, /metrics, /swagger live.
+            </span>
+            {" "}
+            <span className="gofasta-cursor" aria-hidden="true" />
+          </span>
         </TerminalBlock>
       </div>
     </section>

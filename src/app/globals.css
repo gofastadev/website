@@ -95,6 +95,40 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes gofasta-term-line-in {
+  from { opacity: 0; transform: translateY(4px); filter: blur(2px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes gofasta-chip-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes gofasta-chip-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 173, 216, 0.0); }
+  50%      { box-shadow: 0 0 0 6px rgba(0, 173, 216, 0.18); }
+}
+
+@keyframes gofasta-pulse-dot {
+  0%, 100% { opacity: 0.45; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+
+@keyframes gofasta-number-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+@keyframes gofasta-draw-in {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes gofasta-icon-spin-once {
+  from { transform: rotate(-8deg) scale(0.95); }
+  to   { transform: rotate(0deg) scale(1); }
+}
+
 /* Headline gradient shimmer — animates the gradient position so the
    gradient-clipped text appears to "shine". */
 .gofasta-headline-shimmer {
@@ -214,6 +248,75 @@ body {
   animation: gofasta-fade-up 700ms ease-out both;
 }
 
+/* Terminal line-by-line reveal — each `.gofasta-term-line` fades,
+   slides, and blur-clears into view. Stagger via the `--delay` custom
+   property set inline per line. */
+.gofasta-term-line {
+  display: block;
+  opacity: 0;
+  animation: gofasta-term-line-in 450ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--gofasta-term-delay, 0s);
+}
+
+/* Stack-grid chip reveal — staggered fade-up-and-scale-in. Uses
+   --gofasta-chip-delay (inline) so the chips cascade. */
+.gofasta-chip {
+  opacity: 0;
+  animation: gofasta-chip-in 500ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--gofasta-chip-delay, 0s);
+}
+
+/* Stack-grid chip hover — small pulsing ring pulled from the Next.js
+   playbook. Runs only while the mouse is over the chip. */
+.gofasta-chip:hover {
+  animation: gofasta-chip-pulse 1.2s ease-in-out infinite;
+}
+
+/* Live-status dot — pulses on the TypewriterCode label while output is
+   still streaming. Switches to a solid green dot when typing completes. */
+.gofasta-pulse-dot {
+  animation: gofasta-pulse-dot 1.1s ease-in-out infinite;
+}
+
+/* Pillar number float — gentle up-and-down on the "01 / 02 / 03"
+   markers. Each card gets its own phase via inline animation-delay. */
+.gofasta-number-float {
+  animation: gofasta-number-float 4s ease-in-out infinite;
+}
+
+/* Feature-card icon — on hover, the SVG icon does a single, crisp
+   "draw-in" via stroke-dashoffset, plus a small rotate-back to rest.
+   Applied only when the parent card is hovered so the motion feels
+   causal. */
+.gofasta-icon-draw svg {
+  transition: transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transform-origin: center;
+}
+.gofasta-icon-draw:hover svg {
+  animation: gofasta-icon-spin-once 450ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.gofasta-icon-draw svg path,
+.gofasta-icon-draw svg circle,
+.gofasta-icon-draw svg rect,
+.gofasta-icon-draw svg polyline,
+.gofasta-icon-draw svg polygon,
+.gofasta-icon-draw svg ellipse,
+.gofasta-icon-draw svg line {
+  stroke-dasharray: 140;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.gofasta-icon-draw:hover svg path,
+.gofasta-icon-draw:hover svg circle,
+.gofasta-icon-draw:hover svg rect,
+.gofasta-icon-draw:hover svg polyline,
+.gofasta-icon-draw:hover svg polygon,
+.gofasta-icon-draw:hover svg ellipse,
+.gofasta-icon-draw:hover svg line {
+  stroke-dashoffset: 140;
+  animation: gofasta-draw-in 700ms cubic-bezier(0.22, 0.61, 0.36, 1) 50ms forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gofasta-orb,
   .gofasta-orb-slow,
@@ -221,10 +324,30 @@ body {
   .gofasta-cursor,
   .gofasta-card-glow::before,
   .gofasta-cta-ring::before,
-  .gofasta-fade-up {
+  .gofasta-fade-up,
+  .gofasta-term-line,
+  .gofasta-chip,
+  .gofasta-pulse-dot,
+  .gofasta-number-float {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .gofasta-chip:hover {
     animation: none !important;
   }
   .gofasta-card-glow:hover::before {
     opacity: 0;
+  }
+  .gofasta-icon-draw:hover svg,
+  .gofasta-icon-draw:hover svg path,
+  .gofasta-icon-draw:hover svg circle,
+  .gofasta-icon-draw:hover svg rect,
+  .gofasta-icon-draw:hover svg polyline,
+  .gofasta-icon-draw:hover svg polygon,
+  .gofasta-icon-draw:hover svg ellipse,
+  .gofasta-icon-draw:hover svg line {
+    animation: none !important;
   }
 }

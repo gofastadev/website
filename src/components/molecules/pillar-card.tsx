@@ -9,10 +9,13 @@ interface PillarCardProps {
 
 export function PillarCard({ number, icon, title, description }: PillarCardProps) {
   return (
-    <div className="gofasta-card-glow relative flex h-full flex-col rounded-2xl border border-gray-200 bg-surface p-8 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl dark:border-gray-800">
+    <div className="gofasta-card-glow gofasta-icon-draw relative flex h-full flex-col rounded-2xl border border-gray-200 bg-surface p-8 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl dark:border-gray-800">
       <div className="mb-6 flex items-center gap-3">
         <FeatureIcon>{icon}</FeatureIcon>
-        <span className="font-mono text-xs font-semibold text-gray-400 dark:text-gray-600">
+        <span
+          className="gofasta-number-float inline-block bg-gradient-to-br from-primary to-primary/50 bg-clip-text font-mono text-xs font-semibold text-transparent"
+          style={{ animationDelay: `${Number(number) * 0.6}s` }}
+        >
           {number}
         </span>
       </div>

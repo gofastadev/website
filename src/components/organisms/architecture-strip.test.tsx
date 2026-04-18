@@ -5,7 +5,9 @@ import { ArchitectureStrip } from "./architecture-strip";
 describe("ArchitectureStrip", () => {
   it("renders the section heading", () => {
     render(<ArchitectureStrip />);
-    expect(screen.getByText("No magic. Just Go.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Four things Gofasta will never do to your code.")
+    ).toBeInTheDocument();
   });
 
   it("renders all 4 principles", () => {

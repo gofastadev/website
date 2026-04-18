@@ -8,7 +8,7 @@ interface AudienceCardProps {
 
 export function AudienceCard({ icon, title, description }: AudienceCardProps) {
   return (
-    <div className="gofasta-card-glow group relative overflow-hidden rounded-2xl border border-gray-200 bg-surface p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-xl dark:border-gray-800 dark:hover:border-primary/50">
+    <div className="gofasta-card-glow gofasta-icon-draw group relative overflow-hidden rounded-2xl border border-gray-200 bg-surface p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-xl dark:border-gray-800 dark:hover:border-primary/50">
       <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary/0 via-primary/70 to-primary/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <FeatureIcon className="mb-5">{icon}</FeatureIcon>
       <h3 className="text-lg font-semibold tracking-tight">{title}</h3>

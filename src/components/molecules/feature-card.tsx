@@ -8,7 +8,7 @@ interface FeatureCardProps {
 
 export function FeatureCard({ icon, title, description }: FeatureCardProps) {
   return (
-    <div className="gofasta-card-glow rounded-xl border border-gray-200 bg-surface p-6 transition-shadow hover:shadow-lg dark:border-gray-800">
+    <div className="gofasta-card-glow gofasta-icon-draw rounded-xl border border-gray-200 bg-surface p-6 transition-shadow hover:shadow-lg dark:border-gray-800">
       <FeatureIcon className="mb-4">{icon}</FeatureIcon>
       <h3 className="text-lg font-semibold">{title}</h3>
       <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">

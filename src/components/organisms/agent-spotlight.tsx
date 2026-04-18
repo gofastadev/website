@@ -1,4 +1,18 @@
-import { CodePreview, SectionHeading } from "@/components/molecules";
+import { SectionHeading, TypewriterCode } from "@/components/molecules";
+
+const statusJson = `{
+  "checks": [
+    { "name": "wire drift",                  "status": "ok",   "message": "in sync" },
+    { "name": "swagger drift",               "status": "ok",   "message": "in sync" },
+    { "name": "pending migrations",          "status": "ok",   "message": "no migrations defined" },
+    { "name": "uncommitted generated files", "status": "ok",   "message": "generated files committed" },
+    { "name": "go.sum freshness",            "status": "ok",   "message": "modules verified" }
+  ],
+  "ok": 5,
+  "drift": 0,
+  "warnings": 0,
+  "skipped": 0
+}`;
 
 const capabilities = [
   {
@@ -70,21 +84,11 @@ export function AgentSpotlight() {
             ))}
           </ul>
 
-          <CodePreview label="gofasta status --json" language="json">
-            {`{
-  "checks": [
-    { "name": "wire drift",                  "status": "ok",   "message": "in sync" },
-    { "name": "swagger drift",               "status": "ok",   "message": "in sync" },
-    { "name": "pending migrations",          "status": "ok",   "message": "no migrations defined" },
-    { "name": "uncommitted generated files", "status": "ok",   "message": "generated files committed" },
-    { "name": "go.sum freshness",            "status": "ok",   "message": "modules verified" }
-  ],
-  "ok": 5,
-  "drift": 0,
-  "warnings": 0,
-  "skipped": 0
-}`}
-          </CodePreview>
+          <TypewriterCode
+            label="gofasta status --json"
+            language="json"
+            code={statusJson}
+          />
         </div>
       </div>
     </section>
