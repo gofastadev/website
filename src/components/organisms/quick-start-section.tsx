@@ -1,4 +1,4 @@
-import { StepCard } from "@/components/molecules";
+import { SectionHeading, StepCard } from "@/components/molecules";
 
 const steps = [
   {
@@ -13,6 +13,11 @@ const steps = [
   },
   {
     step: 3,
+    title: "Configure your AI (optional)",
+    code: "gofasta ai install claude",
+  },
+  {
+    step: 4,
     title: "Start developing",
     code: "cd myapp && make up",
   },
@@ -20,12 +25,13 @@ const steps = [
 
 export function QuickStartSection() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-12 sm:py-20">
-      <h2 className="text-center text-3xl font-bold sm:text-4xl">
-        Up and running in 3 steps
-      </h2>
-
-      <div className="mt-10 grid gap-6 sm:mt-16 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
+    <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+      <SectionHeading
+        eyebrow="Quick start"
+        title="From install to running, in under a minute."
+        description="Four commands. No dashboards, no signup, no configuration wizard. The CLI does the rest."
+      />
+      <div className="mt-14 grid gap-6 sm:grid-cols-2 sm:gap-7 lg:grid-cols-4">
         {steps.map((item) => (
           <StepCard
             key={item.step}

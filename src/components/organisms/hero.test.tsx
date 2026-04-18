@@ -11,18 +11,20 @@ vi.mock("next/navigation", () => ({
 describe("Hero", () => {
   it("renders the headline", () => {
     render(<Hero />);
-    expect(screen.getByText("Start shipping.")).toBeInTheDocument();
+    expect(screen.getByText("this afternoon.")).toBeInTheDocument();
   });
 
-  it("renders the Open Source badge", () => {
+  it("renders the eyebrow badge", () => {
     render(<Hero />);
-    expect(screen.getByText("Open Source Go Toolkit")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Open Source · Go Toolkit · Agent-Native/)
+    ).toBeInTheDocument();
   });
 
   it("renders the subtitle", () => {
     render(<Hero />);
     expect(
-      screen.getByText(/Gofasta generates production-ready Go backends/)
+      screen.getByText(/Gofasta scaffolds a complete backend in one command/)
     ).toBeInTheDocument();
   });
 
@@ -43,8 +45,9 @@ describe("Hero", () => {
     expect(github.tagName).toBe("BUTTON");
     fireEvent.click(github);
     expect(openSpy).toHaveBeenCalledWith(
-      "https://github.com/gofastadev",
-      "_blank"
+      "https://github.com/gofastadev/cli",
+      "_blank",
+      "noopener,noreferrer"
     );
     openSpy.mockRestore();
   });
@@ -52,20 +55,20 @@ describe("Hero", () => {
   it("renders the terminal block with gofasta command", () => {
     render(<Hero />);
     expect(screen.getByText("Terminal")).toBeInTheDocument();
-    expect(screen.getByText(/gofasta/)).toBeInTheDocument();
+    expect(screen.getAllByText(/gofasta/).length).toBeGreaterThan(0);
   });
 
-  it("renders the Done message in terminal", () => {
+  it("renders the ready message in terminal", () => {
     render(<Hero />);
     expect(
-      screen.getByText("Done! Project created at ./myapp")
+      screen.getByText(/Ready — standard Go, zero lock-in, AGENTS.md scaffolded./)
     ).toBeInTheDocument();
   });
 
   it("renders the server running message", () => {
     render(<Hero />);
     expect(
-      screen.getByText("Server running at http://localhost:8080")
+      screen.getByText(/Server running at http:\/\/localhost:8080/)
     ).toBeInTheDocument();
   });
 });
