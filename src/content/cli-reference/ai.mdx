@@ -1,0 +1,130 @@
+---
+title: gofasta ai
+description: Install AI coding agent configuration into the current project — permission allowlists, hooks, rules, conventions files, and slash commands.
+---
+
+# gofasta ai
+
+Install project-specific configuration for AI coding agents — permission allowlists, hooks, conventions files, and slash commands. Every gofasta project ships [`AGENTS.md`](https://agents.md/) by default (the universal file every modern agent reads); per-agent configuration is opt-in via this command so developers who don't use AI agents aren't cluttered with dotfiles they don't need.
+
+Every installer is **idempotent** — re-running after a gofasta update refreshes the config without touching files you've edited.
+
+## Usage
+
+```bash
+gofasta ai <agent> [--dry-run] [--force]
+gofasta ai list
+gofasta ai status
+```
+
+Inherits the global `--json` flag for machine-parseable output.
+
+## Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--dry-run` | bool | `false` | Preview what would be written without touching disk |
+| `--force` | bool | `false` | Overwrite existing files whose contents differ from the template |
+
+## Supported agents
+
+| Key | Agent | What `gofasta ai <key>` installs |
+|-----|-------|---------------------------------|
+| `claude` | [Claude Code](https://claude.com/claude-code) | `.claude/settings.json` (project permissions), `.claude/hooks/pre-commit.sh` (runs `gofasta verify`), `.claude/commands/` (project slash commands: `/verify`, `/scaffold`, `/inspect`) |
+| `cursor` | [Cursor](https://cursor.sh) | `.cursor/rules/gofasta.mdc` (project rules referencing AGENTS.md) |
+| `codex` | [OpenAI Codex](https://developers.openai.com/codex/) | `.codex/config.toml` (command allowlist pointing at AGENTS.md) |
+| `aider` | [Aider](https://aider.chat/) | `.aider.conf.yml` (auto-test + auto-lint) + `.aider/CONVENTIONS.md` |
+| `windsurf` | [Windsurf](https://codeium.com/windsurf) | `.windsurfrules` (project rules) |
+
+## Subcommands
+
+### `gofasta ai list`
+
+Prints every supported agent:
+
+```bash
+$ gofasta ai list
+KEY        NAME           DESCRIPTION
+claude     Claude Code    Anthropic's official CLI coding agent
+cursor     Cursor         AI-first IDE with project-level rules and MCP support
+codex      OpenAI Codex   OpenAI's coding agent — reads AGENTS.md by default
+aider      Aider          Open-source pair-programming CLI agent
+windsurf   Windsurf       Codeium's AI-native IDE
+```
+
+### `gofasta ai status`
+
+Shows which agents are currently installed in this project, when they were installed, and which CLI version wrote the templates:
+
+```bash
+$ gofasta ai status
+AGENT    NAME          INSTALLED AT           CLI VERSION
+claude   Claude Code   2026-04-18 15:04 UTC   v0.2.0
+cursor   Cursor        2026-04-18 15:06 UTC   v0.2.0
+```
+
+## Examples
+
+Install Claude Code config:
+
+```bash
+gofasta ai claude
+```
+
+Preview what Cursor would install without writing:
+
+```bash
+gofasta ai cursor --dry-run
+```
+
+Install Aider and overwrite any previously-edited file:
+
+```bash
+gofasta ai aider --force
+```
+
+List supported agents in JSON:
+
+```bash
+gofasta ai list --json
+```
+
+## Idempotency + upgrade path
+
+Re-running `gofasta ai <agent>` after a gofasta release is safe:
+
+- **Unchanged files:** skipped silently.
+- **Files we wrote last time that we now want to update:** overwritten if `--force`, else halt with an error pointing at the diff.
+- **Files you modified after install:** respected — no overwrite without `--force`.
+
+Tracked via `.gofasta/ai.json` — a small manifest that records the installed CLI version per agent. `gofasta ai status` reads it.
+
+## Output shape (JSON)
+
+```json
+{
+  "agent": "claude",
+  "created": [
+    ".claude/settings.json",
+    ".claude/hooks/pre-commit.sh",
+    ".claude/commands/verify.md",
+    ".claude/commands/scaffold.md",
+    ".claude/commands/inspect.md"
+  ],
+  "skipped": [],
+  "replaced": [],
+  "would_replace": []
+}
+```
+
+## Why this exists
+
+Every modern AI coding agent has its own preferred configuration format — Claude Code reads `.claude/`, Cursor reads `.cursor/rules/`, Aider reads `.aider.conf.yml`, OpenAI Codex reads `AGENTS.md` + `.codex/`, Windsurf reads `.windsurfrules`. Pre-shipping all of them in the scaffold clutters projects for developers who don't use agents; shipping none means every user has to write them from scratch.
+
+The installer is the middle path: scaffold stays clean (just `AGENTS.md`), agent-specific files land only when you explicitly ask. Adding a sixth, seventh, or tenth agent later is a template directory — zero changes to the CLI.
+
+## Related
+
+- [AGENTS.md](https://agents.md/) -- the universal agent guidance format (shipped in every scaffold by default)
+- [llms.txt](https://gofasta.dev/llms.txt) -- LLM-optimized docs index for gofasta itself
+- [`gofasta verify`](/docs/cli-reference/verify) -- pre-commit check invoked by agent hooks
