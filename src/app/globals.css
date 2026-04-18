@@ -97,6 +97,41 @@ body {
   text-shadow: none;
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+   Navbar surface — fully opaque so nav text is never washed out by the
+   hero's radial gradients bleeding through. Uses the themed --surface
+   / --background tokens so there's still zero hardcoded hex in the
+   component; swap `--surface` to `--background` in dark mode so the
+   navbar matches the page background exactly. Child text colours are
+   pinned here too — defeats any ancestor opacity / blend-mode /
+   backdrop-filter interaction that was washing them out before.
+   ────────────────────────────────────────────────────────────────────── */
+.gofasta-navbar-surface {
+  background-color: var(--surface);
+}
+.dark .gofasta-navbar-surface {
+  background-color: var(--background);
+}
+
+/* Pin every text-bearing descendant of the navbar to --foreground, so
+   the Logo span, the NavLinks anchors, and the ThemeToggle button
+   icon all resolve to the same readable colour regardless of
+   Tailwind class ordering or compilation quirks. SVG strokes already
+   use currentColor → they inherit automatically from the button. */
+.gofasta-navbar-surface,
+.gofasta-navbar-surface a,
+.gofasta-navbar-surface span,
+.gofasta-navbar-surface button {
+  color: var(--foreground);
+}
+
+/* Hover → primary for any interactive element. */
+.gofasta-navbar-surface a:hover,
+.gofasta-navbar-surface a:hover span,
+.gofasta-navbar-surface button:hover {
+  color: var(--primary);
+}
+
 
 /* Nextra primary color override — Go cyan hue */
 :root {

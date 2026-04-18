@@ -5,7 +5,7 @@ import { NavLinks } from "@/components/molecules";
 
 export function NavbarLanding() {
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200 bg-surface/80 backdrop-blur-md dark:border-gray-800 dark:bg-background/80">
+    <nav className="gofasta-navbar-surface fixed top-0 left-0 right-0 z-50 border-b border-gray-200 dark:border-gray-800">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Logo />
         <div className="flex items-center gap-3 sm:gap-6">
