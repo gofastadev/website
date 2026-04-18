@@ -56,7 +56,57 @@ const iconProps = {
 export function AgentSpotlight() {
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 via-transparent to-transparent py-20 sm:py-28 dark:from-primary/10">
-      <div className="mx-auto max-w-6xl px-6">
+      {/* Decorative animated stream lines — large SVG spanning the
+          section, four dashed curves flowing left-to-right (the
+          direction data moves from CLI output to consumer). Behind
+          content, low-opacity, aria-hidden. */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 1200 400"
+        preserveAspectRatio="none"
+        className="pointer-events-none absolute inset-0 -z-10 h-full w-full opacity-50 dark:opacity-60"
+      >
+        <defs>
+          <linearGradient id="gofasta-stream-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="rgb(0 173 216)" stopOpacity="0" />
+            <stop offset="50%" stopColor="rgb(0 173 216)" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="rgb(0 173 216)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path
+          className="gofasta-stream-line"
+          d="M0,90 C300,40 900,140 1200,80"
+          fill="none"
+          stroke="url(#gofasta-stream-grad)"
+          strokeWidth="1.5"
+        />
+        <path
+          className="gofasta-stream-line"
+          style={{ animationDelay: "0.2s" }}
+          d="M0,170 C320,120 880,230 1200,160"
+          fill="none"
+          stroke="url(#gofasta-stream-grad)"
+          strokeWidth="1.5"
+        />
+        <path
+          className="gofasta-stream-line"
+          style={{ animationDelay: "0.5s" }}
+          d="M0,240 C340,200 860,300 1200,230"
+          fill="none"
+          stroke="url(#gofasta-stream-grad)"
+          strokeWidth="1.5"
+        />
+        <path
+          className="gofasta-stream-line"
+          style={{ animationDelay: "0.7s" }}
+          d="M0,320 C300,280 900,370 1200,310"
+          fill="none"
+          stroke="url(#gofasta-stream-grad)"
+          strokeWidth="1.5"
+        />
+      </svg>
+
+      <div className="relative mx-auto max-w-6xl px-6">
         <SectionHeading
           eyebrow="Agent-Native"
           title="A Go toolkit built for humans and AI agents."
