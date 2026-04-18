@@ -6,7 +6,7 @@ describe("AudienceTiles", () => {
   it("renders the section heading", () => {
     render(<AudienceTiles />);
     expect(
-      screen.getByText("Built for the way you already build.")
+      screen.getByText("Who uses Gofasta")
     ).toBeInTheDocument();
   });
 

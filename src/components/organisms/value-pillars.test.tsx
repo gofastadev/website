@@ -6,7 +6,7 @@ describe("ValuePillars", () => {
   it("renders the section heading", () => {
     render(<ValuePillars />);
     expect(
-      screen.getByText("Fast to start. Yours to own. Ready for your AI.")
+      screen.getByText("What Gofasta is")
     ).toBeInTheDocument();
   });
 

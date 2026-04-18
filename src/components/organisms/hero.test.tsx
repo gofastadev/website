@@ -14,17 +14,10 @@ describe("Hero", () => {
     expect(screen.getByText("scaffolded.")).toBeInTheDocument();
   });
 
-  it("renders the eyebrow badge", () => {
-    render(<Hero />);
-    expect(
-      screen.getByText(/Open Source · Go Toolkit · Agent-Native/)
-    ).toBeInTheDocument();
-  });
-
   it("renders the subtitle", () => {
     render(<Hero />);
     expect(
-      screen.getByText(/Gofasta scaffolds a complete backend in one command/)
+      screen.getByText(/Gofasta is a CLI and library for Go backend services/)
     ).toBeInTheDocument();
   });
 

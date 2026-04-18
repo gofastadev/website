@@ -28,7 +28,7 @@ export function QuickStartSection() {
     <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
       <SectionHeading
         eyebrow="Quick start"
-        title="From install to running, in under a minute."
+        title="Install and run"
         description="Four commands. No dashboards, no signup, no configuration wizard. The CLI does the rest."
       />
       <div className="mt-14 grid gap-6 sm:grid-cols-2 sm:gap-7 lg:grid-cols-4">

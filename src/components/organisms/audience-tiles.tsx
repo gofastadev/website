@@ -87,7 +87,7 @@ export function AudienceTiles() {
     <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
       <SectionHeading
         eyebrow="Who it's for"
-        title="Built for the way you already build."
+        title="Who uses Gofasta"
         description="One toolkit, six kinds of teams. Gofasta generates standard Go so the code fits every workflow — solo founder to regulated enterprise."
       />
       <div className="mt-14 grid gap-6 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3">

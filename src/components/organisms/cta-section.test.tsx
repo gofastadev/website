@@ -10,8 +10,8 @@ vi.mock("next/navigation", () => ({
 describe("CtaSection", () => {
   it("renders the headline", () => {
     render(<CtaSection />);
-    expect(screen.getByText("Stop yak-shaving.")).toBeInTheDocument();
-    expect(screen.getByText("Start shipping.")).toBeInTheDocument();
+    expect(screen.getByText("Try")).toBeInTheDocument();
+    expect(screen.getByText("Gofasta")).toBeInTheDocument();
   });
 
   it("renders the Get Started CTA and navigates to docs", () => {

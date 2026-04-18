@@ -57,3 +57,174 @@ body {
   --nextra-primary-hue: 193deg;
   --nextra-primary-saturation: 100%;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Homepage illustrations & ambient motion
+   (inspired by next.js and angular.dev — grid backgrounds, floating
+   gradient orbs, headline shimmer, card glow borders, conic-rotating
+   CTA ring). All pure CSS, respects prefers-reduced-motion.
+   ────────────────────────────────────────────────────────────────────── */
+
+@keyframes gofasta-orb-float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(0, -24px, 0) scale(1.04); }
+}
+
+@keyframes gofasta-orb-float-slow {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(0, 18px, 0) scale(0.96); }
+}
+
+@keyframes gofasta-headline-shimmer {
+  0%   { background-position:   0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes gofasta-cursor-blink {
+  0%, 49%  { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes gofasta-conic-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes gofasta-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Headline gradient shimmer — animates the gradient position so the
+   gradient-clipped text appears to "shine". */
+.gofasta-headline-shimmer {
+  background-size: 200% 100%;
+  animation: gofasta-headline-shimmer 6s linear infinite;
+}
+
+/* Floating orb — big soft radial-gradient disc positioned absolutely
+   by its container. `.gofasta-orb-slow` uses a different phase. */
+.gofasta-orb {
+  animation: gofasta-orb-float 9s ease-in-out infinite;
+}
+.gofasta-orb-slow {
+  animation: gofasta-orb-float-slow 13s ease-in-out infinite;
+}
+
+/* Dotted grid background — a repeating radial-gradient of small dots,
+   masked by a soft radial fade so it dissolves toward the edges. */
+.gofasta-grid-bg {
+  background-image: radial-gradient(
+    circle at center,
+    rgba(0, 173, 216, 0.18) 1px,
+    transparent 1.5px
+  );
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 40%, transparent 75%);
+          mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 40%, transparent 75%);
+}
+.dark .gofasta-grid-bg {
+  background-image: radial-gradient(
+    circle at center,
+    rgba(79, 209, 229, 0.18) 1px,
+    transparent 1.5px
+  );
+}
+
+/* Terminal cursor — solid block that blinks. Used after the last line
+   of the hero terminal to suggest the project's still running. */
+.gofasta-cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  vertical-align: -0.12em;
+  background: #4fd1e5;
+  animation: gofasta-cursor-blink 1s steps(1, end) infinite;
+}
+
+/* Card gradient-border-on-hover — a conic gradient rotates slowly
+   behind the card, revealed only on hover by fading in the ::before
+   pseudo-element. Inspired by next.js feature cards. */
+.gofasta-card-glow {
+  position: relative;
+  isolation: isolate;
+}
+.gofasta-card-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(0, 173, 216, 0.55) 90deg,
+    transparent 180deg,
+    rgba(0, 173, 216, 0.55) 270deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  animation: gofasta-conic-spin 6s linear infinite;
+  animation-play-state: paused;
+  z-index: -1;
+  pointer-events: none;
+}
+.gofasta-card-glow:hover::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+/* CTA-section rotating ring — a slow conic gradient around the rounded
+   panel, always on (subtle), amped up on hover. */
+.gofasta-cta-ring {
+  position: relative;
+  isolation: isolate;
+}
+.gofasta-cta-ring::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from 0deg,
+    rgba(0, 173, 216, 0.0) 0deg,
+    rgba(0, 173, 216, 0.6) 120deg,
+    rgba(0, 173, 216, 0.0) 240deg,
+    rgba(0, 173, 216, 0.6) 330deg,
+    rgba(0, 173, 216, 0.0) 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: gofasta-conic-spin 22s linear infinite;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Scroll-reveal fade-up — runs once on mount. Applied to section headings
+   so sections feel alive without heavy JS. */
+.gofasta-fade-up {
+  animation: gofasta-fade-up 700ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gofasta-orb,
+  .gofasta-orb-slow,
+  .gofasta-headline-shimmer,
+  .gofasta-cursor,
+  .gofasta-card-glow::before,
+  .gofasta-cta-ring::before,
+  .gofasta-fade-up {
+    animation: none !important;
+  }
+  .gofasta-card-glow:hover::before {
+    opacity: 0;
+  }
+}

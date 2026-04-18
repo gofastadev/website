@@ -6,7 +6,7 @@ describe("FeaturesGrid", () => {
   it("renders the section heading", () => {
     render(<FeaturesGrid />);
     expect(
-      screen.getByText("Production packages, scaffolded on day one.")
+      screen.getByText("What's in Gofasta")
     ).toBeInTheDocument();
   });
 

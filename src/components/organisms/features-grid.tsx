@@ -118,7 +118,7 @@ export function FeaturesGrid() {
     <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
       <SectionHeading
         eyebrow="What you get"
-        title="Production packages, scaffolded on day one."
+        title="What's in Gofasta"
         description="A CLI that scaffolds your project, and a curated library of composable Go packages that handle the rest — every one of them independently swappable."
       />
       <div className="mt-14 grid gap-6 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3">

@@ -21,7 +21,7 @@ export function SectionHeading({
       : "items-start text-left";
 
   return (
-    <div className={cn("flex max-w-3xl flex-col", alignClasses, className)}>
+    <div className={cn("gofasta-fade-up flex max-w-3xl flex-col", alignClasses, className)}>
       {eyebrow && (
         <span className="mb-4 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
           {eyebrow}

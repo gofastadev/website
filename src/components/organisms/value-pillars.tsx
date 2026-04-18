@@ -54,8 +54,8 @@ export function ValuePillars() {
     <section className="relative mx-auto max-w-6xl px-6 py-20 sm:py-28">
       <SectionHeading
         eyebrow="Three promises"
-        title="Fast to start. Yours to own. Ready for your AI."
-        description="Every design decision in Gofasta optimizes for one of these three outcomes. Nothing is bundled that doesn't serve one of them."
+        title="What Gofasta is"
+        description="Three design commitments shape every pkg/* package and every generated file. If any one of them doesn't fit your project, Gofasta probably isn't the right toolkit."
       />
       <div className="mt-14 grid gap-6 lg:grid-cols-3 lg:gap-7">
         {pillars.map((p) => (

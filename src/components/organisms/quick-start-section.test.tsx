@@ -6,7 +6,7 @@ describe("QuickStartSection", () => {
   it("renders the section heading", () => {
     render(<QuickStartSection />);
     expect(
-      screen.getByText("From install to running, in under a minute.")
+      screen.getByText("Install and run")
     ).toBeInTheDocument();
   });
 
