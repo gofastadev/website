@@ -5,25 +5,25 @@ import { QuickStartSection } from "./quick-start-section";
 describe("QuickStartSection", () => {
   it("renders the section heading", () => {
     render(<QuickStartSection />);
-    expect(
-      screen.getByText("Install and run")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Install and run")).toBeInTheDocument();
   });
 
-  it("renders all 4 steps", () => {
+  it("renders all 3 steps", () => {
     render(<QuickStartSection />);
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.queryByText("4")).not.toBeInTheDocument();
   });
 
   it("renders step titles", () => {
     render(<QuickStartSection />);
     expect(screen.getByText("Install the CLI")).toBeInTheDocument();
     expect(screen.getByText("Create a project")).toBeInTheDocument();
-    expect(screen.getByText("Configure your AI (optional)")).toBeInTheDocument();
     expect(screen.getByText("Start developing")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Configure your AI (optional)")
+    ).not.toBeInTheDocument();
   });
 
   it("renders the install command", () => {
@@ -38,9 +38,9 @@ describe("QuickStartSection", () => {
     expect(screen.getByText("gofasta new myapp")).toBeInTheDocument();
   });
 
-  it("renders the ai install command", () => {
+  it("does not render the ai install command in the quickstart", () => {
     render(<QuickStartSection />);
-    expect(screen.getByText("gofasta ai claude")).toBeInTheDocument();
+    expect(screen.queryByText("gofasta ai claude")).not.toBeInTheDocument();
   });
 
   it("renders the start command", () => {

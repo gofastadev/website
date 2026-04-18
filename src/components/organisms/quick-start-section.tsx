@@ -13,11 +13,6 @@ const steps = [
   },
   {
     step: 3,
-    title: "Configure your AI (optional)",
-    code: "gofasta ai claude",
-  },
-  {
-    step: 4,
     title: "Start developing",
     code: "cd myapp && gofasta dev",
   },
@@ -29,7 +24,7 @@ export function QuickStartSection() {
       <SectionHeading
         eyebrow="Quick start"
         title="Install and run"
-        description="Four commands. No dashboards, no signup, no configuration wizard. The CLI does the rest."
+        description="Three commands. No dashboards, no signup, no configuration wizard. The CLI does the rest."
       />
 
       {/* Flow connector overlay. Lives behind the step cards and draws
@@ -40,7 +35,7 @@ export function QuickStartSection() {
             first and last step cards. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-[12%] top-1/2 hidden h-[2px] -translate-y-1/2 lg:block"
+          className="pointer-events-none absolute inset-x-[16%] top-1/2 hidden h-[2px] -translate-y-1/2 lg:block"
         >
           <div className="gofasta-flow-bar h-full w-full" />
           <span className="gofasta-flow-dot" />
@@ -56,7 +51,7 @@ export function QuickStartSection() {
           <span className="gofasta-flow-dot gofasta-flow-dot-vert" />
         </div>
 
-        <div className="relative grid gap-6 sm:grid-cols-2 sm:gap-7 lg:grid-cols-4">
+        <div className="relative grid gap-6 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3">
           {steps.map((item) => (
             <StepCard
               key={item.step}

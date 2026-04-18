@@ -91,7 +91,7 @@ export function Hero() {
           className="gofasta-code-breath absolute left-[6%] top-[74%] font-mono text-[11px] whitespace-nowrap"
           style={{ animationDelay: "5.4s" }}
         >
-          // 78 files scaffolded
+          {"// 78 files scaffolded"}
         </span>
         <span
           className="gofasta-code-breath absolute right-[9%] top-[76%] font-mono text-[11px] whitespace-nowrap"
