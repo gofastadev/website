@@ -9,15 +9,20 @@ export function CtaSection() {
 
   return (
     <section className="px-6 py-20 sm:py-28">
-      <div className="gofasta-cta-ring relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/10 via-transparent to-primary/5 p-10 text-center sm:p-16 dark:from-primary/20 dark:to-primary/10">
+      <div className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-primary/30 bg-surface p-10 text-center shadow-sm sm:p-16">
+        {/* Single subtle brand accent — a soft radial glow at the top of
+            the box. No stacked gradients, no rotating conic ring — the
+            bg stays predictable so the text contrast is stable in both
+            themes. */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,theme(colors.primary/20),transparent_60%)]"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_55%_40%_at_50%_0%,theme(colors.primary/10),transparent_70%)] dark:bg-[radial-gradient(ellipse_55%_40%_at_50%_0%,theme(colors.primary/15),transparent_70%)]"
         />
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-          Try <span className="text-primary">Gofasta</span>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
+          Try{" "}
+          <span className="text-primary-700 dark:text-primary">Gofasta</span>
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-gray-600 dark:text-gray-400 sm:text-lg">
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg dark:text-gray-300">
           Install with{" "}
           <span className="font-mono text-sm text-foreground">go install</span>.
           Scaffold with{" "}
