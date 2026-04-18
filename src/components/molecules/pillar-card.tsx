@@ -20,9 +20,9 @@ export function PillarCard({ number, icon, title, description }: PillarCardProps
       >
         <defs>
           <linearGradient id={`pillar-arc-${number}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="rgb(0 173 216)" stopOpacity="0.0" />
-            <stop offset="50%" stopColor="rgb(0 173 216)" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="rgb(0 173 216)" stopOpacity="0.0" />
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.0" />
+            <stop offset="50%" stopColor="var(--primary)" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
           </linearGradient>
         </defs>
         <g className="gofasta-pillar-arc" style={{ transformOrigin: "100px 100px" }}>

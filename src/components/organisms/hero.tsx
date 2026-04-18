@@ -72,7 +72,7 @@ export function Hero() {
             style={{ "--gofasta-term-delay": "0.1s" } as React.CSSProperties}
           >
             <span className="text-gray-500">$</span>{" "}
-            <span className="text-[#4FD1E5]">gofasta</span> new myapp
+            <span className="text-terminal-accent">gofasta</span> new myapp
           </span>
           <span
             className="gofasta-term-line"
@@ -106,7 +106,7 @@ export function Hero() {
           >
             {"\n"}
             <span className="text-gray-500">$</span> cd myapp &&{" "}
-            <span className="text-[#4FD1E5]">gofasta</span> dev
+            <span className="text-terminal-accent">gofasta</span> dev
           </span>
           <span
             className="gofasta-term-line"

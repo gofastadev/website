@@ -9,6 +9,25 @@
   --surface: #ffffff;
   --code-bg: #f1f5f9;
   --muted: #64748b;
+
+  /* Space-separated RGB channels so `rgb(var(--primary-rgb) / 0.2)` can
+     build themed, semi-transparent primaries without hard-coding the
+     hex anywhere else. */
+  --primary-rgb: 0 173 216;
+  --background-rgb: 250 251 252;
+
+  /* Terminal surfaces — always dark regardless of theme. Terminal
+     mockups should look like a terminal in light mode too. */
+  --terminal-surface: #0d1117;
+  --terminal-bg: #1e293b;
+  --terminal-accent: #4fd1e5;
+
+  /* Contrast helper: text colour when placed on top of --primary. */
+  --on-primary: #ffffff;
+
+  /* Navbar blur layer — pre-composed so components never need opacity
+     modifiers in arbitrary-value classes. */
+  --navbar-bg: rgb(255 255 255 / 0.8);
 }
 
 .dark {
@@ -20,6 +39,14 @@
   --surface: #161b22;
   --code-bg: #1e293b;
   --muted: #94a3b8;
+
+  --primary-rgb: 79 209 229;
+  --background-rgb: 13 17 23;
+
+  /* Terminal surfaces stay the same across themes by design. */
+  --on-primary: #0d1117;
+
+  --navbar-bg: rgb(13 17 23 / 0.8);
 }
 
 @theme inline {
@@ -31,6 +58,11 @@
   --color-surface: var(--surface);
   --color-code-bg: var(--code-bg);
   --color-muted: var(--muted);
+  --color-terminal-surface: var(--terminal-surface);
+  --color-terminal-bg: var(--terminal-bg);
+  --color-terminal-accent: var(--terminal-accent);
+  --color-on-primary: var(--on-primary);
+  --color-navbar-bg: var(--navbar-bg);
   --font-sans: var(--font-poppins);
   --font-mono: var(--font-geist-mono);
 }
@@ -49,6 +81,22 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-poppins), system-ui, sans-serif;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Branded text selection — both themes use the primary brand colour as
+   the selection background with theme-appropriate contrast text. Pulled
+   from --primary / --on-primary so there's exactly one source of truth.
+   ────────────────────────────────────────────────────────────────────── */
+::selection {
+  background-color: var(--primary);
+  color: var(--on-primary);
+  text-shadow: none;
+}
+::-moz-selection {
+  background-color: var(--primary);
+  color: var(--on-primary);
+  text-shadow: none;
 }
 
 
@@ -106,8 +154,8 @@ body {
 }
 
 @keyframes gofasta-chip-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 173, 216, 0.0); }
-  50%      { box-shadow: 0 0 0 6px rgba(0, 173, 216, 0.18); }
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / 0); }
+  50%      { box-shadow: 0 0 0 6px rgb(var(--primary-rgb) / 0.18); }
 }
 
 @keyframes gofasta-pulse-dot {
@@ -188,23 +236,17 @@ body {
 }
 
 /* Dotted grid background — a repeating radial-gradient of small dots,
-   masked by a soft radial fade so it dissolves toward the edges. */
+   masked by a soft radial fade so it dissolves toward the edges. The
+   primary colour channel auto-themes via --primary-rgb. */
 .gofasta-grid-bg {
   background-image: radial-gradient(
     circle at center,
-    rgba(0, 173, 216, 0.18) 1px,
+    rgb(var(--primary-rgb) / 0.18) 1px,
     transparent 1.5px
   );
   background-size: 28px 28px;
   -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 40%, transparent 75%);
           mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 40%, transparent 75%);
-}
-.dark .gofasta-grid-bg {
-  background-image: radial-gradient(
-    circle at center,
-    rgba(79, 209, 229, 0.18) 1px,
-    transparent 1.5px
-  );
 }
 
 /* Terminal cursor — solid block that blinks. Used after the last line
@@ -214,7 +256,7 @@ body {
   width: 0.55em;
   height: 1em;
   vertical-align: -0.12em;
-  background: #4fd1e5;
+  background: var(--terminal-accent);
   animation: gofasta-cursor-blink 1s steps(1, end) infinite;
 }
 
@@ -234,9 +276,9 @@ body {
   background: conic-gradient(
     from 0deg,
     transparent 0deg,
-    rgba(0, 173, 216, 0.55) 90deg,
+    rgb(var(--primary-rgb) / 0.55) 90deg,
     transparent 180deg,
-    rgba(0, 173, 216, 0.55) 270deg,
+    rgb(var(--primary-rgb) / 0.55) 270deg,
     transparent 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -269,11 +311,11 @@ body {
   padding: 1px;
   background: conic-gradient(
     from 0deg,
-    rgba(0, 173, 216, 0.0) 0deg,
-    rgba(0, 173, 216, 0.6) 120deg,
-    rgba(0, 173, 216, 0.0) 240deg,
-    rgba(0, 173, 216, 0.6) 330deg,
-    rgba(0, 173, 216, 0.0) 360deg
+    rgb(var(--primary-rgb) / 0) 0deg,
+    rgb(var(--primary-rgb) / 0.6) 120deg,
+    rgb(var(--primary-rgb) / 0) 240deg,
+    rgb(var(--primary-rgb) / 0.6) 330deg,
+    rgb(var(--primary-rgb) / 0) 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
           mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -366,7 +408,7 @@ body {
 .gofasta-flow-bar {
   background-image: linear-gradient(
     to right,
-    rgba(0, 173, 216, 0.55) 0 8px,
+    rgb(var(--primary-rgb) / 0.55) 0 8px,
     transparent 8px 16px
   );
   background-size: 16px 2px;
@@ -376,7 +418,7 @@ body {
 .gofasta-flow-bar-vert {
   background-image: linear-gradient(
     to bottom,
-    rgba(0, 173, 216, 0.55) 0 8px,
+    rgb(var(--primary-rgb) / 0.55) 0 8px,
     transparent 8px 16px
   );
   background-size: 2px 16px;
@@ -391,8 +433,12 @@ body {
   width: 10px;
   height: 10px;
   border-radius: 9999px;
-  background: radial-gradient(circle, #4fd1e5 0%, rgba(79, 209, 229, 0) 70%);
-  box-shadow: 0 0 12px 2px rgba(79, 209, 229, 0.8);
+  background: radial-gradient(
+    circle,
+    rgb(var(--primary-rgb) / 1) 0%,
+    rgb(var(--primary-rgb) / 0) 70%
+  );
+  box-shadow: 0 0 12px 2px rgb(var(--primary-rgb) / 0.8);
   animation: gofasta-dot-travel-x 3.6s linear infinite;
 }
 .gofasta-flow-dot-vert {

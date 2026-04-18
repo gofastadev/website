@@ -58,7 +58,7 @@ export function TypewriterCode({
     <div
       ref={ref}
       className={cn(
-        "w-full overflow-hidden rounded-xl border border-gray-200 bg-[#0d1117] shadow-xl dark:border-gray-800",
+        "w-full overflow-hidden rounded-xl border border-gray-200 bg-terminal-surface shadow-xl dark:border-gray-800",
         className
       )}
     >
