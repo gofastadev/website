@@ -326,6 +326,16 @@ body {
   to   { transform: rotate(360deg); }
 }
 
+/* Hero ambient code — Go snippets scattered through the hero
+   background, each slowly fading in and out so the scene feels
+   alive without distracting. Opacity range intentionally low so the
+   text never competes with the headline / CTAs / terminal. */
+@keyframes gofasta-code-breath {
+  0%, 100% { opacity: 0.05; transform: translateY(0); }
+  50%      { opacity: 0.14; transform: translateY(-2px); }
+}
+
+
 /* Headline gradient shimmer — animates the gradient position so the
    gradient-clipped text appears to "shine". */
 .gofasta-headline-shimmer {
@@ -571,6 +581,17 @@ body {
   transform-origin: center;
 }
 
+/* Hero code fragments — gentle breath (opacity 0.12 → 0.28). Base
+   opacity kept far below the foreground text so the snippets never
+   compete with anything the reader actually needs to read. The
+   animation-delay is set inline per fragment so each breathes on its
+   own timing. */
+.gofasta-code-breath {
+  opacity: 0.05;
+  animation: gofasta-code-breath 9s ease-in-out infinite;
+}
+
+
 @media (prefers-reduced-motion: reduce) {
   .gofasta-orb,
   .gofasta-orb-slow,
@@ -593,6 +614,13 @@ body {
     opacity: 1 !important;
     transform: none !important;
     filter: none !important;
+  }
+  .gofasta-code-breath {
+    animation: none !important;
+    transform: none !important;
+    /* keep opacity at the low base so the fragments don't suddenly
+       pop to fully visible for reduced-motion users. */
+    opacity: 0.09 !important;
   }
   .gofasta-chip:hover {
     animation: none !important;
