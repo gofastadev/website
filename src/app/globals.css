@@ -21,19 +21,21 @@
   --primary-800: #06556b;
   --primary-900: #0b3846;
 
-  /* Tinted neutral scale — hue 193° with 5–20% saturation. Replaces
-     the default gray palette everywhere, so every "gray" on the site
-     subtly leans toward the brand. */
-  --neutral-50:  #f6fafb;
-  --neutral-100: #eaf1f3;
-  --neutral-200: #d7e1e4;
-  --neutral-300: #b8c5c9;
-  --neutral-400: #8a9ba0;
-  --neutral-500: #5f7177;
-  --neutral-600: #465358;
-  --neutral-700: #2e3a3f;
-  --neutral-800: #1d2a2e;
-  --neutral-900: #0f191d;
+  /* Tinted neutral scale — hue 193°-195° at 25–45% saturation. Much
+     more saturation than a standard "gray" palette so the brand hue
+     is visibly present in every surface and every piece of text. The
+     darkest neutrals read as deep teal-navy, not black; the lightest
+     as ice-cyan, not white. */
+  --neutral-50:  #edf6f8;
+  --neutral-100: #d9eaee;
+  --neutral-200: #bdd5db;
+  --neutral-300: #98bac3;
+  --neutral-400: #6e97a4;
+  --neutral-500: #507583;
+  --neutral-600: #3a5864;
+  --neutral-700: #27404a;
+  --neutral-800: #172b34;
+  --neutral-900: #0a1c24;
 
   /* Semantic aliases — these are what components and the rest of the
      stylesheet read. No pure white / black anywhere in the site. */
@@ -41,7 +43,7 @@
   --primary-dark: var(--primary-600);
   --primary-rgb: 0 173 216;
   --background: var(--neutral-100);
-  --background-rgb: 234 241 243;
+  --background-rgb: 217 234 238;
   --surface: var(--neutral-50);
   --foreground: var(--neutral-900);
   --muted: var(--neutral-500);
@@ -69,7 +71,7 @@
   --primary: #4fd1e5;
   --primary-rgb: 79 209 229;
   --background: var(--neutral-900);
-  --background-rgb: 15 25 29;
+  --background-rgb: 10 28 36;
   --surface: var(--neutral-800);
   --foreground: var(--neutral-100);
   --muted: var(--neutral-400);
