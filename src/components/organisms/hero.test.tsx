@@ -51,17 +51,22 @@ describe("Hero", () => {
     expect(screen.getAllByText(/gofasta/).length).toBeGreaterThan(0);
   });
 
-  it("renders the ready message in terminal", () => {
+  it("renders the success message in terminal", () => {
     render(<Hero />);
     expect(
-      screen.getByText(/Ready — standard Go, zero lock-in, AGENTS.md scaffolded./)
+      screen.getByText(/Project myapp created successfully!/)
     ).toBeInTheDocument();
   });
 
-  it("renders the listening message", () => {
+  it("renders the dev server URL", () => {
+    render(<Hero />);
+    expect(screen.getByText(/http:\/\/localhost:8080/)).toBeInTheDocument();
+  });
+
+  it("renders the actual dev startup message", () => {
     render(<Hero />);
     expect(
-      screen.getByText(/Listening on :8080 — \/health, \/metrics, \/swagger live/)
+      screen.getByText(/Starting gofasta development server.../)
     ).toBeInTheDocument();
   });
 });

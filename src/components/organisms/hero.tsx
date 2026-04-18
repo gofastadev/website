@@ -162,33 +162,57 @@ export function Hero() {
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "0.5s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "0.4s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">→ Creating project...</span>
+            <span className="text-terminal-accent">🚀 Creating new gofasta project: myapp</span>
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "0.8s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "0.7s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">→ Copying 78 template files...</span>
+            <span className="text-gray-500">📁 Creating directory myapp/</span>
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "1.1s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "1.0s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">→ Generating Wire DI code...</span>
+            <span className="text-gray-500">📦 Initializing Go module: myapp</span>
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "1.5s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "1.3s" } as React.CSSProperties}
+          >
+            <span className="text-gray-500">🏗  Creating project structure...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "1.6s" } as React.CSSProperties}
+          >
+            <span className="text-gray-500">📦 Installing gofasta library...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "1.9s" } as React.CSSProperties}
+          >
+            <span className="text-gray-500">🔌 Generating Wire DI code...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "2.2s" } as React.CSSProperties}
+          >
+            <span className="text-gray-500">🔧 Initializing git repository...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "2.5s" } as React.CSSProperties}
           >
             <span className="text-green-400">
-              ✓ Ready — standard Go, zero lock-in, AGENTS.md scaffolded.
+              ✓ Project myapp created successfully!
             </span>
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "2.0s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "3.0s" } as React.CSSProperties}
           >
             {"\n"}
             <span className="text-gray-500">$</span> cd myapp &&{" "}
@@ -196,11 +220,28 @@ export function Hero() {
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "2.5s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "3.3s" } as React.CSSProperties}
           >
-            <span className="text-green-400">
-              ✓ Listening on :8080 — /health, /metrics, /swagger live.
-            </span>
+            <span className="text-terminal-accent">Starting gofasta development server...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "3.6s" } as React.CSSProperties}
+          >
+            <span className="text-gray-500">🗄  Running migrations...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "3.9s" } as React.CSSProperties}
+          >
+            <span className="text-gray-500">🚀 Starting air (hot reload)...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "4.2s" } as React.CSSProperties}
+          >
+            <span className="text-gray-400">   REST API:  </span>
+            <span className="text-terminal-accent">http://localhost:8080</span>
             {" "}
             <span className="gofasta-cursor" aria-hidden="true" />
           </span>
