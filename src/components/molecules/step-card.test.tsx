@@ -26,10 +26,12 @@ describe("StepCard", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the code in a pre/code block", () => {
+  it("renders the code inside a copy-enabled command block", () => {
     render(<StepCard step={2} title="Create" code="gofasta new myapp" />);
     const codeEl = screen.getByText("gofasta new myapp");
     expect(codeEl.tagName).toBe("CODE");
-    expect(codeEl.parentElement?.tagName).toBe("PRE");
+    expect(
+      screen.getByRole("button", { name: /copy command to clipboard/i })
+    ).toBeInTheDocument();
   });
 });

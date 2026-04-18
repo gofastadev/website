@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/atoms";
-import { TerminalBlock } from "@/components/molecules";
+import { CopyableCommand, TerminalBlock } from "@/components/molecules";
 
 export function Hero() {
   const router = useRouter();
@@ -62,9 +62,11 @@ export function Hero() {
           </Button>
         </div>
 
-        <p className="mt-6 font-mono text-xs text-gray-500 dark:text-gray-500">
-          go install github.com/gofastadev/cli/cmd/gofasta@latest
-        </p>
+        <CopyableCommand
+          className="mt-6 max-w-xl"
+          size="sm"
+          command="go install github.com/gofastadev/cli/cmd/gofasta@latest"
+        />
 
         <TerminalBlock className="mt-14 max-w-2xl">
           <span

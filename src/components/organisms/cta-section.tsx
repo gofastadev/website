@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/atoms";
+import { CopyableCommand } from "@/components/molecules";
 
 export function CtaSection() {
   const router = useRouter();
@@ -40,6 +41,11 @@ export function CtaSection() {
             Read the Whitepaper
           </Button>
         </div>
+        <CopyableCommand
+          className="mx-auto mt-8 max-w-xl"
+          size="sm"
+          command="go install github.com/gofastadev/cli/cmd/gofasta@latest"
+        />
       </div>
     </section>
   );
