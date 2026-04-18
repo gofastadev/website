@@ -83,7 +83,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${poppins.variable} ${geistMono.variable}`}
+      className={`dark ${poppins.variable} ${geistMono.variable}`}
     >
       <Head faviconGlyph="G" />
       <body>{children}</body>
