@@ -9,7 +9,7 @@ const capabilities = [
   {
     title: "Stable error codes",
     description:
-      "E_ROUTES_DIR_MISSING, E_WIRE_MISSING_PROVIDER, E_GO_BUILD_FAILED — not opaque strings.",
+      "ROUTES_DIR_MISSING, WIRE_MISSING_PROVIDER, GO_BUILD_FAILED — not opaque strings.",
   },
   {
     title: "Scaffolded AGENTS.md",
@@ -19,7 +19,7 @@ const capabilities = [
   {
     title: "One-command agent setup",
     description:
-      "gofasta ai install claude — or cursor, codex, aider, windsurf. Editor rules in seconds.",
+      "gofasta ai claude — or cursor, codex, aider, windsurf. Editor rules in seconds.",
   },
   {
     title: "High-level commands",
@@ -45,7 +45,7 @@ export function AgentSpotlight() {
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeading
           eyebrow="Agent-Native"
-          title="The first Go toolkit built for humans and AI agents."
+          title="A Go toolkit built for humans and AI agents."
           description="AI coding agents aren't afterthoughts — they're first-class users. Every surface of Gofasta is machine-readable so agents can scaffold, verify, inspect, and ship alongside you without losing context."
         />
 
@@ -72,13 +72,17 @@ export function AgentSpotlight() {
 
           <CodePreview label="gofasta status --json" language="json">
             {`{
-  "project_root": "/work/myapp",
-  "wire_drift": false,
-  "swagger_drift": false,
-  "pending_migrations": 0,
-  "uncommitted_generated_files": [],
-  "go_sum_fresh": true,
-  "healthy": true
+  "checks": [
+    { "name": "wire drift",                  "status": "ok",   "message": "in sync" },
+    { "name": "swagger drift",               "status": "ok",   "message": "in sync" },
+    { "name": "pending migrations",          "status": "ok",   "message": "no migrations defined" },
+    { "name": "uncommitted generated files", "status": "ok",   "message": "generated files committed" },
+    { "name": "go.sum freshness",            "status": "ok",   "message": "modules verified" }
+  ],
+  "ok": 5,
+  "drift": 0,
+  "warnings": 0,
+  "skipped": 0
 }`}
           </CodePreview>
         </div>

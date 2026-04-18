@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({
 describe("Hero", () => {
   it("renders the headline", () => {
     render(<Hero />);
-    expect(screen.getByText("this afternoon.")).toBeInTheDocument();
+    expect(screen.getByText("scaffolded.")).toBeInTheDocument();
   });
 
   it("renders the eyebrow badge", () => {
@@ -65,10 +65,10 @@ describe("Hero", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the server running message", () => {
+  it("renders the listening message", () => {
     render(<Hero />);
     expect(
-      screen.getByText(/Server running at http:\/\/localhost:8080/)
+      screen.getByText(/Listening on :8080 — \/health, \/metrics, \/swagger live/)
     ).toBeInTheDocument();
   });
 });

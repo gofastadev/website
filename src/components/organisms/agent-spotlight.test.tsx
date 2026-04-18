@@ -6,7 +6,7 @@ describe("AgentSpotlight", () => {
   it("renders the section heading", () => {
     render(<AgentSpotlight />);
     expect(
-      screen.getByText("The first Go toolkit built for humans and AI agents.")
+      screen.getByText("A Go toolkit built for humans and AI agents.")
     ).toBeInTheDocument();
   });
 

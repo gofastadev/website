@@ -40,11 +40,11 @@ describe("QuickStartSection", () => {
 
   it("renders the ai install command", () => {
     render(<QuickStartSection />);
-    expect(screen.getByText("gofasta ai install claude")).toBeInTheDocument();
+    expect(screen.getByText("gofasta ai claude")).toBeInTheDocument();
   });
 
   it("renders the start command", () => {
     render(<QuickStartSection />);
-    expect(screen.getByText("cd myapp && make up")).toBeInTheDocument();
+    expect(screen.getByText("cd myapp && gofasta dev")).toBeInTheDocument();
   });
 });

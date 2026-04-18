@@ -14,12 +14,12 @@ const steps = [
   {
     step: 3,
     title: "Configure your AI (optional)",
-    code: "gofasta ai install claude",
+    code: "gofasta ai claude",
   },
   {
     step: 4,
     title: "Start developing",
-    code: "cd myapp && make up",
+    code: "cd myapp && gofasta dev",
   },
 ];
 

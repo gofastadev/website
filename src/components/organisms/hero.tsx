@@ -21,9 +21,9 @@ export function Hero() {
         </div>
 
         <h1 className="max-w-4xl text-4xl font-bold leading-[1.05] tracking-tight sm:text-6xl md:text-7xl">
-          Ship a production Go backend{" "}
+          A Go backend you&rsquo;d write yourself —{" "}
           <span className="bg-gradient-to-br from-primary to-primary/60 bg-clip-text text-transparent">
-            this afternoon.
+            scaffolded.
           </span>
         </h1>
 
@@ -67,16 +67,15 @@ export function Hero() {
           {"\n"}
           <span className="text-gray-500">→ Generating Wire DI code...</span>
           {"\n"}
-          <span className="text-gray-500">→ Generating GraphQL resolvers...</span>
-          {"\n"}
           <span className="text-green-400">
             ✓ Ready — standard Go, zero lock-in, AGENTS.md scaffolded.
           </span>
           {"\n\n"}
-          <span className="text-gray-500">$</span> cd myapp && make up
+          <span className="text-gray-500">$</span> cd myapp &&{" "}
+          <span className="text-[#4FD1E5]">gofasta</span> dev
           {"\n"}
           <span className="text-green-400">
-            ✓ Server running at http://localhost:8080
+            ✓ Listening on :8080 — /health, /metrics, /swagger live.
           </span>
         </TerminalBlock>
       </div>
