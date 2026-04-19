@@ -338,7 +338,8 @@ body {
 /* Dashboard mockup — small animated details that make the preview
    feel live without being distracting. The pulse runs on the status
    dots next to "healthy" / "ok"; the timestamp line does a subtle
-   opacity dip every 5s to suggest the SSE refresh cycle. */
+   opacity dip every 5s to suggest the SSE refresh cycle; the row
+   slide-in runs on each newly-prepended request/SQL entry. */
 @keyframes gofasta-dashboard-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%      { opacity: 0.55; transform: scale(1.35); }
@@ -346,6 +347,23 @@ body {
 @keyframes gofasta-dashboard-refresh {
   0%, 92%, 100% { opacity: 1; }
   96%           { opacity: 0.45; }
+}
+@keyframes gofasta-dashboard-row-in {
+  0%   {
+    opacity: 0;
+    transform: translateY(-6px);
+    background-color: rgb(var(--primary-rgb) / 0.08);
+  }
+  50%  {
+    opacity: 1;
+    transform: translateY(0);
+    background-color: rgb(var(--primary-rgb) / 0.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    background-color: transparent;
+  }
 }
 
 
@@ -616,6 +634,15 @@ body {
   animation: gofasta-dashboard-refresh 5s ease-in-out infinite;
 }
 
+/* Dashboard row slide-in — every row in the Recent-Requests and
+   Recent-SQL tables carries this class. React re-creates the DOM node
+   when the row is prepended to the list (unique key), so the animation
+   fires once per fresh row. A brief primary-tinted flash highlights
+   the new entry before settling into the regular table colour. */
+.gofasta-dashboard-row {
+  animation: gofasta-dashboard-row-in 700ms ease-out both;
+}
+
 
 @media (prefers-reduced-motion: reduce) {
   .gofasta-orb,
@@ -636,7 +663,8 @@ body {
   .gofasta-stream-line,
   .gofasta-pillar-arc,
   .gofasta-dashboard-pulse,
-  .gofasta-dashboard-updated {
+  .gofasta-dashboard-updated,
+  .gofasta-dashboard-row {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
