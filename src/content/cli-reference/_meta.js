@@ -2,6 +2,7 @@ export default {
   new: "gofasta new",
   init: "gofasta init",
   dev: "gofasta dev",
+  debug: "gofasta debug",
   serve: "gofasta serve",
   generate: "gofasta generate",
   migrate: "gofasta migrate",

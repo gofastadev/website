@@ -1,0 +1,254 @@
+---
+title: gofasta debug
+description: CLI surface for the devtools /debug/* endpoints — requests, SQL, traces, logs, errors, cache, pprof, EXPLAIN, HAR, plus the composed diagnostics (last-slow-request, last-error, watch).
+---
+
+# `gofasta debug`
+
+A first-class CLI interface to the running app's `/debug/*` endpoints. Every command is an agent-friendly alternative to `curl` + `jq` — it discovers the app URL automatically, fails fast with stable error codes when the app is down or the `devtools` build tag isn't set, and honors the global `--json` flag for machine-parseable output.
+
+Every surface described here is gated behind the `devtools` build tag. `gofasta dev` sets the tag via `GOFLAGS` automatically; production builds (no tag) compile the stub and ignore every `/debug/*` request.
+
+## Global flags
+
+Every `gofasta debug <subcommand>` accepts:
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--app-url=<url>` | discovered | Override app URL. Normally read from `config.yaml`'s `server.port` with fallback to `PORT` env / `8080`. |
+| `--json` | false | Machine-readable output. Text mode prints tables / waterfalls; JSON mode is the stable API contract. |
+
+## Error codes
+
+Debug commands use a dedicated subsystem so agents branch cleanly:
+
+| Code | When |
+|---|---|
+| `DEBUG_APP_UNREACHABLE` | App not running at the resolved URL, or `/debug/health` returned 5xx. |
+| `DEBUG_DEVTOOLS_OFF` | App is running but built without `-tags devtools`. Rebuild via `gofasta dev`. |
+| `DEBUG_TRACE_NOT_FOUND` | Requested trace ID is no longer in the ring (evicted — rings hold the last 50 traces). |
+| `DEBUG_BAD_FILTER` | A filter flag value was rejected (status range, cache op, trace status). |
+| `DEBUG_BAD_DURATION` | A `--slower-than` / `--threshold` / `--interval` value failed `time.ParseDuration`. |
+| `DEBUG_PROFILE_UNSUPPORTED` | `profile <kind>` was called with an unknown profile name. |
+| `DEBUG_EXPLAIN_FAILED` | `/debug/explain` rejected the statement (non-SELECT, DB handle not registered, or query errored). |
+
+## Subcommands
+
+### `gofasta debug health`
+
+Probes the app and every `/debug/*` collection endpoint. Run this first after starting `gofasta dev` — it pinpoints whether the app is down, built wrong, or the specific endpoint you need is unreachable.
+
+**Output (text):**
+
+```
+App: http://localhost:8080
+Reachable: reachable
+Devtools: enabled
+
+ENDPOINT              STATUS
+/debug/health         200 OK
+/debug/requests       200 OK
+/debug/sql            200 OK
+/debug/traces         200 OK
+/debug/logs           200 OK
+/debug/errors         200 OK
+/debug/cache          200 OK
+/debug/pprof/         200 OK
+```
+
+**Output (JSON):** `{app_url, reachable, devtools, endpoints: [{path, status, error?}]}`.
+
+### `gofasta debug requests`
+
+List captured requests with client-side filtering.
+
+**Flags:** `--trace=<id>`, `--method=<m>`, `--status=<200|2xx|200-299|200,201>`, `--path=<substr>`, `--slower-than=<dur>`, `--limit=<n>`.
+
+```bash
+gofasta debug requests --slower-than=100ms
+gofasta debug requests --status=5xx --json
+gofasta debug requests --trace=a7f3c8... --json | jq '.[].path'
+```
+
+### `gofasta debug sql`
+
+List captured SQL statements.
+
+**Flags:** `--trace=<id>`, `--slower-than=<dur>`, `--contains=<text>`, `--errors-only`, `--limit=<n>`.
+
+```bash
+gofasta debug sql --slower-than=50ms
+gofasta debug sql --contains="FROM orders" --errors-only
+```
+
+### `gofasta debug traces`
+
+Summary list of completed trace waterfalls. Use `debug trace <id>` for full span trees.
+
+**Flags:** `--slower-than=<dur>`, `--status=<ok|error>`, `--limit=<n>`.
+
+```bash
+gofasta debug traces --slower-than=200ms
+gofasta debug traces --status=error --json
+```
+
+### `gofasta debug trace <id>`
+
+Full waterfall for one trace, rendered as an ASCII bar chart with nested spans.
+
+**Flags:** `--with-stacks` prints the 20-frame call stack captured at each span's start.
+
+```
+Trace a7f3c8...  POST /api/v1/orders  612 ms  23 spans
+
+    612 ms  [████████████████████████████████████████]  root: POST /api/v1/orders (server)
+    598 ms  [████████████████████████████████████████]  └─ OrderController.Create (internal)
+    584 ms  [████████████████████████████████████████]     └─ OrderService.Create (internal)
+     34 ms  [██                                      ]        ├─ OrderRepository.Create (internal)
+     28 ms  [█                                       ]        │  └─ INSERT INTO orders (client)
+      6 ms  [                 █                      ]        └─ UserRepository.FindByID (internal)
+```
+
+### `gofasta debug logs`
+
+Slog records filtered server-side by trace / level.
+
+**Flags:** `--trace=<id>` (strongly recommended — otherwise returns the full 500-entry ring), `--level=<DEBUG|INFO|WARN|ERROR>`, `--contains=<text>`.
+
+```bash
+gofasta debug logs --trace=a7f3c8...
+gofasta debug logs --trace=a7f3c8... --level=WARN
+```
+
+### `gofasta debug errors`
+
+Recent recovered panics with stacks.
+
+**Flags:** `--limit=<n>`, `--contains=<text>`.
+
+```bash
+gofasta debug errors
+gofasta debug errors --contains="nil pointer" --json
+```
+
+### `gofasta debug cache`
+
+Cache operations with hit/miss flags. Text mode prints a hit-rate footer; JSON returns the raw entries.
+
+**Flags:** `--trace=<id>`, `--op=<get|set|delete|flush|ping>`, `--miss-only`, `--limit=<n>`.
+
+```bash
+gofasta debug cache --op=get --miss-only
+gofasta debug cache --trace=a7f3c8... --json
+```
+
+### `gofasta debug goroutines`
+
+Live goroutines grouped by top-of-stack function.
+
+**Flags:** `--filter=<substr>`, `--min-count=<n>`.
+
+```bash
+gofasta debug goroutines
+gofasta debug goroutines --filter=sync --min-count=5
+```
+
+### `gofasta debug n-plus-one`
+
+N+1 patterns detected in the recent SQL ring. Reports one row per `(trace_id, normalized_template)` with ≥3 hits.
+
+```bash
+gofasta debug n-plus-one
+gofasta debug n-plus-one --json | jq '.[] | select(.count > 10)'
+```
+
+### `gofasta debug explain <sql>`
+
+Run `EXPLAIN` against a captured SELECT via the app's registered `*gorm.DB`.
+
+**Args:** The SQL statement (must start with `SELECT`).
+**Flags:** `--vars` one or more bound values.
+
+```bash
+gofasta debug explain "SELECT * FROM users WHERE id = ?" --vars=42
+```
+
+### `gofasta debug last-slow-request` *(composed)*
+
+Find the newest request ≥ `--threshold` and bundle its trace, logs, SQL, and detected N+1 patterns into one JSON document. One tool call returns everything needed to diagnose the incident.
+
+**Flags:** `--threshold=<dur>` (default `200ms`), `--with-trace` (default on), `--with-logs` (default on), `--with-sql` (default on), `--with-stack` (default off — adds 20-frame stacks per span).
+
+```bash
+gofasta debug last-slow-request
+gofasta debug last-slow-request --threshold=500ms --json
+gofasta debug last-slow-request --json | jq '.n_plus_one'
+```
+
+**JSON shape:**
+
+```json
+{
+  "threshold": "200ms",
+  "request":  { method, path, status, duration_ms, trace_id, body, response_body },
+  "trace":    { trace_id, root_name, duration_ms, span_count, spans: [...] },
+  "logs":     [ { time, level, message, attrs, trace_id }, ... ],
+  "sql":      [ { sql, vars, rows, duration_ms, trace_id }, ... ],
+  "n_plus_one": [ { trace_id, template, count }, ... ]
+}
+```
+
+### `gofasta debug last-error` *(composed)*
+
+Most recent panic plus its trace plus its logs, bundled.
+
+**Flags:** `--with-trace` (default on), `--with-logs` (default on).
+
+```bash
+gofasta debug last-error
+gofasta debug last-error --json | jq '.exception.recovered'
+```
+
+### `gofasta debug watch`
+
+NDJSON stream of new events. One JSON object per line, tagged with an `event` field (`request`, `sql`, `error`, `cache`, `trace`, `heartbeat`). Polls each enabled ring on a configurable interval and emits only entries strictly newer than the last high-water mark.
+
+**Flags:** `--interval=<dur>` (default `1s`), `--requests` (default on), `--errors` (default on), `--sql`, `--cache`, `--trace`.
+
+```bash
+gofasta debug watch
+gofasta debug watch --sql --cache
+gofasta debug watch | jq -c 'select(.event == "request" and .status >= 500)'
+```
+
+Heartbeat events fire every 30 seconds during idle periods so downstream pipelines know the stream is still live.
+
+### `gofasta debug profile <kind>`
+
+Download a pprof profile. Output goes to stdout unless `--output=<path>` is set.
+
+**Kinds:** `cpu`, `heap`, `goroutine`, `mutex`, `block`, `allocs`, `threadcreate`, `trace`.
+
+**Flags:** `--duration=<dur>` (for timed profiles — `cpu` defaults to 30s, `trace` to 5s), `--output=<path>`.
+
+```bash
+gofasta debug profile cpu --duration=30s -o cpu.pprof
+gofasta debug profile heap -o heap.pprof
+go tool pprof -http=:8090 cpu.pprof
+```
+
+### `gofasta debug har`
+
+Export the request ring as HAR 1.2 JSON. Import into Chrome DevTools (Network → right-click → Import HAR), Insomnia, Postman, or any HAR viewer.
+
+**Flags:** `--output=<path>`.
+
+```bash
+gofasta debug har -o session.har
+gofasta debug har --json | jq '.log.entries | length'
+```
+
+## Related
+
+- [`gofasta dev`](/docs/cli-reference/dev) — starts the dev server with the `devtools` build tag active.
+- [Debugging guide](/docs/guides/debugging) — full walkthrough, including how the devtools package hooks into the scaffold without dirtying the developer's code.
