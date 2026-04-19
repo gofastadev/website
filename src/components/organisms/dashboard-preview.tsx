@@ -1,84 +1,146 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { SectionHeading } from "@/components/molecules";
+import { SectionHeading, FeatureCard } from "@/components/molecules";
 import { useOnScreen } from "@/hooks/use-on-screen";
 
+// Curated tiles for the capability grid. Keep this list tight — the
+// docs page (cli-reference/dev.mdx) is the enumeration; the landing is
+// the pitch. Six tiles fit a 3×2 desktop grid and read cleanly on
+// mobile (single column). Order matters: we open with the two most
+// Go-distinctive features (trace waterfall, N+1), then pair
+// interactive tools (replay, logs), and close with runtime-profiler
+// and the trust signal (zero prod cost).
 const capabilities = [
   {
-    title: "Live metrics from /metrics",
+    title: "Trace waterfall",
     description:
-      "Parses the Prometheus output your app already emits — request totals, in-flight gauges, average latency — and keeps the cards fresh every 5s.",
+      "Per-request spans — controller, service, repository, SQL — with call-stack snapshots so you see exactly where each span was opened.",
+    icon: (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M3 12h4l3-9 4 18 3-9h4" />
+      </svg>
+    ),
   },
   {
-    title: "Request log, in-memory ring",
+    title: "N+1 detection",
     description:
-      "Chi middleware (gated by the `devtools` build tag) captures every request with method, path, status, and duration. See the last 200 without touching stdout.",
+      "Duplicate SQL templates firing inside one trace get flagged automatically — with a link to the offending request.",
+    icon: (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <circle cx="12" cy="17" r="0.5" fill="currentColor" />
+      </svg>
+    ),
   },
   {
-    title: "SQL queries with timings",
+    title: "Edit & replay",
     description:
-      "GORM callbacks record every SELECT / INSERT / UPDATE / DELETE with rows affected and wall-clock duration. Instant answer to \"why is this request slow?\".",
+      "Click replay on any captured request, tweak the JSON body inline, fire it again against the live app, and watch the trace update.",
+    icon: (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M21 12a9 9 0 1 1-3-6.7" />
+        <polyline points="21 3 21 9 15 9" />
+      </svg>
+    ),
   },
   {
-    title: "Per-request trace waterfall",
+    title: "Per-request logs",
     description:
-      "An OpenTelemetry SpanProcessor snapshots every span — controller, service, repository, SQL — into a nested timeline. Click a row to see exactly which layers the request traversed and what each cost.",
+      "Every slog record is tagged with its trace ID. Expand a request, switch to the Logs tab, and see only that request's log lines.",
+    icon: (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2" />
+        <path d="M19 17V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2Z" />
+        <line x1="6" y1="8" x2="13" y2="8" />
+        <line x1="6" y1="12" x2="13" y2="12" />
+      </svg>
+    ),
   },
   {
-    title: "Stack snapshots per span",
+    title: "Profiles + goroutines",
     description:
-      "Every span captures the Go call stack at start (runtime.Callers, 20 frames deep) so clicking a span shows the file and line where it was opened — no need to alt-tab to your IDE.",
-  },
-  {
-    title: "Edit-and-replay requests",
-    description:
-      "The captured request body lives in the ring alongside the method and path. Click Replay to open an inline editor, tweak the JSON, and re-fire the exact same request against the live app — response status + body appear inline.",
-  },
-  {
-    title: "N+1 query detection",
-    description:
-      "SQL templates are normalized (literals replaced with `?`) and grouped by trace ID. If the same template fires three or more times in one request, the dashboard flags it with a red badge and links you to the offending trace.",
-  },
-  {
-    title: "EXPLAIN on click",
-    description:
-      "Every captured SELECT grows an EXPLAIN button. One click round-trips the SQL + captured parameters through GORM and renders the plan in a modal — no psql tab-switch, no copy-pasting placeholder values.",
-  },
-  {
-    title: "Per-request log viewer",
-    description:
-      "`devtools.WrapLogger` tees every slog record into a ring keyed by trace ID. Expand any request, switch to the Logs tab, and see exactly which log lines that request emitted — message, level, structured attributes.",
-  },
-  {
-    title: "Panic + exception history",
-    description:
-      "`devtools.Recovery` wraps the recovery middleware and pushes every recovered panic — value, stack, method, path, trace ID — into a ring. Click an exception to jump straight to the trace that failed.",
-  },
-  {
-    title: "Cache hit-miss log",
-    description:
-      "The cache service gets transparently decorated so every Get/Set/Delete is timed and recorded. Per-trace aggregation answers \"did this page actually use the cache?\" at a glance.",
-  },
-  {
-    title: "Go runtime profiles (pprof)",
-    description:
-      "One-click links to CPU, heap, goroutine, mutex, block, and allocation profiles served by net/http/pprof — mounted only when the devtools tag is active. The goroutine inspector groups live routines by top-of-stack so leaks jump out.",
-  },
-  {
-    title: "HAR export",
-    description:
-      "Download the current request ring as HAR 1.2 JSON — method, path, headers, request body, response body, timing — and drop it into Chrome DevTools, Insomnia, or any HAR-aware viewer.",
-  },
-  {
-    title: "App health + compose services",
-    description:
-      "Polls /health every 5s, queries `docker compose ps` for service states, and surfaces both alongside routes scraped from docs/swagger.json.",
+      "One-click links to CPU, heap, mutex, and block profiles from net/http/pprof. Goroutines grouped by top-of-stack so leaks jump out.",
+    icon: (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 2v4" />
+        <path d="M12 22a10 10 0 1 1 10-10" />
+        <path d="m16.2 7.8 2.8-2.8" />
+        <circle cx="12" cy="12" r="2" />
+      </svg>
+    ),
   },
   {
     title: "Zero production cost",
     description:
-      "`go build` without `-tags devtools` compiles the stub (pass-through middleware, no-op GORM plugin). Production binaries carry zero debug surface.",
+      "Every surface above is gated by the `devtools` build tag. `go build` without it compiles the stub — pass-through middleware, no-op plugins.",
+    icon: (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <polyline points="9 12 11 14 15 10" />
+      </svg>
+    ),
   },
 ];
 
@@ -257,45 +319,16 @@ export function DashboardPreview() {
         <SectionHeading
           eyebrow="Local dev dashboard"
           title="Debug visually, not through log greps."
-          description="Run `gofasta dev --dashboard` and the CLI stands up a self-contained HTML debug panel on :9090 — live metrics, request log, SQL queries, app health. Uses html/template + Server-Sent Events; no runtime agent, no cloud service."
+          description="`gofasta dev --dashboard` stands up a self-contained HTML debug panel on :9090 — live metrics, request log, SQL, trace waterfall. Zero runtime agent, zero cloud service."
         />
 
-        <div className="mt-14 grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start lg:gap-16">
-          <ul className="space-y-6">
-            {capabilities.map((c) => (
-              <li key={c.title} className="flex gap-4">
-                <span className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-                    {c.title}
-                  </h3>
-                  <p className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
-                    {c.description}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          {/* Dashboard mockup — a live-animated reproduction of what the
-              real `gofasta dev --dashboard` renders. A ticker rotates
-              new entries into the Recent Requests / Recent SQL tables
-              every few seconds, metrics counters bump with each tick,
-              and a "devtools" pill flips between enabled / stub. */}
+        {/* Dashboard mockup — promoted to hero role. Centered with a
+            moderate max width so it reads as "this is the thing you get"
+            rather than a sidekick to a wall of bullet points.
+            Live-animated via the ticker: the Recent Requests / Recent
+            SQL tables rotate new rows every few seconds, metrics
+            counters bump, and a "devtools" pill holds steady. */}
+        <div className="mx-auto mt-14 max-w-4xl">
           <div
             aria-hidden="true"
             className="overflow-hidden rounded-xl border border-gray-200 bg-terminal-surface shadow-2xl dark:border-gray-800"
@@ -440,6 +473,36 @@ export function DashboardPreview() {
             </div>
           </div>
         </div>
+
+        {/* Capability grid — six scannable tiles below the mockup.
+            Three columns on desktop, two on tablet, one on mobile. A
+            tighter spacing than the standard features grid so the
+            grid reads as a secondary layer under the hero mockup
+            rather than a full separate section. */}
+        <div className="mt-16 grid gap-4 sm:mt-20 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          {capabilities.map((c) => (
+            <FeatureCard
+              key={c.title}
+              icon={c.icon}
+              title={c.title}
+              description={c.description}
+            />
+          ))}
+        </div>
+
+        {/* Footnote — a subtle pointer to the full enumeration without
+            cluttering the grid. The landing is the pitch; docs is the
+            catalog. */}
+        <p className="mt-10 text-center text-sm text-gray-600 dark:text-gray-400">
+          Plus panic history, cache hit/miss, EXPLAIN plans, HAR export, and
+          more.{" "}
+          <a
+            href="/docs/cli-reference/dev"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            See every debug surface →
+          </a>
+        </p>
       </div>
     </section>
   );

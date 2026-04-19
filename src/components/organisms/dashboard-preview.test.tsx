@@ -68,17 +68,22 @@ describe("DashboardPreview", () => {
     expect(screen.getByText("Local dev dashboard")).toBeInTheDocument();
   });
 
-  it("renders every capability title", () => {
+  it("renders every capability title in the grid", () => {
     render(<DashboardPreview />);
-    expect(screen.getByText("Live metrics from /metrics")).toBeInTheDocument();
-    expect(
-      screen.getByText("Request log, in-memory ring")
-    ).toBeInTheDocument();
-    expect(screen.getByText("SQL queries with timings")).toBeInTheDocument();
-    expect(
-      screen.getByText("App health + compose services")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Trace waterfall")).toBeInTheDocument();
+    expect(screen.getByText("N+1 detection")).toBeInTheDocument();
+    expect(screen.getByText("Edit & replay")).toBeInTheDocument();
+    expect(screen.getByText("Per-request logs")).toBeInTheDocument();
+    expect(screen.getByText("Profiles + goroutines")).toBeInTheDocument();
     expect(screen.getByText("Zero production cost")).toBeInTheDocument();
+  });
+
+  it("renders the 'see every debug surface' docs link", () => {
+    render(<DashboardPreview />);
+    const link = screen.getByRole("link", {
+      name: /See every debug surface/i,
+    });
+    expect(link).toHaveAttribute("href", "/docs/cli-reference/dev");
   });
 
   it("renders the mockup browser url bar pointing at localhost:9090", () => {
