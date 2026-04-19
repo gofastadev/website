@@ -335,6 +335,19 @@ body {
   50%      { opacity: 0.14; transform: translateY(-2px); }
 }
 
+/* Dashboard mockup — small animated details that make the preview
+   feel live without being distracting. The pulse runs on the status
+   dots next to "healthy" / "ok"; the timestamp line does a subtle
+   opacity dip every 5s to suggest the SSE refresh cycle. */
+@keyframes gofasta-dashboard-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.35); }
+}
+@keyframes gofasta-dashboard-refresh {
+  0%, 92%, 100% { opacity: 1; }
+  96%           { opacity: 0.45; }
+}
+
 
 /* Headline gradient shimmer — animates the gradient position so the
    gradient-clipped text appears to "shine". */
@@ -591,6 +604,18 @@ body {
   animation: gofasta-code-breath 9s ease-in-out infinite;
 }
 
+/* Dashboard live-status dot — pulses continuously like a real
+   heartbeat on the healthy services. */
+.gofasta-dashboard-pulse {
+  animation: gofasta-dashboard-pulse 1.6s ease-in-out infinite;
+}
+
+/* Dashboard "updated" timestamp — fades briefly every 5s, matching
+   the cadence of the real dashboard's SSE refresh. */
+.gofasta-dashboard-updated {
+  animation: gofasta-dashboard-refresh 5s ease-in-out infinite;
+}
+
 
 @media (prefers-reduced-motion: reduce) {
   .gofasta-orb,
@@ -609,7 +634,9 @@ body {
   .gofasta-flow-dot,
   .gofasta-flow-dot-vert,
   .gofasta-stream-line,
-  .gofasta-pillar-arc {
+  .gofasta-pillar-arc,
+  .gofasta-dashboard-pulse,
+  .gofasta-dashboard-updated {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;

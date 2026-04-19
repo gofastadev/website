@@ -5,6 +5,7 @@ import {
   AudienceTiles,
   ValuePillars,
   AgentSpotlight,
+  DashboardPreview,
   FeaturesGrid,
   ArchitectureStrip,
   QuickStartSection,
@@ -77,6 +78,7 @@ export default function HomePage() {
       <AudienceTiles />
       <ValuePillars />
       <AgentSpotlight />
+      <DashboardPreview />
       <FeaturesGrid />
       <ArchitectureStrip />
       <QuickStartSection />

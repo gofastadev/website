@@ -1,86 +1,125 @@
 ---
 title: gofasta dev
-description: Start the Gofasta development server with hot reload using Air.
+description: Bring the full local environment up with one command — compose services + migrations + Air hot reload.
 ---
 
-# gofasta dev
+# `gofasta dev`
 
-Starts the development server with automatic hot reload powered by [Air](https://github.com/air-verse/air). When you change any `.go` file, the server automatically rebuilds and restarts, giving you a fast feedback loop during development.
+One-command development loop. Runs the full pipeline: start compose services, wait for healthchecks, apply pending migrations, launch Air for hot-reload, stream structured events for agents, and tear everything down on `Ctrl+C`.
 
 ## Usage
 
 ```bash
-gofasta dev
+gofasta dev [flags]
 ```
 
-Run this command from the root directory of your Gofasta project.
+## Pipeline
 
-This command takes no flags.
+Each stage can be opted out independently.
 
-## Examples
+1. **Preflight** — verify `docker` and `docker compose` availability.
+2. **Fresh volumes** *(optional, `--fresh`)* — drop every compose volume before starting.
+3. **Service start** — `docker compose up -d <resolved services>`.
+4. **Health-wait** — poll each service's compose healthcheck until `healthy` (timeout 30s by default).
+5. **Migrate** — `migrate up` against the now-healthy database.
+6. **Seed** *(optional, `--seed`)* — run seeders after migrations.
+7. **Air** — exec `go tool air` against `.air.toml`.
+8. **Teardown** — on `SIGINT`/`SIGTERM`, stop services (volumes preserved by default).
 
-Start the dev server:
+On projects without a `compose.yaml`, steps 1–4 are short-circuited and the pipeline falls straight to Air — preserving the "I'm bringing my own DB" flow.
+
+## Flags
+
+| Flag | Default | Behavior |
+| --- | --- | --- |
+| `--no-services` | `false` | Skip all compose orchestration; just run Air (for an externally-managed database). |
+| `--no-db` | `false` | Skip DB-like services (postgres, mysql, clickhouse, mariadb, or anything suffixed `-db`). |
+| `--no-cache` | `false` | Skip cache-like services (redis, valkey, `-cache` suffix). |
+| `--no-queue` | `false` | Skip queue-like services (asynq, nats, rabbitmq, `-queue` suffix). |
+| `--no-migrate` | `false` | Skip `migrate up` after services become healthy. |
+| `--no-teardown` | `false` | Leave compose services running on exit (default: stop them). |
+| `--keep-volumes` | `true` | Preserve named volumes on teardown. Pass `--keep-volumes=false` to run `docker compose down -v` instead of `docker compose stop`. |
+| `--fresh` | `false` | Drop every compose volume before starting — forces a clean database state. |
+| `--services=<list>` | *(derived)* | Comma-separated explicit list. Overrides `--no-*` flags. |
+| `--profile=<name>` | *(none)* | Pass-through to `docker compose --profile` for optional services (e.g. `cache`, `queue`). |
+| `--wait-timeout=<duration>` | `30s` | How long to wait for compose services to report healthy. |
+| `--env-file=<path>` | `.env` | Alternate env file to load before Air. |
+| `--port=<n>` | *(from config)* | Override the `PORT` env var passed to Air / the app binary. |
+| `--rebuild` | `false` | Clear Air's `tmp/` build directory before starting so the next build is fresh. |
+| `--seed` | `false` | Run seeders after migrations (equivalent to `gofasta seed` afterward). |
+| `--dry-run` | `false` | Print the resolved plan and exit without touching anything. |
+| `--attach-logs` | `false` | Stream `docker compose logs -f` alongside Air output. |
+| `--dashboard` | `false` | Start the local dev dashboard — an HTML debug page with routes, health, and live service state. |
+| `--dashboard-port=<n>` | `9090` | Port for the dev dashboard HTTP server. |
+| `--json` | `false` *(persistent)* | Emit structured NDJSON events instead of human log lines. |
+
+## Flag resolution priority
+
+1. `--no-services` wins unconditionally — start nothing.
+2. `--services=a,b,c` overrides `--no-*` filters — start exactly those.
+3. Default: every non-app service in `compose.yaml`, minus any matched by `--no-*` name heuristics.
+
+## Structured output (`--json`)
+
+Pipe `gofasta dev --json` into `jq` or your CI. One NDJSON event per line:
+
+```json
+{"event":"preflight","status":"ok","docker":"28.0.1","compose":"v2.26.0"}
+{"event":"service","name":"db","status":"starting"}
+{"event":"service","name":"db","status":"healthy","duration_ms":2840}
+{"event":"migrate","status":"ok","applied":3}
+{"event":"air","status":"running","port":8080,"urls":{"rest":"http://localhost:8080","metrics":"/metrics","swagger":"/swagger/index.html","health":"/health"}}
+{"event":"shutdown","teardown":"stopped","exit":0}
+```
+
+## Error codes
+
+| Code | When |
+| --- | --- |
+| `DEV_DOCKER_UNAVAILABLE` | `docker` not on `$PATH` or daemon unreachable |
+| `DEV_COMPOSE_NOT_FOUND` | No `compose.yaml` but `--services` was set |
+| `DEV_SERVICE_UNHEALTHY` | A service didn't become healthy within `--wait-timeout` |
+| `DEV_MIGRATION_FAILED` | `migrate up` returned non-zero |
+| `DEV_AIR_NOT_INSTALLED` | `go tool air` not registered in `go.mod` |
+| `DEV_PORT_IN_USE` | The configured PORT is already bound |
+
+Each carries a `hint` and `docs` field in the JSON error payload — agents can branch on the code and surface the hint verbatim.
+
+## The dashboard
+
+`gofasta dev --dashboard` starts a tiny HTTP server on `:9090` (configurable via `--dashboard-port`) that serves a live HTML debug page:
+
+- Current app health (polled every 5s against `/health`)
+- Running compose services + their state
+- Registered REST routes (scraped from `docs/swagger.json`)
+- Direct links to `/swagger`, `/graphql`, `/metrics` when the project exposes them
+
+Updates stream over Server-Sent Events at `/api/stream`; the JSON snapshot is at `/api/state`. The dashboard dies with the rest of the pipeline on `Ctrl+C`.
+
+## Recipes
 
 ```bash
+# Everything up, hot-reload the app, Ctrl+C to stop.
 gofasta dev
+
+# Bring up services but run Air pointing at a different port.
+gofasta dev --port 8090
+
+# Host-run app with your own Postgres — bypass compose entirely.
+gofasta dev --no-services
+
+# Debug Air itself — no database, no migrations, just the rebuild loop.
+gofasta dev --no-services --no-migrate
+
+# Start with a fresh, seeded database every time.
+gofasta dev --fresh --seed
+
+# Start with the cache profile on so pkg/cache works (redis).
+gofasta dev --profile cache
+
+# Dev dashboard + log streaming + JSON mode for a CI run.
+gofasta dev --dashboard --attach-logs --json
+
+# Print the plan without running it — useful in CI sanity checks.
+gofasta dev --dry-run --json
 ```
-
-## How It Works
-
-The `gofasta dev` command performs the following steps:
-
-1. **Run migrations** -- if a database is available, pending migrations are applied automatically
-2. **Print endpoint URLs** -- displays the REST API URL and other endpoints. If `gqlgen.yml` exists in the project (i.e., the project was created with `--graphql`), the GraphQL and GraphQL Playground URLs are also displayed. Otherwise, only REST endpoints are shown.
-3. **Start Air** -- runs `go tool air` to watch for file changes and hot reload the server
-
-The Air configuration is stored in `.air.toml` at the project root. You can customize watched directories, excluded paths, build commands, and delay settings by editing this file.
-
-## Configuration
-
-The port is determined by (in order of precedence):
-
-1. `GOFASTA_` prefixed environment variables
-2. `PORT` environment variable
-3. `config.yaml` settings
-4. Default: `8080`
-
-## Available Endpoints
-
-Once the dev server is running, the following endpoints are available:
-
-| Endpoint | URL |
-|----------|-----|
-| REST API | `http://localhost:8080/api/v1/` |
-| Health Check | `http://localhost:8080/health` |
-| Swagger UI | `http://localhost:8080/swagger/index.html` |
-
-If the project was created with `--graphql` (i.e., `gqlgen.yml` exists), these additional endpoints are available:
-
-| Endpoint | URL |
-|----------|-----|
-| GraphQL | `http://localhost:8080/graphql` |
-| GraphQL Playground | `http://localhost:8080/graphql-playground` |
-
-Replace `8080` with your configured port if different.
-
-## Using Docker
-
-If you prefer running inside Docker with hot reload, use the provided Makefile command instead:
-
-```bash
-make dev
-```
-
-This starts the Docker Compose development profile, which includes both the application with Air hot reload and the database service.
-
-## Troubleshooting
-
-**Port already in use** -- If you see `bind: address already in use`, another process is using the port. Either stop that process or change the port in `config.yaml` or via the `PORT` environment variable.
-
-**Air not found** -- The `gofasta dev` command uses `go tool air` internally. If you encounter issues, make sure you have run `gofasta init` to install all dependencies.
-
-## Related
-
-- [gofasta serve](/docs/cli-reference/serve) -- start the production server
-- [gofasta new](/docs/cli-reference/new) -- create a new project
-- [Quick Start](/docs/getting-started/quick-start)
