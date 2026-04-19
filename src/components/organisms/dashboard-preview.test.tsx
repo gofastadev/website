@@ -78,12 +78,12 @@ describe("DashboardPreview", () => {
     expect(screen.getByText("Zero production cost")).toBeInTheDocument();
   });
 
-  it("renders the 'see every debug surface' docs link", () => {
+  it("links to the debugging guide", () => {
     render(<DashboardPreview />);
     const link = screen.getByRole("link", {
-      name: /See every debug surface/i,
+      name: /Read the debugging guide/i,
     });
-    expect(link).toHaveAttribute("href", "/docs/cli-reference/dev");
+    expect(link).toHaveAttribute("href", "/docs/guides/debugging");
   });
 
   it("renders the mockup browser url bar pointing at localhost:9090", () => {

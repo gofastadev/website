@@ -497,10 +497,10 @@ export function DashboardPreview() {
           Plus panic history, cache hit/miss, EXPLAIN plans, HAR export, and
           more.{" "}
           <a
-            href="/docs/cli-reference/dev"
+            href="/docs/guides/debugging"
             className="text-primary underline-offset-4 hover:underline"
           >
-            See every debug surface →
+            Read the debugging guide →
           </a>
         </p>
       </div>
