@@ -38,7 +38,10 @@ describe("QuickStartSection", () => {
     expect(screen.getByText("gofasta new myapp")).toBeInTheDocument();
   });
 
-  it("does not render the ai install command in the quickstart", () => {
+  it("does not surface per-agent AI installers in the quickstart", () => {
+    // The AI installer (`gofasta ai <agent>`) is opt-in — the quickstart
+    // should stay focused on the minimum path to a running server, so
+    // agent-specific commands like `gofasta ai claude` don't belong here.
     render(<QuickStartSection />);
     expect(screen.queryByText("gofasta ai claude")).not.toBeInTheDocument();
   });
