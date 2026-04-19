@@ -256,7 +256,7 @@ The CLI exposes ~40 commands and subcommands, grouped below by purpose. Every co
 
 | Command | Description |
 |---------|-------------|
-| `gofasta dev` | Start development server with hot reload via Air. Auto-runs migrations before starting. |
+| `gofasta dev` | Bring the full local environment up with one command: preflight → start compose services (db, optional cache + queue profiles) → wait for healthchecks → run pending migrations → optionally seed → launch Air for hot reload → teardown on exit. Optional `--dashboard` starts a local HTML debug panel on `:9090` (app health, services, routes with request/response types, metrics, recent requests, recent SQL). Every step accepts `--json` for structured NDJSON output; every failure surfaces a stable `DEV_*` error code. Each stage can be opted out individually (`--no-services`, `--no-db`, `--no-cache`, `--no-queue`, `--no-migrate`, `--no-teardown`, `--fresh`, `--dry-run`). |
 | `gofasta serve` | Start the HTTP server (delegates to the project's own `serve` command). |
 | `gofasta console` | Launch an interactive Go REPL in the project directory using [yaegi](https://github.com/traefik/yaegi). Requires yaegi to be installed separately. |
 | `gofasta routes` | Display all registered API routes from `app/rest/routes/` in a formatted table (method, path, source file). Structured JSON available via `--json`. |
@@ -1574,7 +1574,7 @@ The following matrix compares Gofasta against the tools a Go backend developer i
 | Deployment manifests | No (cloud-managed) | No | No | Yes (Docker, CI/CD, VPS) |
 | VPS deployment command | No | No | No | Yes |
 | Auto infrastructure provisioning | Yes | No | No | No |
-| Local dev dashboard | Yes | No | No | No (roadmap) |
+| Local dev dashboard | Yes | No | No | Yes |
 | Standard `go build` / `go test` | No (custom compiler) | Yes | Yes | Yes |
 | `net/http` middleware compatible | No | No (custom middleware) | Partial | Yes |
 | Runtime wrapper required | Yes (custom runtime) | Yes | Yes | No |
@@ -1643,7 +1643,6 @@ Gofasta is under active development. The roadmap is organized by impact on produ
 - **OAuth2 provider integration** — Extend `pkg/auth` with OAuth2 flows for Google, GitHub, and Microsoft. "Sign in with Google" is table stakes for any consumer-facing product; enterprise SSO (via OpenID Connect) is required for B2B sales.
 - **Tenant-aware rate limiting** — Extend `pkg/middleware` rate limiter with per-tenant keys and configurable tier limits (e.g., free plan: 100 req/min, pro plan: 1000 req/min). Prevents noisy-neighbor problems in multi-tenant deployments.
 - **Pub/Sub** (`pkg/pubsub`) — Typed publish/subscribe with two backends: an in-process dispatcher for monoliths and a Redis Pub/Sub implementation for distributed deployments. Defines a `Publisher` and `Subscriber` interface so developers can swap backends or replace the package entirely with a purpose-built library like Watermill. Covers the 80% of event-driven use cases (send welcome email after signup, update search index after edit, log analytics event after purchase) without introducing Kafka or NATS.
-- **Enhanced local development automation** — Extend `gofasta dev` to auto-start Docker Compose services (database, cache, queue) before launching Air, health-check the database before running migrations, and tear down services on exit. A single command — `gofasta dev` — should bring up the full local environment without manual `docker compose up` steps.
 - **Generated observability instrumentation** — Extend the scaffold generators to emit OpenTelemetry span creation at each layer boundary (controller, service, repository) in generated code. Since the instrumentation is generated Go code the developer owns, it can be customized, extended, or removed. This delivers zero-config distributed tracing for scaffolded resources without requiring a custom compiler or runtime — the tracing is visible in the source code, not injected at build time.
 
 ### Medium-term — Developer Experience and Tooling
@@ -1654,7 +1653,6 @@ Gofasta is under active development. The roadmap is organized by impact on produ
 - **`gofasta g middleware` generator** — Scaffold custom middleware with the correct `func(http.Handler) http.Handler` signature, logging, and test file.
 - **Interactive project creation wizard** — Guide developers through database driver, auth strategy, and optional feature selection when running `gofasta new`.
 - **Plugin system** — Allow community-contributed generators to be installed and invoked via the CLI.
-- **Local dev dashboard** — A lightweight HTML page served on a debug port during `gofasta dev` that displays registered routes with request/response types, health check status, and links to Swagger documentation. Not a cloud-hosted platform — a local development tool that runs alongside the application and requires no external service.
 - **Service architecture diagram generation** — `gofasta diagram` command that parses route files, the DI container, and model relationships to generate a Mermaid or DOT architecture diagram. Output as SVG, Markdown, or embeddable in Swagger UI. Purely a CLI analysis tool with zero runtime cost.
 - **Machine-readable route output** — Extend `gofasta routes` with a `--json` flag for CI/CD integration, API gateway configuration, and tooling that consumes route definitions programmatically.
 - **Secrets management** — `gofasta secret set <KEY>` command that encrypts secrets locally (`.env.enc`) for safe version control, with decryption at startup via a master key from the environment. Integration with cloud secret managers (AWS Secrets Manager, GCP Secret Manager) as optional deployment targets. The CLI manages the workflow; the project reads secrets through standard environment variables at runtime — no proprietary secrets API in application code.
