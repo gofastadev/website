@@ -24,7 +24,7 @@ export function QuickStartSection() {
       <SectionHeading
         eyebrow="Quick start"
         title="Install and run"
-        description="Three commands. No dashboards, no signup, no configuration wizard. The CLI does the rest."
+        description="Three commands. No cloud service, no signup, no configuration wizard. The CLI does the rest."
       />
 
       {/* Flow connector overlay. Lives behind the step cards and draws
