@@ -61,6 +61,12 @@ const requestPool: MockRequest[] = [
   { method: "GET", path: "/api/v1/admin", status: 401, duration: 6 },
   { method: "DELETE", path: "/api/v1/tokens/abc", status: 204, duration: 14 },
   { method: "GET", path: "/api/v1/search?q=go", status: 200, duration: 35 },
+  // Covers the 3xx status tier — shows a redirect from the old path.
+  { method: "GET", path: "/api/v1/legacy", status: 302, duration: 4 },
+  // Covers the 5xx tier — a server-side failure renders the red pill.
+  { method: "POST", path: "/api/v1/reports", status: 503, duration: 210 },
+  // HEAD exercises the "other" branch of MethodBadge.
+  { method: "HEAD", path: "/api/v1/users", status: 200, duration: 3 },
 ];
 
 const sqlPool: MockQuery[] = [
@@ -98,13 +104,19 @@ const sqlPool: MockQuery[] = [
 
 // Fixed seed data used for SSR. The ticker mutates these after mount,
 // which keeps the server-rendered HTML and the first client render
-// identical — avoids hydration mismatches.
+// identical — avoids hydration mismatches. Each seeded row picks a
+// different method + status tier so the first paint exercises every
+// branch of MethodBadge / StatusPill (GET / POST / PATCH / DELETE /
+// HEAD; 2xx / 3xx / 4xx / 5xx).
 const seededRequests = [
-  { id: "s1", time: "12:34:52", ...requestPool[0] },
-  { id: "s2", time: "12:34:50", ...requestPool[1] },
-  { id: "s3", time: "12:34:48", ...requestPool[2] },
-  { id: "s4", time: "12:34:45", ...requestPool[4] },
-  { id: "s5", time: "12:34:42", ...requestPool[6] },
+  { id: "s1", time: "12:34:52", ...requestPool[0] },  // GET   200 (2xx)
+  { id: "s2", time: "12:34:50", ...requestPool[1] },  // POST  201 (2xx)
+  { id: "s3", time: "12:34:48", ...requestPool[3] },  // PATCH 200 (2xx)
+  { id: "s4", time: "12:34:45", ...requestPool[8] },  // DELETE 204 (2xx)
+  { id: "s5", time: "12:34:42", ...requestPool[7] },  // GET  401 (4xx)
+  { id: "s6", time: "12:34:40", ...requestPool[10] }, // GET  302 (3xx)
+  { id: "s7", time: "12:34:38", ...requestPool[11] }, // POST 503 (5xx)
+  { id: "s8", time: "12:34:36", ...requestPool[12] }, // HEAD 200 (other method)
 ];
 
 const seededQueries = [

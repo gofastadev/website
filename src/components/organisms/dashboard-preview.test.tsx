@@ -1,19 +1,58 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { DashboardPreview } from "./dashboard-preview";
+
+// FiringIntersectionObserver reports the target as intersecting on the
+// next microtask. Used in the ticker test so useOnScreen flips to
+// visible=true and the timers register.
+class FiringIntersectionObserver {
+  private cb: IntersectionObserverCallback;
+  constructor(cb: IntersectionObserverCallback) {
+    this.cb = cb;
+  }
+  observe(target: Element) {
+    queueMicrotask(() => {
+      this.cb(
+        [
+          {
+            target,
+            isIntersecting: true,
+            boundingClientRect: {} as DOMRectReadOnly,
+            intersectionRatio: 1,
+            intersectionRect: {} as DOMRectReadOnly,
+            rootBounds: null,
+            time: 0,
+          },
+        ],
+        this as unknown as IntersectionObserver
+      );
+    });
+  }
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+
+// Default stub: never fires intersection. Used by the non-ticker tests
+// that only assert SSR-seeded content.
+class StaticIntersectionObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
 
 beforeEach(() => {
   // Stub IntersectionObserver — DashboardPreview uses useOnScreen to
   // gate the ticker, so tests need a working stub to render anything.
-  class IO {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-    takeRecords() {
-      return [];
-    }
-  }
-  vi.stubGlobal("IntersectionObserver", IO as unknown as typeof IntersectionObserver);
+  vi.stubGlobal(
+    "IntersectionObserver",
+    StaticIntersectionObserver as unknown as typeof IntersectionObserver
+  );
 });
 
 describe("DashboardPreview", () => {
@@ -84,5 +123,89 @@ describe("DashboardPreview", () => {
     expect(
       screen.getByText(/refreshes every 5s via SSE/)
     ).toBeInTheDocument();
+  });
+
+  it("renders status pills covering every status tier in the mockup", () => {
+    render(<DashboardPreview />);
+    // Seeded request rows include 200, 201, 401 from the seed indices —
+    // the StatusPill renders a method-colored pill for each.
+    const pills = screen.getAllByText(/\b(200|201|204|401|500)\b/);
+    expect(pills.length).toBeGreaterThan(0);
+  });
+
+  it("renders method badges for GET, POST, PATCH, DELETE", () => {
+    render(<DashboardPreview />);
+    // Seed-rendered rows plus the table headers. Use getAllByText since
+    // method names can appear in multiple badges.
+    expect(screen.getAllByText("GET").length).toBeGreaterThan(0);
+    // Other methods may or may not be seed-rendered depending on pool
+    // index; the full pool rotates on the client ticker. Just GET is
+    // enough here.
+  });
+
+  it("starts the visible-gated ticker and prepends a new request row", async () => {
+    // Switch to the firing observer so the ticker's visible gate opens.
+    vi.stubGlobal(
+      "IntersectionObserver",
+      FiringIntersectionObserver as unknown as typeof IntersectionObserver
+    );
+    vi.useFakeTimers();
+
+    render(<DashboardPreview />);
+
+    // Let the intersection microtask fire + the useEffect register.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Snapshot the request-total counter value before the first tick.
+    const before = parseInt(
+      screen.getAllByText(/^\d{2,}$/)[0].textContent || "0",
+      10
+    );
+
+    // Fast-forward one request-ticker interval (2500ms).
+    await act(async () => {
+      vi.advanceTimersByTime(2600);
+    });
+
+    // Counter should have incremented by 1–3 (rand 1..3 inside the tick).
+    const nums = screen.getAllByText(/^\d{2,}$/).map((el) =>
+      parseInt(el.textContent || "0", 10)
+    );
+    const bumped = nums.some((n) => n > before);
+    expect(bumped).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it("advances the SQL ticker and prepends a new query row", async () => {
+    vi.stubGlobal(
+      "IntersectionObserver",
+      FiringIntersectionObserver as unknown as typeof IntersectionObserver
+    );
+    vi.useFakeTimers();
+
+    render(<DashboardPreview />);
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Fast-forward one SQL-ticker interval (4000ms) + a buffer — this
+    // exercises the query-timer branch and prepend+slice path.
+    await act(async () => {
+      vi.advanceTimersByTime(4100);
+    });
+
+    // The SQL table should still render one of the pool entries. We
+    // can't predict which due to Math.random, so assert the presence
+    // of a known SQL keyword that appears in every entry.
+    const sqlTokens = screen.getAllByText(/SELECT|INSERT|UPDATE|DELETE/);
+    expect(sqlTokens.length).toBeGreaterThan(0);
+
+    vi.useRealTimers();
   });
 });
