@@ -114,6 +114,30 @@ When the app is built with the `devtools` build tag (`gofasta dev` sets this aut
 
 All four levels are **no-cost in production**: the `devtools` package ships a stub (`//go:build !devtools`) whose middleware is a pass-through and whose `RegisterTraceProcessor` is a no-op. `go build` without `-tags devtools` dead-code-eliminates every debug surface.
 
+### Deep-inspection features
+
+The dashboard isn't just a live view — it's an interactive inspector covering the full request lifecycle. Everything below is gated behind the `devtools` build tag (set automatically by `gofasta dev`); production builds compile the stub and pay zero cost.
+
+**Go runtime profiles (pprof).** `net/http/pprof` is mounted under `/debug/pprof/` whenever the app runs with the devtools tag. The dashboard surfaces a Profiles panel with one-click links to CPU (30s), heap, goroutine, mutex, block, allocations, and execution trace profiles. Open them in `go tool pprof` or view inline via the browser UI.
+
+**Goroutine inspector.** The dashboard parses `/debug/pprof/goroutine?debug=2` and groups live goroutines by top-of-stack function — click to expand per-bucket stacks. Spotting a runaway goroutine leak is a single refresh away.
+
+**N+1 query detection.** Every captured SQL statement carries its trace ID and a normalized template (literals replaced with `?`). The dashboard groups by (trace, template); any trace with ≥3 duplicate templates surfaces as an N+1 finding with the offending template shown. Click the trace link to see exactly which request caused it.
+
+**EXPLAIN on click.** Each captured SELECT gets an **EXPLAIN** button. Clicking it opens a modal that ships the SQL + captured parameter values to the app's `/debug/explain` endpoint — the app runs EXPLAIN against GORM and returns the plan. A SELECT-only whitelist prevents accidentally re-executing DML.
+
+**Per-request log viewer.** `devtools.WrapLogger` decorates the project's `*slog.Logger` so every record is teed into an in-memory ring keyed by trace ID. Expand any trace row → switch to the Logs tab → see exactly which log lines that request emitted, with levels and attributes.
+
+**Panic + exception history.** `devtools.Recovery` wraps `pkg/middleware.Recovery`. Every recovered panic pushes an entry into the exceptions ring — recovered value, full stack, originating method + path, and the trace ID of the failing request. The Exceptions section surfaces the last 50 entries.
+
+**Cache hit-miss log.** `devtools.WrapCache` decorates `cache.CacheService` so every Get/Set/Delete/Flush/Ping is recorded with op, key, hit/miss flag, and duration. Click a trace ID to see which cache ops happened during that request.
+
+**Queue inspector.** When the scaffold's `asynqmon` compose service (profile=queue) is running, the dashboard detects it and surfaces a direct link in the App cards row.
+
+**Edit-and-replay.** The single-click Replay has been upgraded to an inline editor — click Replay, tweak the captured body in a textarea, hit Send. Response status + body appear inline; mutating methods prompt for confirmation first.
+
+**HAR export.** The **Export HAR** button in the Recent Requests header downloads the current ring as HAR 1.2 JSON, importable into Chrome DevTools, Insomnia, Postman, or any HAR-aware viewer.
+
 ### Dashboard endpoints
 
 The dashboard HTTP server also exposes a small JSON API for agents and CI hooks:
@@ -124,7 +148,27 @@ The dashboard HTTP server also exposes a small JSON API for agents and CI hooks:
 | `GET /api/state` | Current `dashboardState` snapshot as JSON |
 | `GET /api/stream` | Server-Sent Events stream (5s cadence) |
 | `GET /api/trace/{id}` | Full `TraceEntry` — every span, stack, event, attribute |
+| `GET /api/logs?trace_id=<id>&level=<INFO>` | Slog records filtered by trace / level |
 | `POST /api/replay` | Re-fire a captured request. Body: `{ "method": "POST", "path": "/api/v1/orders", "body": "..." }` |
+| `POST /api/explain` | Run EXPLAIN against the registered GORM DB. Body: `{ "sql": "SELECT ...", "vars": ["a", "b"] }` |
+| `GET /api/har` | Download the current request ring as HAR 1.2 JSON |
+
+### Scaffold-side debug endpoints
+
+These live on the app itself (mounted under `/debug/` by `devtools.Handler()`), not on the dashboard. The dashboard scrapes them on a 5s refresher.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /debug/requests` | Captured `RequestEntry` ring (method, path, status, duration, trace ID, body, response body) |
+| `GET /debug/sql` | Captured `QueryEntry` ring (SQL, vars, rows, duration, trace ID) |
+| `GET /debug/traces` | Summary list of completed trace waterfalls |
+| `GET /debug/traces/{id}` | One full trace including every span, stack, event |
+| `GET /debug/logs?trace_id=&level=` | Filtered slog ring |
+| `GET /debug/errors` | Recent panics with stacks |
+| `GET /debug/cache` | Recent cache ops |
+| `POST /debug/explain` | EXPLAIN a SELECT |
+| `GET /debug/pprof/*` | Standard Go profiling endpoints |
+| `GET /debug/health` | `{"devtools":"enabled"}` or `{"devtools":"stub"}` |
 
 ## Recipes
 

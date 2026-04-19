@@ -31,9 +31,44 @@ const capabilities = [
       "Every span captures the Go call stack at start (runtime.Callers, 20 frames deep) so clicking a span shows the file and line where it was opened — no need to alt-tab to your IDE.",
   },
   {
-    title: "One-click request replay",
+    title: "Edit-and-replay requests",
     description:
-      "The captured request body lives in the ring alongside the method and path. Press Replay on any row to re-fire the exact same request against the live app and watch the trace + SQL update in real time.",
+      "The captured request body lives in the ring alongside the method and path. Click Replay to open an inline editor, tweak the JSON, and re-fire the exact same request against the live app — response status + body appear inline.",
+  },
+  {
+    title: "N+1 query detection",
+    description:
+      "SQL templates are normalized (literals replaced with `?`) and grouped by trace ID. If the same template fires three or more times in one request, the dashboard flags it with a red badge and links you to the offending trace.",
+  },
+  {
+    title: "EXPLAIN on click",
+    description:
+      "Every captured SELECT grows an EXPLAIN button. One click round-trips the SQL + captured parameters through GORM and renders the plan in a modal — no psql tab-switch, no copy-pasting placeholder values.",
+  },
+  {
+    title: "Per-request log viewer",
+    description:
+      "`devtools.WrapLogger` tees every slog record into a ring keyed by trace ID. Expand any request, switch to the Logs tab, and see exactly which log lines that request emitted — message, level, structured attributes.",
+  },
+  {
+    title: "Panic + exception history",
+    description:
+      "`devtools.Recovery` wraps the recovery middleware and pushes every recovered panic — value, stack, method, path, trace ID — into a ring. Click an exception to jump straight to the trace that failed.",
+  },
+  {
+    title: "Cache hit-miss log",
+    description:
+      "The cache service gets transparently decorated so every Get/Set/Delete is timed and recorded. Per-trace aggregation answers \"did this page actually use the cache?\" at a glance.",
+  },
+  {
+    title: "Go runtime profiles (pprof)",
+    description:
+      "One-click links to CPU, heap, goroutine, mutex, block, and allocation profiles served by net/http/pprof — mounted only when the devtools tag is active. The goroutine inspector groups live routines by top-of-stack so leaks jump out.",
+  },
+  {
+    title: "HAR export",
+    description:
+      "Download the current request ring as HAR 1.2 JSON — method, path, headers, request body, response body, timing — and drop it into Chrome DevTools, Insomnia, or any HAR-aware viewer.",
   },
   {
     title: "App health + compose services",
