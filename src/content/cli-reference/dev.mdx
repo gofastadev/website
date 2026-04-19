@@ -91,10 +91,40 @@ Each carries a `hint` and `docs` field in the JSON error payload — agents can 
 
 - Current app health (polled every 5s against `/health`)
 - Running compose services + their state
-- Registered REST routes (scraped from `docs/swagger.json`)
+- Registered REST routes (scraped from `docs/swagger.json`, including request/response Go types)
 - Direct links to `/swagger`, `/graphql`, `/metrics` when the project exposes them
+- Prometheus metrics (request totals, in-flight gauge, average latency)
+- Recent requests ring buffer (method, path, status, duration, trace ID, replay button)
+- Recent SQL queries with rows affected and duration
+- Per-request trace waterfall with nested spans, stack snapshots, and span events
 
 Updates stream over Server-Sent Events at `/api/stream`; the JSON snapshot is at `/api/state`. The dashboard dies with the rest of the pipeline on `Ctrl+C`.
+
+### Full-request inspection (Levels 1–4)
+
+When the app is built with the `devtools` build tag (`gofasta dev` sets this automatically via `GOFLAGS`), the dashboard stops being a read-only view and becomes an interactive inspector:
+
+**Level 1 — Trace waterfall.** An OpenTelemetry `SpanProcessor` registered by `devtools.RegisterTraceProcessor()` snapshots every span into an in-memory ring keyed by trace ID. Click a trace row to see a waterfall of nested spans — controller → service → repository → SQL — with offsets and durations drawn to scale.
+
+**Level 2 — Stack snapshots per span.** At span start, the processor records up to 20 call frames (`runtime.Callers`) so the dashboard can show exactly where in your source a span was opened. Click the ▸ beside a span to reveal its stack.
+
+**Level 3 — Auto-instrumented service/repository layers.** The scaffold's generators emit `otel.Tracer().Start(ctx, "Service.Method")` at the entry of every generated service and repository method. Any resource scaffolded with `gofasta g scaffold` contributes spans to the waterfall out of the box — no manual instrumentation needed.
+
+**Level 4 — Request replay.** Every captured request keeps its body (capped at 64 KiB) in the ring. The **Replay** button on any row POSTs that request back to the live app. Mutating methods (POST / PUT / PATCH / DELETE) prompt for confirmation first. The response body and status appear inline so you can iterate on a bug without re-clicking through the UI.
+
+All four levels are **no-cost in production**: the `devtools` package ships a stub (`//go:build !devtools`) whose middleware is a pass-through and whose `RegisterTraceProcessor` is a no-op. `go build` without `-tags devtools` dead-code-eliminates every debug surface.
+
+### Dashboard endpoints
+
+The dashboard HTTP server also exposes a small JSON API for agents and CI hooks:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /` | HTML page with server-side-rendered initial state and an SSE subscriber for live updates |
+| `GET /api/state` | Current `dashboardState` snapshot as JSON |
+| `GET /api/stream` | Server-Sent Events stream (5s cadence) |
+| `GET /api/trace/{id}` | Full `TraceEntry` — every span, stack, event, attribute |
+| `POST /api/replay` | Re-fire a captured request. Body: `{ "method": "POST", "path": "/api/v1/orders", "body": "..." }` |
 
 ## Recipes
 

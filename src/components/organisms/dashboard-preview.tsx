@@ -21,6 +21,21 @@ const capabilities = [
       "GORM callbacks record every SELECT / INSERT / UPDATE / DELETE with rows affected and wall-clock duration. Instant answer to \"why is this request slow?\".",
   },
   {
+    title: "Per-request trace waterfall",
+    description:
+      "An OpenTelemetry SpanProcessor snapshots every span — controller, service, repository, SQL — into a nested timeline. Click a row to see exactly which layers the request traversed and what each cost.",
+  },
+  {
+    title: "Stack snapshots per span",
+    description:
+      "Every span captures the Go call stack at start (runtime.Callers, 20 frames deep) so clicking a span shows the file and line where it was opened — no need to alt-tab to your IDE.",
+  },
+  {
+    title: "One-click request replay",
+    description:
+      "The captured request body lives in the ring alongside the method and path. Press Replay on any row to re-fire the exact same request against the live app and watch the trace + SQL update in real time.",
+  },
+  {
     title: "App health + compose services",
     description:
       "Polls /health every 5s, queries `docker compose ps` for service states, and surfaces both alongside routes scraped from docs/swagger.json.",
@@ -360,6 +375,26 @@ export function DashboardPreview() {
                 </table>
               </TableFrame>
 
+              {/* Trace waterfall — one expanded trace showing the
+                  controller → service → repo nesting. Mirrors what the
+                  real /api/trace/{id} endpoint returns, with the stack
+                  snapshot visible on the selected span so developers
+                  see the "click to see where the span was opened"
+                  affordance at a glance. */}
+              <SectionLabel>Trace · POST /api/v1/orders · 68ms</SectionLabel>
+              <TableFrame>
+                <div className="divide-y divide-gray-900 px-3 py-2">
+                  {traceSpans.map((sp, i) => (
+                    <TraceRow
+                      key={sp.name}
+                      span={sp}
+                      total={68}
+                      highlighted={i === 2}
+                    />
+                  ))}
+                </div>
+              </TableFrame>
+
               <div className="mt-3 text-[10px] text-gray-500">
                 Updated{" "}
                 <span className="gofasta-dashboard-updated font-mono text-gray-400">
@@ -440,6 +475,120 @@ function MethodBadge({ method }: { method: string }) {
     >
       {method}
     </span>
+  );
+}
+
+// ── Trace waterfall mock ────────────────────────────────────────────
+//
+// Fixed span tree describing a typical POST /api/v1/orders request.
+// Offsets + durations are in milliseconds, relative to the root span.
+// depth controls the indent of the span name.
+
+type TraceSpan = {
+  name: string;
+  kind: string;
+  offset: number;
+  duration: number;
+  depth: number;
+  stack?: string[];
+};
+
+const traceSpans: TraceSpan[] = [
+  {
+    name: "HTTP POST /api/v1/orders",
+    kind: "server",
+    offset: 0,
+    duration: 68,
+    depth: 0,
+  },
+  {
+    name: "OrderController.Create",
+    kind: "internal",
+    offset: 3,
+    duration: 62,
+    depth: 1,
+  },
+  {
+    name: "OrderService.Create",
+    kind: "internal",
+    offset: 7,
+    duration: 56,
+    depth: 2,
+    stack: [
+      "app/services/order.service.go:42 (*OrderService).Create",
+      "app/controllers/order.controller.go:91 (*OrderController).Create",
+      "app/rest/routes/order.go:28 InitOrderRoutes.func1",
+    ],
+  },
+  {
+    name: "OrderRepository.Create",
+    kind: "internal",
+    offset: 14,
+    duration: 38,
+    depth: 3,
+  },
+  {
+    name: "INSERT INTO orders",
+    kind: "client",
+    offset: 18,
+    duration: 31,
+    depth: 4,
+  },
+  {
+    name: "UserRepository.FindByID",
+    kind: "internal",
+    offset: 54,
+    duration: 6,
+    depth: 3,
+  },
+];
+
+function TraceRow({
+  span,
+  total,
+  highlighted,
+}: {
+  span: TraceSpan;
+  total: number;
+  highlighted?: boolean;
+}) {
+  const left = (span.offset / total) * 100;
+  const width = Math.max(1.2, (span.duration / total) * 100);
+  return (
+    <div
+      className={`py-1.5 ${
+        highlighted ? "rounded-md bg-primary/5 px-2 -mx-2" : ""
+      }`}
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)_120px] items-center gap-3">
+        <div
+          className="truncate font-mono text-[11px] text-gray-300"
+          style={{ paddingLeft: `${span.depth * 10}px` }}
+        >
+          <span className="text-gray-500">
+            {span.depth > 0 ? "└─ " : ""}
+          </span>
+          {span.name}
+          <span className="ml-1.5 text-[9px] uppercase tracking-widest text-gray-600">
+            {span.kind}
+          </span>
+        </div>
+        <div className="relative h-3.5 overflow-hidden rounded-sm bg-gray-900/50">
+          <div
+            className="absolute top-0 bottom-0 rounded-sm bg-primary/70"
+            style={{ left: `${left}%`, width: `${width}%` }}
+          />
+          <div className="absolute inset-0 flex items-center justify-end pr-1 font-mono text-[9px] text-gray-300">
+            {span.duration}ms
+          </div>
+        </div>
+      </div>
+      {highlighted && span.stack ? (
+        <pre className="mt-1.5 ml-3 overflow-auto rounded-sm bg-gray-900/80 p-2 font-mono text-[9.5px] leading-relaxed text-gray-500">
+          {span.stack.join("\n")}
+        </pre>
+      ) : null}
+    </div>
   );
 }
 
