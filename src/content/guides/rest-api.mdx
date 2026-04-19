@@ -33,7 +33,7 @@ import (
     "encoding/json"
     "net/http"
 
-    "github.com/gorilla/mux"
+    "github.com/go-chi/chi/v5"
     "github.com/gofastadev/gofasta/pkg/apperrors"
     "github.com/gofastadev/gofasta/pkg/httputil"
     "myapp/app/dtos"
@@ -73,7 +73,7 @@ func (c *ProductController) List(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (c *ProductController) GetByID(w http.ResponseWriter, r *http.Request) error {
-    id := mux.Vars(r)["id"]
+    id := chi.URLParam(r, "id")
     product, err := c.service.FindByID(r.Context(), id)
     if err != nil {
         return err
@@ -83,7 +83,7 @@ func (c *ProductController) GetByID(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (c *ProductController) Update(w http.ResponseWriter, r *http.Request) error {
-    id := mux.Vars(r)["id"]
+    id := chi.URLParam(r, "id")
     var req dtos.UpdateProductRequest
     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
         return apperrors.BadRequest("invalid request body")
@@ -98,7 +98,7 @@ func (c *ProductController) Update(w http.ResponseWriter, r *http.Request) error
 }
 
 func (c *ProductController) Archive(w http.ResponseWriter, r *http.Request) error {
-    id := mux.Vars(r)["id"]
+    id := chi.URLParam(r, "id")
     if err := c.service.Delete(r.Context(), id); err != nil {
         return err
     }
@@ -115,18 +115,17 @@ Routes live in `app/rest/routes/`. Each resource has its own route file that reg
 package routes
 
 import (
-    "github.com/gorilla/mux"
+    "github.com/go-chi/chi/v5"
     "github.com/gofastadev/gofasta/pkg/httputil"
     "myapp/app/rest/controllers"
 )
 
-func ProductRoutes(api *mux.Router, ctrl *controllers.ProductController) {
-    r := api.PathPrefix("/products").Subrouter()
-    r.HandleFunc("", httputil.Handle(ctrl.List)).Methods("GET")
-    r.HandleFunc("", httputil.Handle(ctrl.Create)).Methods("POST")
-    r.HandleFunc("/{id}", httputil.Handle(ctrl.GetByID)).Methods("GET")
-    r.HandleFunc("/{id}", httputil.Handle(ctrl.Update)).Methods("PUT")
-    r.HandleFunc("/{id}", httputil.Handle(ctrl.Archive)).Methods("DELETE")
+func ProductRoutes(r chi.Router, ctrl *controllers.ProductController) {
+    r.Get("/products", httputil.Handle(ctrl.List))
+    r.Post("/products", httputil.Handle(ctrl.Create))
+    r.Get("/products/{id}", httputil.Handle(ctrl.GetByID))
+    r.Put("/products/{id}", httputil.Handle(ctrl.Update))
+    r.Delete("/products/{id}", httputil.Handle(ctrl.Archive))
 }
 ```
 
@@ -135,9 +134,9 @@ All resource route files are registered in `app/rest/routes/index.routes.go`, wh
 ```go
 package routes
 
-import "github.com/gorilla/mux"
+import "github.com/go-chi/chi/v5"
 
-func RegisterRoutes(api *mux.Router, deps *di.Container) {
+func RegisterRoutes(api chi.Router, deps *di.Container) {
     UserRoutes(api, deps.UserController)
     ProductRoutes(api, deps.ProductController)
 }
@@ -252,11 +251,11 @@ Gofasta includes built-in middleware from `github.com/gofastadev/gofasta/pkg/mid
 
 ```go
 import (
-    "github.com/gorilla/mux"
+    "github.com/go-chi/chi/v5"
     "github.com/gofastadev/gofasta/pkg/middleware"
 )
 
-router := mux.NewRouter()
+router := chi.NewRouter()
 router.Use(middleware.Logger())
 router.Use(middleware.Recovery())
 router.Use(middleware.CORS(middleware.CORSConfig{
@@ -287,21 +286,24 @@ router.Use(middleware.RateLimiter(middleware.RateLimiterConfig{
 Apply auth middleware to specific route groups:
 
 ```go
-func RegisterRoutes(api *mux.Router, deps *di.Container) {
+func RegisterRoutes(api chi.Router, deps *di.Container) {
     // Public routes
     AuthRoutes(api, deps.AuthController)
 
-    // Protected routes
-    protected := api.PathPrefix("").Subrouter()
-    protected.Use(middleware.Auth(deps.JWTConfig))
-    ProductRoutes(protected, deps.ProductController)
-    OrderRoutes(protected, deps.OrderController)
+    // Protected routes — chi's Group runs the shared middleware for every
+    // route registered inside the callback without mounting at a new prefix.
+    api.Group(func(protected chi.Router) {
+        protected.Use(middleware.Auth(deps.JWTConfig))
+        ProductRoutes(protected, deps.ProductController)
+        OrderRoutes(protected, deps.OrderController)
+    })
 
-    // Admin-only routes
-    admin := api.PathPrefix("/admin").Subrouter()
-    admin.Use(middleware.Auth(deps.JWTConfig))
-    admin.Use(middleware.RBAC(deps.Enforcer))
-    AdminRoutes(admin, deps.AdminController)
+    // Admin-only routes — Route mounts the callback at a sub-path.
+    api.Route("/admin", func(admin chi.Router) {
+        admin.Use(middleware.Auth(deps.JWTConfig))
+        admin.Use(middleware.RBAC(deps.Enforcer))
+        AdminRoutes(admin, deps.AdminController)
+    })
 }
 ```
 
@@ -329,8 +331,89 @@ func (c *ProductController) Search(w http.ResponseWriter, r *http.Request) error
 }
 
 // In app/rest/routes/product.routes.go
-r.HandleFunc("/search", httputil.Handle(ctrl.Search)).Methods("GET")
+r.Get("/search", httputil.Handle(ctrl.Search))
 ```
+
+## Swapping the Router
+
+The scaffold uses [go-chi/chi](https://github.com/go-chi/chi) as its default HTTP router because it builds on `net/http`, has zero external dependencies, and adds ergonomic subrouters and middleware groups. Like every other `pkg/*` default in Gofasta, the router is an **opt-out default**, not a required dependency — you can swap it for `gorilla/mux`, `go-chi` v4, or even Go 1.22+'s standard `http.ServeMux` without touching the rest of the project.
+
+### What "swapping the router" means
+
+Every REST-facing file in a generated project touches the router in exactly one of three ways: it constructs the root router, it registers routes on a passed-in router argument, or it reads a path parameter. Replacing chi means editing those three touch points consistently across the files listed below. No framework code depends on chi — so once these files compile, you're done.
+
+### Files to edit
+
+| File | What to change |
+|------|----------------|
+| `app/rest/routes/index.routes.go` | Replace `chi.NewRouter()` with your router constructor. Replace `r.Mount("/api/v1", api)` with your router's subrouter/prefix equivalent. |
+| `app/rest/routes/*.routes.go` (one per resource) | Change the `r chi.Router` parameter type and the `r.Get` / `r.Post` / `r.Put` / `r.Delete` calls to your router's API. |
+| `app/rest/controllers/*.controller.go` (one per resource) | Replace every `chi.URLParam(r, "id")` call with your router's path-parameter helper. |
+| `cmd/serve.go` | If your replacement router does not return `http.Handler`, adjust the top-level `http.NewServeMux()` mount at `mux.Handle("/", apiRouter)`. |
+| `go.mod` | `go get` the replacement and remove the chi require line (run `go mod tidy` to clean up). |
+
+That's it — the framework (`github.com/gofastadev/gofasta/pkg/*`) never imports any router. Middleware in `pkg/middleware` is plain `func(http.Handler) http.Handler`, so it works with any router that accepts `net/http` middleware.
+
+### Example — swapping to gorilla/mux
+
+```go
+// app/rest/routes/user.routes.go
+package routes
+
+import (
+    "github.com/gorilla/mux"
+    "github.com/gofastadev/gofasta/pkg/httputil"
+    "myapp/app/rest/controllers"
+)
+
+func UserRoutes(r *mux.Router, uc *controllers.UserController) {
+    r.HandleFunc("/users", httputil.Handle(uc.ListUsers)).Methods("GET")
+    r.HandleFunc("/users/{id}", httputil.Handle(uc.GetUser)).Methods("GET")
+    // ...
+}
+```
+
+```go
+// app/rest/controllers/user.controller.go
+func (uc *UserController) GetUser(w http.ResponseWriter, r *http.Request) error {
+    id := mux.Vars(r)["id"]
+    // ...
+}
+```
+
+### Example — swapping to stdlib `http.ServeMux` (Go 1.22+)
+
+```go
+// app/rest/routes/user.routes.go
+package routes
+
+import (
+    "net/http"
+
+    "github.com/gofastadev/gofasta/pkg/httputil"
+    "myapp/app/rest/controllers"
+)
+
+func UserRoutes(mux *http.ServeMux, uc *controllers.UserController) {
+    mux.HandleFunc("GET /users", httputil.Handle(uc.ListUsers))
+    mux.HandleFunc("GET /users/{id}", httputil.Handle(uc.GetUser))
+    // ...
+}
+```
+
+```go
+// app/rest/controllers/user.controller.go
+func (uc *UserController) GetUser(w http.ResponseWriter, r *http.Request) error {
+    id := r.PathValue("id")
+    // ...
+}
+```
+
+Stdlib `ServeMux` has no built-in subrouter or per-group middleware. If you need those, either prefix every route manually or use `http.StripPrefix` with a nested `*http.ServeMux`.
+
+### `gofasta routes` after a swap
+
+The `gofasta routes` introspection command parses route files for chi's method-based API (`r.Get`, `r.Post`, etc.) and `r.Mount(...)` calls. If you swap routers, `gofasta routes` will return an empty list — it won't crash your app, but the CLI-side listing stops working. You can either stop using it, or vendor a small fork of `cli/internal/commands/routes.go` that matches your router's syntax.
 
 ## Next Steps
 

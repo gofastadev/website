@@ -193,7 +193,7 @@ Because the mock repository is a plain struct, each test only has to set the fun
 
 ## Testing Controllers
 
-Controllers are standard `net/http` handlers, so test them with the standard library's `net/http/httptest`. There is no special testing router; use the real `gorilla/mux` router and `httputil.Handle` wrapper.
+Controllers are standard `net/http` handlers, so test them with the standard library's `net/http/httptest`. There is no special testing router; use the real `chi.Router` and `httputil.Handle` wrapper.
 
 ```go
 package controllers_test
@@ -205,8 +205,8 @@ import (
     "net/http/httptest"
     "testing"
 
+    "github.com/go-chi/chi/v5"
     "github.com/google/uuid"
-    "github.com/gorilla/mux"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
 
@@ -228,8 +228,8 @@ func TestProductController_Create(t *testing.T) {
     svc := services.NewProductService(mockRepo)
     ctrl := controllers.NewProductController(svc)
 
-    router := mux.NewRouter()
-    router.HandleFunc("/products", httputil.Handle(ctrl.Create)).Methods(http.MethodPost)
+    router := chi.NewRouter()
+    router.Post("/products", httputil.Handle(ctrl.Create))
 
     body, _ := json.Marshal(map[string]any{"name": "Widget", "price": 9.99})
     req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewReader(body))

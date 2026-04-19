@@ -205,16 +205,18 @@ The auth middleware from `github.com/gofastadev/gofasta/pkg/middleware` validate
 
 ```go
 import (
-    "github.com/gorilla/mux"
+    "github.com/go-chi/chi/v5"
     "github.com/gofastadev/gofasta/pkg/middleware"
 )
 
-// Apply to a route group
-protected := api.PathPrefix("/api/v1").Subrouter()
-protected.Use(middleware.Auth(jwtConfig))
-// All routes in this group require a valid JWT
-protected.HandleFunc("/profile", httputil.Handle(userController.GetProfile)).Methods("GET")
-protected.HandleFunc("/profile", httputil.Handle(userController.UpdateProfile)).Methods("PUT")
+// Apply to a route group — chi's Group attaches shared middleware to every
+// route registered inside the callback without mounting at a new prefix.
+api.Group(func(protected chi.Router) {
+    protected.Use(middleware.Auth(jwtConfig))
+    // All routes in this group require a valid JWT
+    protected.Get("/profile", httputil.Handle(userController.GetProfile))
+    protected.Put("/profile", httputil.Handle(userController.UpdateProfile))
+})
 ```
 
 The middleware uses the standard `func(http.Handler) http.Handler` signature and:
@@ -284,7 +286,7 @@ Stack the RBAC middleware after the auth middleware:
 
 ```go
 import (
-    "github.com/gorilla/mux"
+    "github.com/go-chi/chi/v5"
     "github.com/gofastadev/gofasta/pkg/middleware"
 )
 
@@ -292,11 +294,12 @@ import (
 enforcer := middleware.NewCasbinEnforcer("configs/rbac_model.conf", "configs/rbac_policy.csv")
 
 // Admin routes require both authentication and admin role
-admin := api.PathPrefix("/api/v1/admin").Subrouter()
-admin.Use(middleware.Auth(jwtConfig))
-admin.Use(middleware.RBAC(enforcer))
-admin.HandleFunc("/users", httputil.Handle(adminController.ListUsers)).Methods("GET")
-admin.HandleFunc("/users/{id}", httputil.Handle(adminController.DeleteUser)).Methods("DELETE")
+api.Route("/api/v1/admin", func(admin chi.Router) {
+    admin.Use(middleware.Auth(jwtConfig))
+    admin.Use(middleware.RBAC(enforcer))
+    admin.Get("/users", httputil.Handle(adminController.ListUsers))
+    admin.Delete("/users/{id}", httputil.Handle(adminController.DeleteUser))
+})
 ```
 
 The RBAC middleware uses the standard `func(http.Handler) http.Handler` signature and:

@@ -41,7 +41,7 @@ myapp/
 │   ├── migrations/         # SQL migration files (up + down)
 │   └── seeds/              # Database seed functions
 ├── configs/                # RBAC policies, feature flags
-├── deployments/            # Docker, Kubernetes, CI/CD, nginx, systemd
+├── deployments/            # Docker, CI/CD workflows, nginx, systemd
 ├── templates/emails/       # HTML email templates
 │   └── layouts/            # Email layout templates
 ├── locales/                # Translation files (i18n YAML)
@@ -59,11 +59,22 @@ myapp/
 
 ### `app/` — Your Application Code
 
-This is where you spend most of your time. It follows a layered architecture:
+This is where you spend most of your time. It follows a layered architecture — one directory per technical concern (models, DTOs, repositories, services, controllers, routes), with each resource contributing one file to each directory:
 
 ```
 Request → Controller → Service → Repository → Database
 ```
+
+#### Why layered, not feature-module
+
+This layout is a deliberate choice, not an oversight. The main alternative — **feature modules** (also called vertical slice architecture, package by feature, or DDD modules), where each business domain lives in its own directory containing its controller, service, repository, and model together — has real merits for large applications. Gofasta ships with a layered layout because:
+
+- **It matches the mental model of developers coming from Rails, Django, Laravel, and ASP.NET MVC.** These are the ecosystems where Rails-style scaffolding originated and where most backend engineers meet the "controller → service → repository" pipeline for the first time.
+- **It keeps small projects small.** For an app with 3–8 resources, flat layer directories are simpler to navigate than nested feature modules.
+- **It aligns with Go's stdlib aesthetic** of small, focused packages (`net/http`, `encoding/json`, `database/sql`) rather than large multi-concern packages.
+- **Cross-cutting concerns have a natural home.** Shared DTOs, middleware, and validators don't have to be forced into a `shared/` or `common/` grab-bag.
+
+For projects that grow past ~15 resources or multiple teams, feature-module structure scales better. The [Restructuring to feature modules](#restructuring-to-feature-modules) section below explains how to migrate — the change is localized and the `pkg/*` library imposes zero assumptions about which layout you use.
 
 - **`models/`** — GORM database models. Each model embeds `models.BaseModelImpl` from the gofasta library to get standard fields (ID, timestamps, soft delete, versioning).
 - **`dtos/`** — Data Transfer Objects for request parsing and response formatting. Keeps your API contract separate from your database models.
@@ -73,7 +84,7 @@ Request → Controller → Service → Repository → Database
 - **`rest/routes/`** — Route definitions. Maps HTTP methods and paths to controller methods.
 - **`graphql/`** — Schema files (`.gql`) and resolvers. gqlgen generates resolver stubs from your schema. This directory is only present when the project was created with `gofasta new --graphql`.
 - **`validators/`** — Custom validation rules using `go-playground/validator/v10` struct tags.
-- **`di/`** — Google Wire dependency injection. `wire.go` defines how to build the container; `wire_gen.go` is the generated output. Tools are registered via `go mod edit -tool` (Go 1.25.8 tool dependencies) and invoked via `go tool wire`, `go tool gqlgen`, etc.
+- **`di/`** — Google Wire dependency injection. `wire.go` defines how to build the container; `wire_gen.go` is the generated output. Tools are registered via `go mod edit -tool` (Go 1.24+ tool dependencies) and invoked via `go tool wire`, `go tool gqlgen`, etc.
 - **`jobs/`** — Cron jobs for scheduled background work.
 - **`tasks/`** — Async task handlers using `hibiken/asynq`.
 
@@ -92,13 +103,12 @@ Your project has its own CLI built with Cobra:
 
 ### `deployments/` — Infrastructure
 
-Pre-configured deployment files for multiple targets:
+Configuration for the deployment target gofasta natively supports: a Linux VPS running Docker or systemd, reached over SSH via [`gofasta deploy`](/docs/cli-reference/deploy).
 
-- **`ci/`** — GitHub Actions workflows (test, release, deploy to AWS/GCP/Azure/VPS)
-- **`docker/`** — Development Dockerfile, production compose file
-- **`k8s/`** — Kubernetes deployment, service, and ingress manifests
-- **`nginx/`** — Reverse proxy configuration
-- **`systemd/`** — Service file and deploy script for VPS deployments
+- **`ci/`** — GitHub Actions workflow templates (test, release, deploy-vps). These ship as inert YAML; copy them into `.github/workflows/` to activate — see the [deployment guide](/docs/guides/deployment#github-actions-workflows) for details.
+- **`docker/`** — Production compose file used by `gofasta deploy`, plus a development Dockerfile with Air for hot reload.
+- **`nginx/`** — Reverse proxy configuration with TLS termination.
+- **`systemd/`** — Service unit and reference deploy script used by the `binary` deploy method.
 
 ### `config.yaml` — Application Configuration
 
@@ -139,6 +149,112 @@ Settings can be overridden with environment variables using the prefix `GOFASTA_
 | `app/rest/routes/product.routes.go` | `pkg/middleware` — CORS, logging, rate limiting |
 | `config.yaml` | `pkg/config` — LoadConfig(), SetupDB() |
 | `cmd/serve.go` | `pkg/health` — Health check endpoints |
+
+## Restructuring to feature modules
+
+The layered default fits most projects, but for larger codebases — many resources, multiple teams, or plans to extract microservices later — **feature modules** (also called vertical slice architecture or package by feature) scale better. The idea: each business domain gets its own directory containing everything that feature needs.
+
+### What the target layout looks like
+
+```
+app/
+├── user/
+│   ├── model.go              # GORM model
+│   ├── repository.go         # Repository impl
+│   ├── repository_iface.go   # Repository interface
+│   ├── service.go            # Business logic
+│   ├── service_iface.go      # Service interface
+│   ├── controller.go         # REST handlers
+│   ├── routes.go             # chi.Router registration
+│   ├── dtos.go               # Request/response types
+│   ├── validators.go         # Feature-specific validators (optional)
+│   └── service_test.go
+├── product/                  # Same shape, different domain
+│   ├── model.go
+│   ├── repository.go
+│   ├── service.go
+│   ├── controller.go
+│   ├── routes.go
+│   └── dtos.go
+├── invoice/                  # Same shape, different domain
+├── shared/                   # Cross-cutting types: common DTOs, shared validators
+├── di/                       # Stays as a top-level concern
+├── jobs/                     # Stays layered — cron jobs don't belong to one domain
+└── tasks/                    # Stays layered — async tasks typically cross domains
+```
+
+### Benefits you get
+
+- **Change locality.** Add a `Subscription` resource → create one directory. Under layered, that same addition edits `models/`, `dtos/`, `repositories/`, `services/`, `controllers/`, `routes/`, `validators/`, and tests — eight places for one feature.
+- **Package-private encapsulation.** Because Go hides lowercase identifiers at the package boundary, a `user/` package can expose `user.Service` and `user.Controller` while keeping `repository`, `mapper`, and internal types unexported. Layered structure forces most types public because layers reference each other across package boundaries.
+- **Readable `ls app/`.** `user/ product/ invoice/ subscription/ notification/` tells you what the app does. Layered `controllers/ services/ repositories/` tells you only how it's built.
+- **Easier extraction.** One feature = one candidate microservice later. No multi-directory hunt.
+
+### Drawbacks to weigh
+
+- **More ceremony for small apps.** Three resources in three folders with six files each is heavier than six flat folders with three files each.
+- **Cross-feature references need discipline.** `user` referencing `invoice` can create import cycles if not careful. DDD's rule is that only aggregate roots cross module boundaries, and usually through an interface defined in the consumer side.
+- **Unfamiliar to ex-Rails developers.** Feature modules feel like Spring/NestJS/Django apps; flat layers feel like Rails. Team background matters.
+
+### Migration recipe
+
+Starting from a layered Gofasta scaffold, moving one resource at a time keeps the app compilable throughout:
+
+1. **Create the feature directory** — e.g., `mkdir app/user`.
+
+2. **Move and rename files** — `git mv` each layer's user file into the new directory, and rename to drop the redundant prefix:
+
+   ```bash
+   git mv app/models/user.model.go                  app/user/model.go
+   git mv app/dtos/user.dtos.go                     app/user/dtos.go
+   git mv app/repositories/user.repository.go       app/user/repository.go
+   git mv app/repositories/interfaces/user_repository.go  app/user/repository_iface.go
+   git mv app/services/user.service.go              app/user/service.go
+   git mv app/services/interfaces/user_service.go   app/user/service_iface.go
+   git mv app/rest/controllers/user.controller.go   app/user/controller.go
+   git mv app/rest/routes/user.routes.go            app/user/routes.go
+   git mv app/validators/user.validators.go         app/user/validators.go
+   ```
+
+3. **Change each moved file's package declaration** from `package models`, `package services`, `package controllers`, etc. to `package user`.
+
+4. **Update imports in the moved files.** Internal references that used to cross packages (e.g., `controllers.UserController` calling `services.UserService`) collapse to in-package references (`Service` instead of `services.UserService`). Types like `models.User` become just `User`.
+
+5. **Update external callers** — `app/di/providers/user.go.tmpl`, `cmd/serve.go`, and `app/rest/routes/index.routes.go` need their imports changed from `app/rest/controllers`, `app/services`, etc. to `app/user`.
+
+6. **Regenerate Wire** — `gofasta wire`. The dependency graph didn't change, only the import paths, so generated output stays correct after imports are updated.
+
+7. **Compile + test** — `go build ./...` catches any missed import, then `go test ./...`.
+
+8. **Delete the now-empty `app/models/`, `app/dtos/`, etc.** directories for the migrated resource.
+
+9. **Repeat** for each resource.
+
+### What the CLI does (and doesn't) do
+
+As of today, `gofasta g scaffold Product name:string price:float` generates into the **layered** layout — that's the only output shape the generator supports. If you've restructured to feature modules, you have two options:
+
+- **Run `gofasta g scaffold`, then move the generated files** into your feature directory with the migration recipe above. Takes ~30 seconds per resource.
+- **Stop using `gofasta g scaffold`** for feature-module projects and write the files by hand. The eight-file template is predictable enough to copy-paste from an existing resource.
+
+A `--layout=feature` flag on `gofasta new` and the generators is on the wishlist — see [the white paper's roadmap](/docs/white-paper#24-roadmap) — but not yet implemented. If you'd find it useful, open an issue.
+
+### When to migrate (and when not to)
+
+Migrate when:
+
+- The app has ~15+ resources and growing.
+- Multiple teams are contributing and stepping on each other in shared layer directories.
+- You're planning to extract specific domains into separate services later.
+- The layered structure is creating visible coupling problems (e.g., `user.service` knows about `invoice.dtos`).
+
+Stay layered when:
+
+- The app has fewer than ~10 resources.
+- The team is mostly Rails/Django-background and the flat layout matches their mental model.
+- You haven't felt real pain from the current structure — speculative refactoring is the most expensive kind.
+
+Both layouts are legitimate. The Go community is genuinely split on this — Ben Johnson's "Standard Package Layout", the NestJS-inspired vertical-slice camp, and the traditional layered camp are all actively defended in production codebases. Pick the one that fits your team and your current scale; you can migrate later if the trade-offs shift.
 
 ## Next Steps
 

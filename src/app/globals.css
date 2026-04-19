@@ -1,25 +1,82 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafbfc;
-  --foreground: #1a202c;
-  --primary: #00add8;
-  --primary-dark: #0097be;
-  --accent: #00283a;
-  --surface: #ffffff;
-  --code-bg: #f1f5f9;
-  --muted: #64748b;
+  /* ═════════════════════════════════════════════════════════════════
+     Brand colour system — everything is a variation of Go Cyan
+     (hue 193°). Instead of pure black / white / neutral gray, every
+     surface, text colour, and border carries the primary hue at low
+     saturation, so the whole site reads as one cohesive brand.
+     ═════════════════════════════════════════════════════════════════ */
+
+  /* Primary scale — 50 (subtle wash) → 900 (deepest). Every step
+     shares hue 193°; saturation + lightness vary. */
+  --primary-50:  #e6f6fa;
+  --primary-100: #cfeef5;
+  --primary-200: #a2dff0;
+  --primary-300: #69cbe4;
+  --primary-400: #1cbbe0;
+  --primary-500: #00add8;   /* the brand colour */
+  --primary-600: #0095ba;
+  --primary-700: #00728f;
+  --primary-800: #06556b;
+  --primary-900: #0b3846;
+
+  /* Tinted neutral scale — hue 193°-195° at 25–45% saturation. Much
+     more saturation than a standard "gray" palette so the brand hue
+     is visibly present in every surface and every piece of text. The
+     darkest neutrals read as deep teal-navy, not black; the lightest
+     as ice-cyan, not white. */
+  --neutral-50:  #edf6f8;
+  --neutral-100: #d9eaee;
+  --neutral-200: #bdd5db;
+  --neutral-300: #98bac3;
+  --neutral-400: #6e97a4;
+  --neutral-500: #507583;
+  --neutral-600: #3a5864;
+  --neutral-700: #27404a;
+  --neutral-800: #172b34;
+  --neutral-900: #0a1c24;
+
+  /* Semantic aliases — these are what components and the rest of the
+     stylesheet read. No pure white / black anywhere in the site. */
+  --primary: var(--primary-500);
+  --primary-dark: var(--primary-600);
+  --primary-rgb: 0 173 216;
+  --background: var(--neutral-100);
+  --background-rgb: 217 234 238;
+  --surface: var(--neutral-50);
+  --foreground: var(--neutral-900);
+  --muted: var(--neutral-500);
+  --code-bg: var(--neutral-200);
+  --accent: var(--primary-800);
+
+  /* Terminal surfaces — intentionally the Go-ecosystem slate/navy
+     palette regardless of theme, so terminal mock-ups look like a
+     terminal in every mode. */
+  --terminal-surface: #0d1117;
+  --terminal-bg: #1e293b;
+  --terminal-accent: #4fd1e5;
+
+  /* Contrast helper — white text on --primary for selection and any
+     primary-filled button. Pure white is the single exception to the
+     "no white" rule because short bursts of selected text need max
+     contrast. */
+  --on-primary: #ffffff;
 }
 
 .dark {
-  --background: #0d1117;
-  --foreground: #e2e8f0;
+  /* Flip the neutral ramp + brighten the primary for dark surfaces.
+     Every alias still resolves to the same tinted scale — dark mode
+     isn't "gray mode", it's the same brand turned inside-out. */
   --primary: #4fd1e5;
-  --primary-dark: #00add8;
-  --accent: #38bdf8;
-  --surface: #161b22;
-  --code-bg: #1e293b;
-  --muted: #94a3b8;
+  --primary-rgb: 79 209 229;
+  --background: var(--neutral-900);
+  --background-rgb: 10 28 36;
+  --surface: var(--neutral-800);
+  --foreground: var(--neutral-100);
+  --muted: var(--neutral-400);
+  --code-bg: var(--neutral-800);
+  --accent: var(--primary-300);
 }
 
 @theme inline {
@@ -31,6 +88,53 @@
   --color-surface: var(--surface);
   --color-code-bg: var(--code-bg);
   --color-muted: var(--muted);
+  --color-terminal-surface: var(--terminal-surface);
+  --color-terminal-bg: var(--terminal-bg);
+  --color-terminal-accent: var(--terminal-accent);
+  --color-on-primary: var(--on-primary);
+
+  /* Expose the full primary scale so Tailwind classes like
+     `bg-primary-50`, `text-primary-700`, `border-primary-200` are
+     available site-wide without hard-coding any hex. */
+  --color-primary-50:  var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-200: var(--primary-200);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary-800: var(--primary-800);
+  --color-primary-900: var(--primary-900);
+
+  /* Override Tailwind's default gray palette with the brand-tinted
+     neutrals. Every existing text-gray-*, bg-gray-*, border-gray-*
+     class in the codebase now resolves to a gray with a hint of the
+     primary hue — no component changes required. */
+  --color-gray-50:  var(--neutral-50);
+  --color-gray-100: var(--neutral-100);
+  --color-gray-200: var(--neutral-200);
+  --color-gray-300: var(--neutral-300);
+  --color-gray-400: var(--neutral-400);
+  --color-gray-500: var(--neutral-500);
+  --color-gray-600: var(--neutral-600);
+  --color-gray-700: var(--neutral-700);
+  --color-gray-800: var(--neutral-800);
+  --color-gray-900: var(--neutral-900);
+
+  /* Mirror the same palette under `neutral-*` so components that
+     prefer the semantic name pick up the same values. */
+  --color-neutral-50:  var(--neutral-50);
+  --color-neutral-100: var(--neutral-100);
+  --color-neutral-200: var(--neutral-200);
+  --color-neutral-300: var(--neutral-300);
+  --color-neutral-400: var(--neutral-400);
+  --color-neutral-500: var(--neutral-500);
+  --color-neutral-600: var(--neutral-600);
+  --color-neutral-700: var(--neutral-700);
+  --color-neutral-800: var(--neutral-800);
+  --color-neutral-900: var(--neutral-900);
+
   --font-sans: var(--font-poppins);
   --font-mono: var(--font-geist-mono);
 }
@@ -51,9 +155,542 @@ body {
   font-family: var(--font-poppins), system-ui, sans-serif;
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+   Branded text selection — both themes use the primary brand colour as
+   the selection background with theme-appropriate contrast text. Pulled
+   from --primary / --on-primary so there's exactly one source of truth.
+   ────────────────────────────────────────────────────────────────────── */
+::selection {
+  background-color: var(--primary);
+  color: var(--on-primary);
+  text-shadow: none;
+}
+::-moz-selection {
+  background-color: var(--primary);
+  color: var(--on-primary);
+  text-shadow: none;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Navbar surface — fully opaque so nav text is never washed out by the
+   hero's radial gradients bleeding through. Uses the themed --surface
+   / --background tokens so there's still zero hardcoded hex in the
+   component; swap `--surface` to `--background` in dark mode so the
+   navbar matches the page background exactly. Child text colours are
+   pinned here too — defeats any ancestor opacity / blend-mode /
+   backdrop-filter interaction that was washing them out before.
+   ────────────────────────────────────────────────────────────────────── */
+.gofasta-navbar-surface {
+  background-color: var(--surface);
+}
+.dark .gofasta-navbar-surface {
+  background-color: var(--background);
+}
+
+/* Pin every text-bearing descendant of the navbar to --foreground, so
+   the Logo span, the NavLinks anchors, and the ThemeToggle button
+   icon all resolve to the same readable colour regardless of
+   Tailwind class ordering or compilation quirks. SVG strokes already
+   use currentColor → they inherit automatically from the button. */
+.gofasta-navbar-surface,
+.gofasta-navbar-surface a,
+.gofasta-navbar-surface span,
+.gofasta-navbar-surface button {
+  color: var(--foreground);
+}
+
+/* Hover → primary for any interactive element. */
+.gofasta-navbar-surface a:hover,
+.gofasta-navbar-surface a:hover span,
+.gofasta-navbar-surface button:hover {
+  color: var(--primary);
+}
+
 
 /* Nextra primary color override — Go cyan hue */
 :root {
   --nextra-primary-hue: 193deg;
   --nextra-primary-saturation: 100%;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Homepage illustrations & ambient motion
+   (inspired by next.js and angular.dev — grid backgrounds, floating
+   gradient orbs, headline shimmer, card glow borders, conic-rotating
+   CTA ring). All pure CSS, respects prefers-reduced-motion.
+   ────────────────────────────────────────────────────────────────────── */
+
+@keyframes gofasta-orb-float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(0, -24px, 0) scale(1.04); }
+}
+
+@keyframes gofasta-orb-float-slow {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(0, 18px, 0) scale(0.96); }
+}
+
+@keyframes gofasta-headline-shimmer {
+  0%   { background-position:   0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes gofasta-cursor-blink {
+  0%, 49%  { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes gofasta-conic-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes gofasta-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes gofasta-term-line-in {
+  from { opacity: 0; transform: translateY(4px); filter: blur(2px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes gofasta-chip-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes gofasta-chip-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / 0); }
+  50%      { box-shadow: 0 0 0 6px rgb(var(--primary-rgb) / 0.18); }
+}
+
+@keyframes gofasta-pulse-dot {
+  0%, 100% { opacity: 0.45; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+
+@keyframes gofasta-number-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+@keyframes gofasta-draw-in {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes gofasta-icon-spin-once {
+  from { transform: rotate(-8deg) scale(0.95); }
+  to   { transform: rotate(0deg) scale(1); }
+}
+
+/* Flow connector — the animated dotted bar that links QuickStart
+   steps. The background-position animation makes the dashed pattern
+   appear to flow from step 1 to step 4 (or top-to-bottom on mobile). */
+@keyframes gofasta-flow-dash {
+  from { background-position: 0 0; }
+  to   { background-position: 32px 0; }
+}
+@keyframes gofasta-flow-dash-vert {
+  from { background-position: 0 0; }
+  to   { background-position: 0 32px; }
+}
+
+/* Traveling dot — rides across the QuickStart connector and repeats.
+   `--from` and `--to` control the sweep extent, set inline if the
+   connector needs a custom range. */
+@keyframes gofasta-dot-travel-x {
+  0%   { left: 0%;   opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+@keyframes gofasta-dot-travel-y {
+  0%   { top: 0%;    opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 1; }
+  100% { top: 100%;  opacity: 0; }
+}
+
+/* Radiating arrow — dashed line "streams" data outward. Animates the
+   stroke-dashoffset so the dashes march along the line continuously. */
+@keyframes gofasta-stream {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -24; }
+}
+
+/* Pillar arc — the decorative quarter-circle in each pillar card.
+   Slowly rotates and subtly scales. */
+@keyframes gofasta-arc-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Hero ambient code — Go snippets scattered through the hero
+   background, each slowly fading in and out so the scene feels
+   alive without distracting. Opacity range intentionally low so the
+   text never competes with the headline / CTAs / terminal. */
+@keyframes gofasta-code-breath {
+  0%, 100% { opacity: 0.05; transform: translateY(0); }
+  50%      { opacity: 0.14; transform: translateY(-2px); }
+}
+
+/* Dashboard mockup — small animated details that make the preview
+   feel live without being distracting. The pulse runs on the status
+   dots next to "healthy" / "ok"; the timestamp line does a subtle
+   opacity dip every 5s to suggest the SSE refresh cycle; the row
+   slide-in runs on each newly-prepended request/SQL entry. */
+@keyframes gofasta-dashboard-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.35); }
+}
+@keyframes gofasta-dashboard-refresh {
+  0%, 92%, 100% { opacity: 1; }
+  96%           { opacity: 0.45; }
+}
+@keyframes gofasta-dashboard-row-in {
+  0%   {
+    opacity: 0;
+    transform: translateY(-6px);
+    background-color: rgb(var(--primary-rgb) / 0.08);
+  }
+  50%  {
+    opacity: 1;
+    transform: translateY(0);
+    background-color: rgb(var(--primary-rgb) / 0.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    background-color: transparent;
+  }
+}
+
+
+/* Headline gradient shimmer — animates the gradient position so the
+   gradient-clipped text appears to "shine". */
+.gofasta-headline-shimmer {
+  background-size: 200% 100%;
+  animation: gofasta-headline-shimmer 6s linear infinite;
+}
+
+/* Floating orb — big soft radial-gradient disc positioned absolutely
+   by its container. `.gofasta-orb-slow` uses a different phase. */
+.gofasta-orb {
+  animation: gofasta-orb-float 9s ease-in-out infinite;
+}
+.gofasta-orb-slow {
+  animation: gofasta-orb-float-slow 13s ease-in-out infinite;
+}
+
+/* Dotted grid background — a repeating radial-gradient of small dots,
+   masked by a soft radial fade so it dissolves toward the edges. The
+   primary colour channel auto-themes via --primary-rgb. */
+.gofasta-grid-bg {
+  background-image: radial-gradient(
+    circle at center,
+    rgb(var(--primary-rgb) / 0.18) 1px,
+    transparent 1.5px
+  );
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 40%, transparent 75%);
+          mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 40%, transparent 75%);
+}
+
+/* Terminal cursor — solid block that blinks. Used after the last line
+   of the hero terminal to suggest the project's still running. */
+.gofasta-cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  vertical-align: -0.12em;
+  background: var(--terminal-accent);
+  animation: gofasta-cursor-blink 1s steps(1, end) infinite;
+}
+
+/* Card gradient-border-on-hover — a conic gradient rotates slowly
+   behind the card, revealed only on hover by fading in the ::before
+   pseudo-element. Inspired by next.js feature cards. */
+.gofasta-card-glow {
+  position: relative;
+  isolation: isolate;
+}
+.gofasta-card-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgb(var(--primary-rgb) / 0.55) 90deg,
+    transparent 180deg,
+    rgb(var(--primary-rgb) / 0.55) 270deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  animation: gofasta-conic-spin 6s linear infinite;
+  animation-play-state: paused;
+  z-index: -1;
+  pointer-events: none;
+}
+.gofasta-card-glow:hover::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+/* CTA-section rotating ring — a slow conic gradient around the rounded
+   panel, always on (subtle), amped up on hover. */
+.gofasta-cta-ring {
+  position: relative;
+  isolation: isolate;
+}
+.gofasta-cta-ring::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from 0deg,
+    rgb(var(--primary-rgb) / 0) 0deg,
+    rgb(var(--primary-rgb) / 0.6) 120deg,
+    rgb(var(--primary-rgb) / 0) 240deg,
+    rgb(var(--primary-rgb) / 0.6) 330deg,
+    rgb(var(--primary-rgb) / 0) 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: gofasta-conic-spin 22s linear infinite;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Scroll-reveal fade-up — runs once on mount. Applied to section headings
+   so sections feel alive without heavy JS. */
+.gofasta-fade-up {
+  animation: gofasta-fade-up 700ms ease-out both;
+}
+
+/* Terminal line-by-line reveal — each `.gofasta-term-line` fades,
+   slides, and blur-clears into view. Stagger via the `--delay` custom
+   property set inline per line. */
+.gofasta-term-line {
+  display: block;
+  opacity: 0;
+  animation: gofasta-term-line-in 450ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--gofasta-term-delay, 0s);
+}
+
+/* Stack-grid chip reveal — staggered fade-up-and-scale-in. Uses
+   --gofasta-chip-delay (inline) so the chips cascade. */
+.gofasta-chip {
+  opacity: 0;
+  animation: gofasta-chip-in 500ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--gofasta-chip-delay, 0s);
+}
+
+/* Stack-grid chip hover — small pulsing ring pulled from the Next.js
+   playbook. Runs only while the mouse is over the chip. */
+.gofasta-chip:hover {
+  animation: gofasta-chip-pulse 1.2s ease-in-out infinite;
+}
+
+/* Live-status dot — pulses on the TypewriterCode label while output is
+   still streaming. Switches to a solid green dot when typing completes. */
+.gofasta-pulse-dot {
+  animation: gofasta-pulse-dot 1.1s ease-in-out infinite;
+}
+
+/* Pillar number float — gentle up-and-down on the "01 / 02 / 03"
+   markers. Each card gets its own phase via inline animation-delay. */
+.gofasta-number-float {
+  animation: gofasta-number-float 4s ease-in-out infinite;
+}
+
+/* Feature-card icon — on hover, the SVG icon does a single, crisp
+   "draw-in" via stroke-dashoffset, plus a small rotate-back to rest.
+   Applied only when the parent card is hovered so the motion feels
+   causal. */
+.gofasta-icon-draw svg {
+  transition: transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transform-origin: center;
+}
+.gofasta-icon-draw:hover svg {
+  animation: gofasta-icon-spin-once 450ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.gofasta-icon-draw svg path,
+.gofasta-icon-draw svg circle,
+.gofasta-icon-draw svg rect,
+.gofasta-icon-draw svg polyline,
+.gofasta-icon-draw svg polygon,
+.gofasta-icon-draw svg ellipse,
+.gofasta-icon-draw svg line {
+  stroke-dasharray: 140;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.gofasta-icon-draw:hover svg path,
+.gofasta-icon-draw:hover svg circle,
+.gofasta-icon-draw:hover svg rect,
+.gofasta-icon-draw:hover svg polyline,
+.gofasta-icon-draw:hover svg polygon,
+.gofasta-icon-draw:hover svg ellipse,
+.gofasta-icon-draw:hover svg line {
+  stroke-dashoffset: 140;
+  animation: gofasta-draw-in 700ms cubic-bezier(0.22, 0.61, 0.36, 1) 50ms forwards;
+}
+
+/* QuickStart flow connector — a horizontal (desktop) or vertical
+   (mobile) dashed bar whose pattern scrolls continuously, with a
+   bright dot sweeping across. Positioned absolutely by the parent
+   QuickStart section. */
+.gofasta-flow-bar {
+  background-image: linear-gradient(
+    to right,
+    rgb(var(--primary-rgb) / 0.55) 0 8px,
+    transparent 8px 16px
+  );
+  background-size: 16px 2px;
+  background-repeat: repeat-x;
+  animation: gofasta-flow-dash 1.8s linear infinite;
+}
+.gofasta-flow-bar-vert {
+  background-image: linear-gradient(
+    to bottom,
+    rgb(var(--primary-rgb) / 0.55) 0 8px,
+    transparent 8px 16px
+  );
+  background-size: 2px 16px;
+  background-repeat: repeat-y;
+  animation: gofasta-flow-dash-vert 1.8s linear infinite;
+}
+
+.gofasta-flow-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgb(var(--primary-rgb) / 1) 0%,
+    rgb(var(--primary-rgb) / 0) 70%
+  );
+  box-shadow: 0 0 12px 2px rgb(var(--primary-rgb) / 0.8);
+  animation: gofasta-dot-travel-x 3.6s linear infinite;
+}
+.gofasta-flow-dot-vert {
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: gofasta-dot-travel-y 3.6s linear infinite;
+}
+
+/* AgentSpotlight stream lines — animated stroke-dashoffset so the
+   dashes march toward the terminal, creating a "data streaming"
+   feel. */
+.gofasta-stream-line {
+  stroke-dasharray: 4 6;
+  animation: gofasta-stream 1.2s linear infinite;
+}
+
+/* Pillar arc — decorative rotating quarter-circle in the upper-right
+   of each pillar card. Large, gradient-filled, low-opacity so it
+   reads as ambient light rather than content. */
+.gofasta-pillar-arc {
+  animation: gofasta-arc-rotate 22s linear infinite;
+  transform-origin: center;
+}
+
+/* Hero code fragments — gentle breath (opacity 0.12 → 0.28). Base
+   opacity kept far below the foreground text so the snippets never
+   compete with anything the reader actually needs to read. The
+   animation-delay is set inline per fragment so each breathes on its
+   own timing. */
+.gofasta-code-breath {
+  opacity: 0.05;
+  animation: gofasta-code-breath 9s ease-in-out infinite;
+}
+
+/* Dashboard live-status dot — pulses continuously like a real
+   heartbeat on the healthy services. */
+.gofasta-dashboard-pulse {
+  animation: gofasta-dashboard-pulse 1.6s ease-in-out infinite;
+}
+
+/* Dashboard "updated" timestamp — fades briefly every 5s, matching
+   the cadence of the real dashboard's SSE refresh. */
+.gofasta-dashboard-updated {
+  animation: gofasta-dashboard-refresh 5s ease-in-out infinite;
+}
+
+/* Dashboard row slide-in — every row in the Recent-Requests and
+   Recent-SQL tables carries this class. React re-creates the DOM node
+   when the row is prepended to the list (unique key), so the animation
+   fires once per fresh row. A brief primary-tinted flash highlights
+   the new entry before settling into the regular table colour. */
+.gofasta-dashboard-row {
+  animation: gofasta-dashboard-row-in 700ms ease-out both;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .gofasta-orb,
+  .gofasta-orb-slow,
+  .gofasta-headline-shimmer,
+  .gofasta-cursor,
+  .gofasta-card-glow::before,
+  .gofasta-cta-ring::before,
+  .gofasta-fade-up,
+  .gofasta-term-line,
+  .gofasta-chip,
+  .gofasta-pulse-dot,
+  .gofasta-number-float,
+  .gofasta-flow-bar,
+  .gofasta-flow-bar-vert,
+  .gofasta-flow-dot,
+  .gofasta-flow-dot-vert,
+  .gofasta-stream-line,
+  .gofasta-pillar-arc,
+  .gofasta-dashboard-pulse,
+  .gofasta-dashboard-updated,
+  .gofasta-dashboard-row {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .gofasta-code-breath {
+    animation: none !important;
+    transform: none !important;
+    /* keep opacity at the low base so the fragments don't suddenly
+       pop to fully visible for reduced-motion users. */
+    opacity: 0.09 !important;
+  }
+  .gofasta-chip:hover {
+    animation: none !important;
+  }
+  .gofasta-card-glow:hover::before {
+    opacity: 0;
+  }
+  .gofasta-icon-draw:hover svg,
+  .gofasta-icon-draw:hover svg path,
+  .gofasta-icon-draw:hover svg circle,
+  .gofasta-icon-draw:hover svg rect,
+  .gofasta-icon-draw:hover svg polyline,
+  .gofasta-icon-draw:hover svg polygon,
+  .gofasta-icon-draw:hover svg ellipse,
+  .gofasta-icon-draw:hover svg line {
+    animation: none !important;
+  }
 }

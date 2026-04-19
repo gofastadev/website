@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
 import { LandingTemplate } from "@/components/templates";
-import { Hero, FeaturesGrid, QuickStartSection, ComingSoon } from "@/components/organisms";
+import {
+  Hero,
+  AudienceTiles,
+  ValuePillars,
+  AgentSpotlight,
+  DashboardPreview,
+  FeaturesGrid,
+  ArchitectureStrip,
+  QuickStartSection,
+  CtaSection,
+  ComingSoon,
+} from "@/components/organisms";
 import { getKeywordsForPath } from "@/lib/seo-keywords";
 
 export const metadata: Metadata = {
@@ -19,14 +30,14 @@ const jsonLd = {
       url: "https://gofasta.dev",
       logo: "https://gofasta.dev/logo.png",
       description:
-        "CLI scaffolding and composable packages for Go web services. Generate models, APIs, auth, jobs, and deployment configs. No magic, just Go.",
+        "Agent-native Go toolkit that scaffolds production backends in one command. Auth, databases, jobs, observability, and deployment wired on day one. Standard Go, zero lock-in.",
     },
     {
       "@type": "WebSite",
       name: "Gofasta",
       url: "https://gofasta.dev",
       description:
-        "CLI scaffolding and composable packages for Go web services. Generate models, APIs, auth, jobs, and deployment configs. No magic, just Go.",
+        "Agent-native Go toolkit that scaffolds production backends in one command. Auth, databases, jobs, observability, and deployment wired on day one. Standard Go, zero lock-in.",
       potentialAction: {
         "@type": "SearchAction",
         target: "https://gofasta.dev/docs?search={search_term_string}",
@@ -40,7 +51,7 @@ const jsonLd = {
       operatingSystem: "Cross-platform",
       url: "https://gofasta.dev",
       description:
-        "A Go backend toolkit with CLI scaffolding, code generation, and composable packages for production web services.",
+        "Agent-native Go toolkit: CLI scaffolding, composable packages, and first-class AI coding agent support for production backend services.",
       offers: {
         "@type": "Offer",
         price: "0",
@@ -64,8 +75,14 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Hero />
+      <AudienceTiles />
+      <ValuePillars />
+      <AgentSpotlight />
+      <DashboardPreview />
       <FeaturesGrid />
+      <ArchitectureStrip />
       <QuickStartSection />
+      <CtaSection />
     </LandingTemplate>
   );
 }

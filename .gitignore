@@ -17,6 +17,10 @@
 /.next/
 /out/
 
+# Generated at build time by scripts/generate-llms-txt.mjs
+/public/llms.txt
+/public/llms-full.txt
+
 # production
 /build
 

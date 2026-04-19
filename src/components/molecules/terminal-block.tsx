@@ -9,7 +9,7 @@ export function TerminalBlock({ children, className }: TerminalBlockProps) {
   return (
     <div
       className={cn(
-        "w-full overflow-hidden rounded-xl border border-gray-200 bg-[#1e293b] shadow-2xl dark:border-gray-700",
+        "w-full overflow-hidden rounded-xl border border-gray-200 bg-terminal-bg shadow-2xl dark:border-gray-700",
         className
       )}
     >

@@ -1,0 +1,104 @@
+---
+title: gofasta verify
+description: Run the full preflight gauntlet — gofmt, vet, golangci-lint, tests, build, Wire drift, routes — in one command.
+---
+
+# gofasta verify
+
+Runs every quality gate that CI runs, in order, and fails fast on the first failure. Acts as the single "am I done?" check for both humans and AI coding agents — one command, structured JSON output, non-zero exit on any check failure.
+
+## Usage
+
+```bash
+gofasta verify [flags]
+```
+
+Run this command from the root directory of your Gofasta project.
+
+## Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--no-lint` | bool | `false` | Skip golangci-lint (useful on a machine without it installed) |
+| `--no-race` | bool | `false` | Skip the race detector in `go test` |
+| `--keep-going` | bool | `false` | Continue after the first failure and report every result |
+
+Inherits the global `--json` flag to emit one JSON object per check, suitable for agent consumption and CI automation.
+
+## Steps, in order
+
+1. **`gofmt -s -l .`** — formatting
+2. **`go vet ./...`** — compiler static checks
+3. **`golangci-lint run`** — aggregate linter (skipped if not on `$PATH`)
+4. **`go test -race ./...`** — tests with the race detector
+5. **`go build ./...`** — every package compiles
+6. **Wire drift** — `app/di/wire_gen.go` is in sync with its inputs
+7. **Routes** — `app/rest/routes/` parses and has at least one entry
+
+Each step blocks the next; fail-fast is the default. Pass `--keep-going` to run every step regardless of failures.
+
+## Examples
+
+Full preflight, text output:
+
+```bash
+$ gofasta verify
+  ✓ gofmt            (12ms)
+  ✓ go vet           (240ms)
+  ✓ golangci-lint    (3421ms)
+  ✓ go test          (8920ms)
+  ✓ go build         (1810ms)
+  ✓ wire drift       (4ms)
+  ✓ routes           (6ms)
+
+7 passed · 0 failed · 0 skipped · 14413ms
+```
+
+Structured JSON for agent consumption:
+
+```bash
+$ gofasta verify --json | jq '.checks[] | select(.status == "fail")'
+```
+
+Skip the linter on a machine without golangci-lint installed:
+
+```bash
+gofasta verify --no-lint
+```
+
+Run every check and report every result (useful for diagnosing multiple issues at once):
+
+```bash
+gofasta verify --keep-going
+```
+
+## Output shape (JSON)
+
+```json
+{
+  "checks": [
+    { "name": "gofmt", "status": "pass", "duration_ms": 12 },
+    { "name": "go vet", "status": "pass", "duration_ms": 240 },
+    { "name": "go test", "status": "fail",
+      "message": "tests failed",
+      "output": "--- FAIL: TestFoo ...",
+      "duration_ms": 3200 }
+  ],
+  "passed": 2,
+  "failed": 1,
+  "skipped": 0,
+  "duration_ms": 3452
+}
+```
+
+Fields are stable API — AI agents and CI pipelines consume them.
+
+## Why this exists
+
+Agents and humans commonly finish a task having run only one of the quality gates (usually `go test`). `gofasta verify` collapses every gate into one invocation, so the pre-commit check is always complete. Mirrors the `make preflight` target in the CLI and library repos — same contract, same mental model.
+
+## Related
+
+- [`gofasta do health-check`](/docs/cli-reference/do) -- runs `verify` + `status` together
+- [`gofasta status`](/docs/cli-reference/status) -- project drift report (complementary to `verify`)
+- [Testing guide](/docs/guides/testing) -- how to write tests `verify` will run

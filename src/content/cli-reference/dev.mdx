@@ -1,86 +1,199 @@
 ---
 title: gofasta dev
-description: Start the Gofasta development server with hot reload using Air.
+description: Bring the full local environment up with one command — compose services + migrations + Air hot reload.
 ---
 
-# gofasta dev
+# `gofasta dev`
 
-Starts the development server with automatic hot reload powered by [Air](https://github.com/air-verse/air). When you change any `.go` file, the server automatically rebuilds and restarts, giving you a fast feedback loop during development.
+One-command development loop. Runs the full pipeline: start compose services, wait for healthchecks, apply pending migrations, launch Air for hot-reload, stream structured events for agents, and tear everything down on `Ctrl+C`.
 
 ## Usage
 
 ```bash
-gofasta dev
+gofasta dev [flags]
 ```
 
-Run this command from the root directory of your Gofasta project.
+## Pipeline
 
-This command takes no flags.
+Each stage can be opted out independently.
 
-## Examples
+1. **Preflight** — verify `docker` and `docker compose` availability.
+2. **Fresh volumes** *(optional, `--fresh`)* — drop every compose volume before starting.
+3. **Service start** — `docker compose up -d <resolved services>`.
+4. **Health-wait** — poll each service's compose healthcheck until `healthy` (timeout 30s by default).
+5. **Migrate** — `migrate up` against the now-healthy database.
+6. **Seed** *(optional, `--seed`)* — run seeders after migrations.
+7. **Air** — exec `go tool air` against `.air.toml`.
+8. **Teardown** — on `SIGINT`/`SIGTERM`, stop services (volumes preserved by default).
 
-Start the dev server:
+On projects without a `compose.yaml`, steps 1–4 are short-circuited and the pipeline falls straight to Air — preserving the "I'm bringing my own DB" flow.
+
+## Flags
+
+| Flag | Default | Behavior |
+| --- | --- | --- |
+| `--no-services` | `false` | Skip all compose orchestration; just run Air (for an externally-managed database). |
+| `--no-db` | `false` | Skip DB-like services (postgres, mysql, clickhouse, mariadb, or anything suffixed `-db`). |
+| `--no-cache` | `false` | Skip cache-like services (redis, valkey, `-cache` suffix). |
+| `--no-queue` | `false` | Skip queue-like services (asynq, nats, rabbitmq, `-queue` suffix). |
+| `--no-migrate` | `false` | Skip `migrate up` after services become healthy. |
+| `--no-teardown` | `false` | Leave compose services running on exit (default: stop them). |
+| `--keep-volumes` | `true` | Preserve named volumes on teardown. Pass `--keep-volumes=false` to run `docker compose down -v` instead of `docker compose stop`. |
+| `--fresh` | `false` | Drop every compose volume before starting — forces a clean database state. |
+| `--services=<list>` | *(derived)* | Comma-separated explicit list. Overrides `--no-*` flags. |
+| `--profile=<name>` | *(none)* | Pass-through to `docker compose --profile` for optional services (e.g. `cache`, `queue`). |
+| `--wait-timeout=<duration>` | `30s` | How long to wait for compose services to report healthy. |
+| `--env-file=<path>` | `.env` | Alternate env file to load before Air. |
+| `--port=<n>` | *(from config)* | Override the `PORT` env var passed to Air / the app binary. |
+| `--rebuild` | `false` | Clear Air's `tmp/` build directory before starting so the next build is fresh. |
+| `--seed` | `false` | Run seeders after migrations (equivalent to `gofasta seed` afterward). |
+| `--dry-run` | `false` | Print the resolved plan and exit without touching anything. |
+| `--attach-logs` | `false` | Stream `docker compose logs -f` alongside Air output. |
+| `--dashboard` | `false` | Start the local dev dashboard — an HTML debug page with routes, health, and live service state. |
+| `--dashboard-port=<n>` | `9090` | Port for the dev dashboard HTTP server. |
+| `--json` | `false` *(persistent)* | Emit structured NDJSON events instead of human log lines. |
+
+## Flag resolution priority
+
+1. `--no-services` wins unconditionally — start nothing.
+2. `--services=a,b,c` overrides `--no-*` filters — start exactly those.
+3. Default: every non-app service in `compose.yaml`, minus any matched by `--no-*` name heuristics.
+
+## Structured output (`--json`)
+
+Pipe `gofasta dev --json` into `jq` or your CI. One NDJSON event per line:
+
+```json
+{"event":"preflight","status":"ok","docker":"28.0.1","compose":"v2.26.0"}
+{"event":"service","name":"db","status":"starting"}
+{"event":"service","name":"db","status":"healthy","duration_ms":2840}
+{"event":"migrate","status":"ok","applied":3}
+{"event":"air","status":"running","port":8080,"urls":{"rest":"http://localhost:8080","metrics":"/metrics","swagger":"/swagger/index.html","health":"/health"}}
+{"event":"shutdown","teardown":"stopped","exit":0}
+```
+
+## Error codes
+
+| Code | When |
+| --- | --- |
+| `DEV_DOCKER_UNAVAILABLE` | `docker` not on `$PATH` or daemon unreachable |
+| `DEV_COMPOSE_NOT_FOUND` | No `compose.yaml` but `--services` was set |
+| `DEV_SERVICE_UNHEALTHY` | A service didn't become healthy within `--wait-timeout` |
+| `DEV_MIGRATION_FAILED` | `migrate up` returned non-zero |
+| `DEV_AIR_NOT_INSTALLED` | `go tool air` not registered in `go.mod` |
+| `DEV_PORT_IN_USE` | The configured PORT is already bound |
+
+Each carries a `hint` and `docs` field in the JSON error payload — agents can branch on the code and surface the hint verbatim.
+
+## The dashboard
+
+`gofasta dev --dashboard` starts a tiny HTTP server on `:9090` (configurable via `--dashboard-port`) that serves a live HTML debug page:
+
+- Current app health (polled every 5s against `/health`)
+- Running compose services + their state
+- Registered REST routes (scraped from `docs/swagger.json`, including request/response Go types)
+- Direct links to `/swagger`, `/graphql`, `/metrics` when the project exposes them
+- Prometheus metrics (request totals, in-flight gauge, average latency)
+- Recent requests ring buffer (method, path, status, duration, trace ID, replay button)
+- Recent SQL queries with rows affected and duration
+- Per-request trace waterfall with nested spans, stack snapshots, and span events
+
+Updates stream over Server-Sent Events at `/api/stream`; the JSON snapshot is at `/api/state`. The dashboard dies with the rest of the pipeline on `Ctrl+C`.
+
+### Full-request inspection (Levels 1–4)
+
+When the app is built with the `devtools` build tag (`gofasta dev` sets this automatically via `GOFLAGS`), the dashboard stops being a read-only view and becomes an interactive inspector:
+
+**Level 1 — Trace waterfall.** An OpenTelemetry `SpanProcessor` registered by `devtools.RegisterTraceProcessor()` snapshots every span into an in-memory ring keyed by trace ID. Click a trace row to see a waterfall of nested spans — controller → service → repository → SQL — with offsets and durations drawn to scale.
+
+**Level 2 — Stack snapshots per span.** At span start, the processor records up to 20 call frames (`runtime.Callers`) so the dashboard can show exactly where in your source a span was opened. Click the ▸ beside a span to reveal its stack.
+
+**Level 3 — Auto-instrumented service/repository layers.** The scaffold's generators emit `otel.Tracer().Start(ctx, "Service.Method")` at the entry of every generated service and repository method. Any resource scaffolded with `gofasta g scaffold` contributes spans to the waterfall out of the box — no manual instrumentation needed.
+
+**Level 4 — Request replay.** Every captured request keeps its body (capped at 64 KiB) in the ring. The **Replay** button on any row POSTs that request back to the live app. Mutating methods (POST / PUT / PATCH / DELETE) prompt for confirmation first. The response body and status appear inline so you can iterate on a bug without re-clicking through the UI.
+
+All four levels are **no-cost in production**: the `devtools` package ships a stub (`//go:build !devtools`) whose middleware is a pass-through and whose `RegisterTraceProcessor` is a no-op. `go build` without `-tags devtools` dead-code-eliminates every debug surface.
+
+### Deep-inspection features
+
+The dashboard isn't just a live view — it's an interactive inspector covering the full request lifecycle. Everything below is gated behind the `devtools` build tag (set automatically by `gofasta dev`); production builds compile the stub and pay zero cost.
+
+**Go runtime profiles (pprof).** `net/http/pprof` is mounted under `/debug/pprof/` whenever the app runs with the devtools tag. The dashboard surfaces a Profiles panel with one-click links to CPU (30s), heap, goroutine, mutex, block, allocations, and execution trace profiles. Open them in `go tool pprof` or view inline via the browser UI.
+
+**Goroutine inspector.** The dashboard parses `/debug/pprof/goroutine?debug=2` and groups live goroutines by top-of-stack function — click to expand per-bucket stacks. Spotting a runaway goroutine leak is a single refresh away.
+
+**N+1 query detection.** Every captured SQL statement carries its trace ID and a normalized template (literals replaced with `?`). The dashboard groups by (trace, template); any trace with ≥3 duplicate templates surfaces as an N+1 finding with the offending template shown. Click the trace link to see exactly which request caused it.
+
+**EXPLAIN on click.** Each captured SELECT gets an **EXPLAIN** button. Clicking it opens a modal that ships the SQL + captured parameter values to the app's `/debug/explain` endpoint — the app runs EXPLAIN against GORM and returns the plan. A SELECT-only whitelist prevents accidentally re-executing DML.
+
+**Per-request log viewer.** `devtools.WrapLogger` decorates the project's `*slog.Logger` so every record is teed into an in-memory ring keyed by trace ID. Expand any trace row → switch to the Logs tab → see exactly which log lines that request emitted, with levels and attributes.
+
+**Panic + exception history.** `devtools.Recovery` wraps `pkg/middleware.Recovery`. Every recovered panic pushes an entry into the exceptions ring — recovered value, full stack, originating method + path, and the trace ID of the failing request. The Exceptions section surfaces the last 50 entries.
+
+**Cache hit-miss log.** `devtools.WrapCache` decorates `cache.CacheService` so every Get/Set/Delete/Flush/Ping is recorded with op, key, hit/miss flag, and duration. Click a trace ID to see which cache ops happened during that request.
+
+**Queue inspector.** When the scaffold's `asynqmon` compose service (profile=queue) is running, the dashboard detects it and surfaces a direct link in the App cards row.
+
+**Edit-and-replay.** The single-click Replay has been upgraded to an inline editor — click Replay, tweak the captured body in a textarea, hit Send. Response status + body appear inline; mutating methods prompt for confirmation first.
+
+**HAR export.** The **Export HAR** button in the Recent Requests header downloads the current ring as HAR 1.2 JSON, importable into Chrome DevTools, Insomnia, Postman, or any HAR-aware viewer.
+
+### Dashboard endpoints
+
+The dashboard HTTP server also exposes a small JSON API for agents and CI hooks:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /` | HTML page with server-side-rendered initial state and an SSE subscriber for live updates |
+| `GET /api/state` | Current `dashboardState` snapshot as JSON |
+| `GET /api/stream` | Server-Sent Events stream (5s cadence) |
+| `GET /api/trace/{id}` | Full `TraceEntry` — every span, stack, event, attribute |
+| `GET /api/logs?trace_id=<id>&level=<INFO>` | Slog records filtered by trace / level |
+| `POST /api/replay` | Re-fire a captured request. Body: `{ "method": "POST", "path": "/api/v1/orders", "body": "..." }` |
+| `POST /api/explain` | Run EXPLAIN against the registered GORM DB. Body: `{ "sql": "SELECT ...", "vars": ["a", "b"] }` |
+| `GET /api/har` | Download the current request ring as HAR 1.2 JSON |
+
+### Scaffold-side debug endpoints
+
+These live on the app itself (mounted under `/debug/` by `devtools.Handler()`), not on the dashboard. The dashboard scrapes them on a 5s refresher.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /debug/requests` | Captured `RequestEntry` ring (method, path, status, duration, trace ID, body, response body) |
+| `GET /debug/sql` | Captured `QueryEntry` ring (SQL, vars, rows, duration, trace ID) |
+| `GET /debug/traces` | Summary list of completed trace waterfalls |
+| `GET /debug/traces/{id}` | One full trace including every span, stack, event |
+| `GET /debug/logs?trace_id=&level=` | Filtered slog ring |
+| `GET /debug/errors` | Recent panics with stacks |
+| `GET /debug/cache` | Recent cache ops |
+| `POST /debug/explain` | EXPLAIN a SELECT |
+| `GET /debug/pprof/*` | Standard Go profiling endpoints |
+| `GET /debug/health` | `{"devtools":"enabled"}` or `{"devtools":"stub"}` |
+
+## Recipes
 
 ```bash
+# Everything up, hot-reload the app, Ctrl+C to stop.
 gofasta dev
+
+# Bring up services but run Air pointing at a different port.
+gofasta dev --port 8090
+
+# Host-run app with your own Postgres — bypass compose entirely.
+gofasta dev --no-services
+
+# Debug Air itself — no database, no migrations, just the rebuild loop.
+gofasta dev --no-services --no-migrate
+
+# Start with a fresh, seeded database every time.
+gofasta dev --fresh --seed
+
+# Start with the cache profile on so pkg/cache works (redis).
+gofasta dev --profile cache
+
+# Dev dashboard + log streaming + JSON mode for a CI run.
+gofasta dev --dashboard --attach-logs --json
+
+# Print the plan without running it — useful in CI sanity checks.
+gofasta dev --dry-run --json
 ```
-
-## How It Works
-
-The `gofasta dev` command performs the following steps:
-
-1. **Run migrations** -- if a database is available, pending migrations are applied automatically
-2. **Print endpoint URLs** -- displays the REST API URL and other endpoints. If `gqlgen.yml` exists in the project (i.e., the project was created with `--graphql`), the GraphQL and GraphQL Playground URLs are also displayed. Otherwise, only REST endpoints are shown.
-3. **Start Air** -- runs `go tool air` to watch for file changes and hot reload the server
-
-The Air configuration is stored in `.air.toml` at the project root. You can customize watched directories, excluded paths, build commands, and delay settings by editing this file.
-
-## Configuration
-
-The port is determined by (in order of precedence):
-
-1. `GOFASTA_` prefixed environment variables
-2. `PORT` environment variable
-3. `config.yaml` settings
-4. Default: `8080`
-
-## Available Endpoints
-
-Once the dev server is running, the following endpoints are available:
-
-| Endpoint | URL |
-|----------|-----|
-| REST API | `http://localhost:8080/api/v1/` |
-| Health Check | `http://localhost:8080/health` |
-| Swagger UI | `http://localhost:8080/swagger/index.html` |
-
-If the project was created with `--graphql` (i.e., `gqlgen.yml` exists), these additional endpoints are available:
-
-| Endpoint | URL |
-|----------|-----|
-| GraphQL | `http://localhost:8080/graphql` |
-| GraphQL Playground | `http://localhost:8080/graphql-playground` |
-
-Replace `8080` with your configured port if different.
-
-## Using Docker
-
-If you prefer running inside Docker with hot reload, use the provided Makefile command instead:
-
-```bash
-make dev
-```
-
-This starts the Docker Compose development profile, which includes both the application with Air hot reload and the database service.
-
-## Troubleshooting
-
-**Port already in use** -- If you see `bind: address already in use`, another process is using the port. Either stop that process or change the port in `config.yaml` or via the `PORT` environment variable.
-
-**Air not found** -- The `gofasta dev` command uses `go tool air` internally. If you encounter issues, make sure you have run `gofasta init` to install all dependencies.
-
-## Related
-
-- [gofasta serve](/docs/cli-reference/serve) -- start the production server
-- [gofasta new](/docs/cli-reference/new) -- create a new project
-- [Quick Start](/docs/getting-started/quick-start)
