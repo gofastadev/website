@@ -15,8 +15,15 @@ const geistMono = Geist_Mono({
 });
 
 const siteTitle = "Gofasta - Production-Ready Go Backend Toolkit";
+// siteDescription lands in <meta name="description"> and feeds every
+// page's OpenGraph fallback. Keep both halves of the positioning in
+// one ~160-char sentence — the traditional "scaffold + packages"
+// story AND the agent-native differentiator (Claude Code / Cursor /
+// Codex / Aider / Windsurf integrations, AGENTS.md shipped by
+// default, --json everywhere). Pages that override via their own
+// frontmatter still win; this is the fallback + homepage copy.
 const siteDescription =
-  "CLI scaffolding and composable packages for Go web services. Generate models, APIs, auth, jobs, and deployment configs. No magic, just Go.";
+  "Go backend toolkit for humans and AI coding agents. CLI scaffolding, composable pkg/* packages, and first-class Claude Code / Cursor / Codex / Aider / Windsurf integrations. No magic, just Go.";
 const siteUrl = "https://gofasta.dev";
 
 export const metadata: Metadata = {
@@ -38,7 +45,7 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [
       {
-        url: "/api/og?title=Production-Ready%20Go%20Backend%20Toolkit&section=Gofasta",
+        url: "/api/og?title=Go%20backend%20toolkit%20for%20humans%20and%20AI%20coding%20agents&section=Gofasta",
         width: 1200,
         height: 630,
         alt: "Gofasta - Production-Ready Go Backend Toolkit",
@@ -51,7 +58,7 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     images: [
-      "/api/og?title=Production-Ready%20Go%20Backend%20Toolkit&section=Gofasta",
+      "/api/og?title=Go%20backend%20toolkit%20for%20humans%20and%20AI%20coding%20agents&section=Gofasta",
     ],
   },
   robots: {
