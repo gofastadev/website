@@ -1,0 +1,37 @@
+---
+title: Overview
+description: The local dev dashboard — trace waterfalls, per-request logs, N+1 detection, EXPLAIN plans, pprof, replay, and the zero-cost build-tag model behind them.
+---
+
+# Debugging in gofasta projects
+
+gofasta generates projects with a first-class local debugging surface built on top of idiomatic Go primitives — `net/http/pprof`, OpenTelemetry, GORM callbacks, and `slog`. One command (`gofasta dev --dashboard`) stands up a browser-based inspector that lets you watch every request flow through your code: traces, spans, stack snapshots, SQL, cache ops, logs, panics, replay.
+
+Everything below is gated behind the `devtools` build tag. `gofasta dev` sets it automatically via `GOFLAGS`; `go build` without it compiles a stub (pass-through middleware, no-op plugins, no endpoints exposed) — your production binaries carry zero debug surface.
+
+## Start the dashboard
+
+```bash
+gofasta dev --dashboard
+```
+
+Two things happen:
+
+1. **Your app builds with `-tags devtools`**. The `app/devtools` package swaps from the `//go:build !devtools` stub to the real implementation: middleware that captures request metadata, a GORM plugin that records every query, an OpenTelemetry `SpanProcessor` that buffers completed traces, a `slog.Handler` that tees log records into a ring, a cache decorator, a panic-capture wrapper, and `net/http/pprof`.
+2. **The CLI starts a tiny HTTP server on `:9090`**. It scrapes the `/debug/*` endpoints your app now exposes and serves a live HTML dashboard backed by Server-Sent Events.
+
+The dashboard dies cleanly on `Ctrl+C` along with the rest of the `gofasta dev` pipeline. Use `--dashboard-port` to change the port and `--no-services` / `--no-migrate` / etc. to opt out of specific stages (see `gofasta dev --help`).
+
+## What's in this guide
+
+- **[Guided Tour](/docs/guides/debugging/guided-tour)** — walk through a realistic debugging session: slow endpoint → trace waterfall → stack → logs → SQL pattern → fix → replay.
+- **[Dashboard Panels](/docs/guides/debugging/dashboard-panels)** — reference for every section shown on the dashboard (App cards, Metrics, Profiles, Goroutines, Routes, Services, N+1 findings, Recent Requests, Recent SQL, Trace waterfall, Exceptions, Cache ops).
+- **[Tracing & Waterfalls](/docs/guides/debugging/tracing)** — what's auto-traced, how to add spans to existing code, wiring SQL as waterfall bars, tracing async tasks and cron jobs.
+- **[How It Works](/docs/guides/debugging/architecture)** — the Wire + middleware + OTel wiring that gives you visibility without dirtying your business code, plus the endpoint reference and the production-safety build-tag model.
+- **[Customization](/docs/guides/debugging/customization)** — ring sizes (and how rotation works), disabling individual hooks, where the devtools code lives in your project, library coupling points.
+
+## Related
+
+- [`gofasta dev`](/docs/cli-reference/dev) — full flag + event reference for the dev pipeline
+- [Testing guide](/docs/guides/testing) — how the same trace + ring infrastructure makes integration tests observable
+- [`pkg/observability`](/docs/api-reference/observability) — the Prometheus + OpenTelemetry primitives the devtools package hooks into

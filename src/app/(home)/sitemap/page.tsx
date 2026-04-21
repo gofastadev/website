@@ -44,7 +44,7 @@ const sections = [
         label: "Email & Notifications",
       },
       { href: "/docs/guides/testing", label: "Testing" },
-      { href: "/docs/guides/debugging", label: "Debugging" },
+      { href: "/docs/guides/debugging/overview", label: "Debugging" },
       { href: "/docs/guides/deployment", label: "Deployment" },
       { href: "/docs/guides/configuration", label: "Configuration" },
     ],

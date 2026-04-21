@@ -1,0 +1,80 @@
+---
+title: Dashboard Panels
+description: Reference for every panel on the dev dashboard — what it shows, where the data comes from, and any interactive affordances.
+---
+
+# Every debug surface
+
+Each panel below is live in the dashboard whenever the app runs with the `devtools` tag. Panels fail soft: if a single endpoint is unreachable, the others keep rendering.
+
+## App cards
+
+Six cards at the top of the dashboard: **Health** (polled against `/health` every 5s), **Port**, **Swagger URL** (if `docs/swagger.json` exists), **GraphQL URL** (if `gqlgen.yml` exists), and **Queue URL** (if an asynqmon compose service is running).
+
+## Metrics
+
+Parses the Prometheus text output from `/metrics` (emitted by `pkg/observability`) and surfaces: total requests served, in-flight count, and average latency. Refreshes every 5s via SSE.
+
+## Profiles
+
+One-click links to every profile `net/http/pprof` exposes: CPU (30s capture), heap, goroutine, mutex, block, allocs, threadcreate, execution trace (5s), and the pprof index. Each opens in a new tab — point `go tool pprof` at the URL, or use the built-in HTML UI.
+
+## Goroutines
+
+Parses `/debug/pprof/goroutine?debug=2`, groups goroutines by top-of-stack function, and sorts descending by count. A spike in `net/http.(*conn).serve` is normal under load; a spike in your own code usually means a leak.
+
+## Routes
+
+Scraped from `docs/swagger.json`. Each row shows method, path, operation summary, **request type**, and **response type** — extracted from the OpenAPI 2.0 `parameters[in=body].schema` or OpenAPI 3.0 `requestBody.content.schema`, with the primary 2xx response picked automatically.
+
+## Services
+
+Runtime state of every compose service attached to this dev session — queried via `docker compose ps --format json` every 5s. Shows name + health/state as colored pills.
+
+## N+1 findings
+
+Grouping by `(trace_id, normalized_template)` across the SQL ring. Templates are normalized by collapsing string / numeric literals to `?` and compressing whitespace. Any group with three or more hits surfaces as a finding, sorted by count descending.
+
+## Recent requests
+
+The last 200 requests captured by the devtools middleware (ring buffer — oldest request is overwritten when the cap is hit, see [Ring sizes](/docs/guides/debugging/customization#ring-sizes) to change the cap). Each row:
+
+- **Time** — wall clock
+- **Method** — colored badge (GET = cyan, POST = green, PATCH = amber, DELETE = red)
+- **Path** — URL path
+- **Status** — pill (2xx green, 3xx cyan, 4xx amber, 5xx red)
+- **Duration** — wall-clock milliseconds
+- **Trace** — CTA button that opens the trace detail card below the Traces list
+- **Replay** — opens the inline editor
+
+An **Export HAR** button in the header downloads the current ring as HAR 1.2 JSON for Chrome DevTools, Insomnia, or any HAR-aware viewer.
+
+## Recent SQL
+
+Every statement captured by the GORM callback, with wall-clock duration, rows affected, error (if any), and the trace ID that triggered it. Each SELECT row also has an **EXPLAIN** button.
+
+## Traces & trace waterfall
+
+The trace ring holds the most recent **50 traces** — older ones are rotated out when new traces arrive (see [Ring sizes](/docs/guides/debugging/customization#ring-sizes) if 50 is too tight). Clicking a row (or the **trace** CTA in a request row) pins that trace and opens a detail card below the list. The card fetches `/debug/traces/{id}` on demand (the summary list endpoint returns traces without spans to keep SSE payloads cheap) and renders:
+
+- A waterfall of nested spans — controller → service → repository → SQL — with bar widths proportional to duration and offsets relative to the root span's start
+- The span's **kind** (`server`, `internal`, `client`) next to its name
+- A click-to-expand **stack** beside each span name showing up to 20 call frames captured at span start via `runtime.Callers`
+- **OTel events** attached to the span (error markers, custom annotations)
+
+Two tabs inside the card:
+
+- **Waterfall** (default) — the span tree
+- **Logs** — on-demand fetch of every `slog` record emitted during this request (pulled from `/debug/logs?trace_id=…`)
+
+The detail card lives in its own DOM surface, so 5s SSE refreshes don't collapse whatever waterfall you're reading. A pinned-row banner above the Traces list keeps the inspected trace visible even if its row rotates out of view.
+
+See [Tracing & Waterfalls](/docs/guides/debugging/tracing) for how to get a multi-bar waterfall in your own code — and how to turn SQL into waterfall bars.
+
+## Exceptions
+
+`devtools.Recovery` wraps `pkg/middleware`'s recovery middleware. Every panic is recorded with the recovered value, a 20-frame stack, method + path of the offending request, and the trace ID. The table shows all recoveries this session with their stacks rendered as expandable `<pre>` blocks.
+
+## Cache ops
+
+`devtools.WrapCache` decorates `cache.CacheService`. Every `Get`/`Set`/`Delete`/`Flush`/`Ping` records an entry with op, key, hit/miss flag (for `Get`), duration, error, and trace ID. Per-trace aggregation answers *"did this page actually use the cache?"* at a glance.

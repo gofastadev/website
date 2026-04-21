@@ -83,7 +83,7 @@ describe("DashboardPreview", () => {
     const link = screen.getByRole("link", {
       name: /Read the debugging guide/i,
     });
-    expect(link).toHaveAttribute("href", "/docs/guides/debugging");
+    expect(link).toHaveAttribute("href", "/docs/guides/debugging/overview");
   });
 
   it("renders the mockup browser url bar pointing at localhost:9090", () => {
