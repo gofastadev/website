@@ -130,7 +130,7 @@ Grouping by `(trace_id, normalized_template)` across the SQL ring. Templates are
 
 ### Recent requests
 
-The last 200 requests captured by the devtools middleware. Each row:
+The last 200 requests captured by the devtools middleware (ring buffer — oldest request is overwritten when the cap is hit, see [Ring sizes](#ring-sizes) to change the cap). Each row:
 
 - **Time** — wall clock
 - **Method** — colored badge (GET = cyan, POST = green, PATCH = amber, DELETE = red)
@@ -148,7 +148,7 @@ Every statement captured by the GORM callback, with wall-clock duration, rows af
 
 ### Trace waterfall
 
-Click any trace row in the **Traces** panel to expand. The dashboard fetches `/debug/traces/{id}` on demand (the summary list endpoint returns traces without spans to keep SSE payloads cheap) and renders:
+Click any trace row in the **Traces** panel to expand. The trace ring holds the most recent **50 traces** — older ones are rotated out when new traces arrive (see [Ring sizes](#ring-sizes) if 50 is too tight). The dashboard fetches `/debug/traces/{id}` on demand (the summary list endpoint returns traces without spans to keep SSE payloads cheap) and renders:
 
 - A waterfall of nested spans — controller → service → repository → SQL — with bar widths proportional to duration and offsets relative to the root span's start
 - The span's **kind** (`server`, `internal`, `client`) next to its name
@@ -343,7 +343,20 @@ Served by the CLI on the dashboard port (default `:9090`). The dashboard proxies
 
 ### Ring sizes
 
-Defaults balance memory against retention for a typical dev session. If you need more history (long-running `gofasta dev` sessions, heavy traffic), edit the constants at the top of `app/devtools/devtools_enabled.go`:
+Every `/debug/*` panel is backed by a fixed-size in-memory ring buffer. **When a ring fills up, the oldest entry is overwritten by the newest** — a classic FIFO circular buffer. The UI always renders newest-first, so you'll see fresh entries at the top and older ones fall off the tail. If the dashboard reports "50 total" and never grows past that, the ring is at capacity and rotating — not broken.
+
+Defaults balance memory against retention for a typical dev session:
+
+| Dashboard panel | Ring | Default cap |
+| --- | --- | --- |
+| Recent requests | request ring | **200** |
+| Recent SQL | query ring | **200** |
+| Cache ops | cache ring | **200** |
+| Traces | trace ring (full span trees, heavier) | **50** |
+| Exceptions | exception ring | **50** |
+| Logs (per-trace tab) | slog ring | **500** |
+
+These caps are **Go constants, not `config.yaml` entries**. The devtools code is scaffolded *into your project* (see `app/devtools/devtools_enabled.go`), so the knob is a one-line edit followed by a restart — no config schema, no runtime indirection, zero cost in production builds (the constants live behind `//go:build devtools`). If you need more history (long-running `gofasta dev` sessions, heavy traffic, trace drill-downs over a larger window), edit the constants at the top of `app/devtools/devtools_enabled.go` and restart:
 
 ```go
 const ringCapacity = 200         // request + SQL + cache rings
@@ -353,6 +366,10 @@ const stackDepth = 20            // frames per span stack snapshot
 const logRingCapacity = 500      // slog ring
 const exceptionRingCapacity = 50 // panic ring
 ```
+
+Rough memory budget: each `RequestEntry` is a few KB (two 64 KiB body caps at worst), a `TraceEntry` with 20-frame stacks per span is typically 5–20 KB, a `LogEntry` is a few hundred bytes. At defaults the total devtools footprint is usually under 10 MB even on a busy session — scale the constants up freely if you have the RAM.
+
+Because the rings are Go arrays (`[N]T`), changing the cap requires a recompile — `gofasta dev` picks it up on the next rebuild. There's no runtime reconfiguration path, by design.
 
 ### Disabling individual hooks
 
