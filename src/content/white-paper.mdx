@@ -657,6 +657,8 @@ A single `database.driver` field in `config.yaml` controls which database the pr
 
 Generated migrations adapt SQL types per driver automatically. For example, a `uuid` field produces `UUID` on PostgreSQL, `CHAR(36)` on MySQL, and `TEXT` on SQLite. A `bool` field produces `BOOLEAN` on PostgreSQL, `TINYINT(1)` on MySQL, and `INTEGER` on SQLite.
 
+Because the `postgres` driver uses GORM's standard PostgreSQL dialect, projects can point it at any PostgreSQL wire-compatible backend — including managed Postgres services (Neon, Supabase, Amazon RDS, Google Cloud SQL) and distributed SQL engines (CockroachDB, YugabyteDB) — by changing the DSN in `config.yaml`. Driver-specific features (CockroachDB's `gen_random_uuid()` replacement, serialization levels, etc.) are the responsibility of the target database and are configured through its own tooling; gofasta does not ship a dedicated driver entry for each wire-compatible backend.
+
 ### 8.3 Base Model
 
 All models embed `models.BaseModelImpl` from the `pkg/models` package, which provides:
@@ -1663,7 +1665,7 @@ Gofasta is under active development. The roadmap is organized by impact on produ
 - **OpenAPI-first code generation** — Generate Go handlers, DTOs, and route registration from an existing OpenAPI specification (spec-first, complementing the current code-first Swagger generation).
 - **Multi-service project support** — Monorepo layout with shared packages, per-service scaffolding, and cross-service type generation.
 - **IDE extensions** — VS Code and GoLand extensions for running generators, viewing routes, and navigating the project structure from the editor.
-- **CockroachDB support** — Additional database driver for distributed SQL deployments.
+- **MongoDB support** — First-class document-database driver as a peer to the existing SQL drivers. Because MongoDB is not a SQL dialect, this is a larger shift than adding another GORM driver: `pkg/config` gains a parallel `SetupMongo()` alongside `SetupDB()`, the scaffold generators emit BSON-tagged structs and collection/index setup in place of GORM models and SQL migrations, and `gofasta migrate` becomes an index-and-collection setup runner for Mongo projects. The intended client is the official `go.mongodb.org/mongo-driver/v2` (no ODM) so generated code stays plain, explicit, and swappable. Targeted at teams whose domain is a natural fit for document storage (flexible schemas, nested documents, event/log stores) without forcing them off gofasta's scaffolding and generator ergonomics.
 - **Kubernetes manifests** — Generated `deployment.yaml`, `service.yaml`, and `ingress.yaml` scoped to the project's configured database and cache backends, as an optional complement to the existing VPS deploy flow for teams running Kubernetes clusters.
 - **Cloud deployment manifests** — `gofasta deploy aws` and `gofasta deploy gcp` commands that generate Terraform or CDK definitions for ECS/Fargate, Cloud Run, or equivalent managed container services. Following the "generate then own" principle, these commands would produce infrastructure-as-code files the developer commits and manages — not a managed cloud platform.
 
