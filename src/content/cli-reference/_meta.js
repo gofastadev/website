@@ -1,4 +1,4 @@
-export default {
+const meta = {
   new: "gofasta new",
   init: "gofasta init",
   dev: "gofasta dev",
@@ -26,3 +26,5 @@ export default {
   upgrade: "gofasta upgrade",
   version: "gofasta version",
 };
+
+export default meta;

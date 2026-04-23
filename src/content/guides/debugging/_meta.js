@@ -1,4 +1,4 @@
-export default {
+const meta = {
   overview: "Overview",
   "guided-tour": "Guided Tour",
   "dashboard-panels": "Dashboard Panels",
@@ -6,3 +6,5 @@ export default {
   architecture: "How It Works",
   customization: "Customization",
 };
+
+export default meta;

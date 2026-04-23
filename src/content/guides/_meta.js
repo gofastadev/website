@@ -1,4 +1,4 @@
-export default {
+const meta = {
   "rest-api": "REST API",
   graphql: "GraphQL",
   "database-and-migrations": "Database & Migrations",
@@ -11,3 +11,5 @@ export default {
   deployment: "Deployment",
   configuration: "Configuration",
 };
+
+export default meta;

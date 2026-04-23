@@ -26,3 +26,5 @@ const meta = {
   health: "Health",
   "test-utilities": "Test Utilities",
 };
+
+export default meta;

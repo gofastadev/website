@@ -1,4 +1,4 @@
-export default {
+const meta = {
   scaffold: "scaffold",
   model: "model",
   repository: "repository",
@@ -13,3 +13,5 @@ export default {
   task: "task",
   "email-template": "email-template",
 };
+
+export default meta;
