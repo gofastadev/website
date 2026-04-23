@@ -1,4 +1,4 @@
-export default {
+const meta = {
   config: "Config",
   logger: "Logger",
   errors: "Errors",
