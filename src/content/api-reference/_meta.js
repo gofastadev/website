@@ -1,4 +1,4 @@
-export default {
+const meta = {
   config: "Config",
   logger: "Logger",
   errors: "Errors",
@@ -26,3 +26,5 @@ export default {
   health: "Health",
   "test-utilities": "Test Utilities",
 };
+
+export default meta;

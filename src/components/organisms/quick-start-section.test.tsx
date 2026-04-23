@@ -5,7 +5,7 @@ import { QuickStartSection } from "./quick-start-section";
 describe("QuickStartSection", () => {
   it("renders the section heading", () => {
     render(<QuickStartSection />);
-    expect(screen.getByText("Up and running in 3 steps")).toBeInTheDocument();
+    expect(screen.getByText("Install and run")).toBeInTheDocument();
   });
 
   it("renders all 3 steps", () => {
@@ -13,6 +13,7 @@ describe("QuickStartSection", () => {
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.queryByText("4")).not.toBeInTheDocument();
   });
 
   it("renders step titles", () => {
@@ -20,6 +21,9 @@ describe("QuickStartSection", () => {
     expect(screen.getByText("Install the CLI")).toBeInTheDocument();
     expect(screen.getByText("Create a project")).toBeInTheDocument();
     expect(screen.getByText("Start developing")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Configure your AI (optional)")
+    ).not.toBeInTheDocument();
   });
 
   it("renders the install command", () => {
@@ -34,8 +38,16 @@ describe("QuickStartSection", () => {
     expect(screen.getByText("gofasta new myapp")).toBeInTheDocument();
   });
 
+  it("does not surface per-agent AI installers in the quickstart", () => {
+    // The AI installer (`gofasta ai <agent>`) is opt-in — the quickstart
+    // should stay focused on the minimum path to a running server, so
+    // agent-specific commands like `gofasta ai claude` don't belong here.
+    render(<QuickStartSection />);
+    expect(screen.queryByText("gofasta ai claude")).not.toBeInTheDocument();
+  });
+
   it("renders the start command", () => {
     render(<QuickStartSection />);
-    expect(screen.getByText("cd myapp && make up")).toBeInTheDocument();
+    expect(screen.getByText("cd myapp && gofasta dev")).toBeInTheDocument();
   });
 });

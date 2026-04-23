@@ -1,0 +1,93 @@
+---
+title: gofasta status
+description: Report the health of the current project — Wire drift, swagger drift, pending migrations, uncommitted generated files, module freshness.
+---
+
+# gofasta status
+
+Runs a set of offline, filesystem-only health checks that answer the question an AI agent asks most often: **"is this project in a clean, up-to-date state?"** Output is a structured report — one row per check — with details that tell the agent (or human) exactly what's out of sync and which command brings it back.
+
+## Usage
+
+```bash
+gofasta status [flags]
+```
+
+Run this command from the root directory of your Gofasta project. Inherits the global `--json` flag for machine-parseable output.
+
+## Checks
+
+| # | Check | What it reports |
+|---|-------|-----------------|
+| 1 | Wire drift | Is `app/di/wire_gen.go` older than any `.go` file in `app/di/`? |
+| 2 | Swagger drift | Is `docs/swagger.json` older than any controller? |
+| 3 | Pending migrations (offline) | Count of `.up.sql` files in `db/migrations/` |
+| 4 | Uncommitted generated files | Does git think `wire_gen.go`, `swagger.json`, or generated resolvers differ from HEAD? |
+| 5 | go.sum freshness | Does `go mod verify` succeed? |
+
+Checks that don't apply to the current project (no Wire, no Swagger, no git) are reported as `"skip"` rather than failing.
+
+## Statuses
+
+| Status | Meaning |
+|--------|---------|
+| `ok` | Check passed |
+| `drift` | Derived artifact is out of sync — run the remediation command shown in the message |
+| `warn` | Something to be aware of (e.g. pending migrations exist) but not necessarily broken |
+| `skip` | Check doesn't apply to this project |
+
+Any check with status `drift` causes a non-zero exit so CI and agents can branch on success/failure.
+
+## Examples
+
+Default text output:
+
+```bash
+$ gofasta status
+✓  wire drift                    in sync
+✗  swagger drift                 docs/swagger.json is stale — run `gofasta swagger`
+!  pending migrations            3 migration(s) present — run `gofasta migrate up` to apply (offline check)
+✓  uncommitted generated files   generated files committed
+✓  go.sum freshness              modules verified
+
+4 ok · 1 drift · 1 warnings · 0 skipped
+  · swagger drift: controllers newer than swagger.json: user.controller.go
+```
+
+Structured JSON:
+
+```bash
+$ gofasta status --json | jq '.checks[] | select(.status == "drift") | .message'
+"docs/swagger.json is stale — run `gofasta swagger`"
+```
+
+## Output shape (JSON)
+
+```json
+{
+  "checks": [
+    { "name": "wire drift", "status": "ok", "message": "in sync" },
+    { "name": "swagger drift", "status": "drift",
+      "message": "docs/swagger.json is stale — run `gofasta swagger`",
+      "detail": ["controllers newer than swagger.json: user.controller.go"] }
+  ],
+  "ok": 1,
+  "drift": 1,
+  "warnings": 0,
+  "skipped": 0
+}
+```
+
+Fields are stable API.
+
+## Why this exists
+
+After any round of code generation or manual edits, several derived artifacts (Wire, Swagger) can drift from their inputs without any warning — the code still compiles, but routes go missing or DTOs become stale in the API docs. `gofasta status` surfaces every drift in one command so agents checking their own work get a structured report instead of running five separate checks.
+
+## Related
+
+- [`gofasta verify`](/docs/cli-reference/verify) -- quality gates (complementary to drift detection)
+- [`gofasta do health-check`](/docs/cli-reference/do) -- runs `verify` + `status` together
+- [`gofasta wire`](/docs/cli-reference/wire) -- remediation for Wire drift
+- [`gofasta swagger`](/docs/cli-reference/swagger) -- remediation for Swagger drift
+- [`gofasta migrate up`](/docs/cli-reference/migrate) -- remediation for pending migrations

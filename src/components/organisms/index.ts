@@ -1,6 +1,13 @@
 export { NavbarLanding } from "./navbar-landing";
 export { Hero } from "./hero";
+export { AudienceTiles } from "./audience-tiles";
+export { ValuePillars } from "./value-pillars";
+export { AgentSpotlight } from "./agent-spotlight";
+export { DashboardPreview } from "./dashboard-preview";
 export { FeaturesGrid } from "./features-grid";
+export { ArchitectureStrip } from "./architecture-strip";
 export { QuickStartSection } from "./quick-start-section";
+export { CtaSection } from "./cta-section";
 export { FooterLanding } from "./footer-landing";
 export { ComingSoon } from "./coming-soon";
+export { NotFound } from "./not-found";

@@ -1,0 +1,83 @@
+---
+title: Guided Tour
+description: Walk through a realistic debug session using the dashboard — slow endpoint → trace drill-down → stack → logs → SQL pattern → fix → replay.
+---
+
+# Guided tour — debugging a slow endpoint
+
+The best way to understand what the dashboard gives you is to walk through a realistic debug session. Suppose a developer notices `POST /api/v1/orders` is consistently taking ~600ms when it should be under 50ms.
+
+## Step 1 — spot the slow request
+
+The **Recent requests** panel shows the last 200 requests with method, path, status, duration, and a trace ID. The slow `POST /api/v1/orders` is at the top of the list with a 612ms duration and a yellow pill.
+
+Every row also has a **Replay** button and a **trace** CTA. Click the trace CTA to open the trace detail card.
+
+## Step 2 — see where time went
+
+The trace detail card opens below the list with the root span (`HTTP POST /api/v1/orders`), duration (612ms), and span count (23). The waterfall:
+
+```
+HTTP POST /api/v1/orders                ████████████████████████████  612 ms
+  └─ OrderController.Create             ██████████████████████████    598 ms
+     └─ OrderService.Create             █████████████████████████     584 ms
+        └─ OrderRepository.Create       ███                            34 ms
+           └─ INSERT INTO orders        ██                             28 ms
+        └─ UserRepository.FindByID      █                               6 ms
+        └─ UserRepository.FindByID      █                               6 ms
+        └─ UserRepository.FindByID      █                               6 ms
+        └─ UserRepository.FindByID      █                               6 ms
+        ... (40 more times)
+```
+
+The insert is fine; the service is doing something else for ~560ms. And there's a whole column of identical `UserRepository.FindByID` calls.
+
+## Step 3 — confirm the pattern
+
+Scroll up to the **N+1 findings** panel. The dashboard already flagged it:
+
+| Count | Template                              | Trace    |
+|-------|---------------------------------------|----------|
+| 44×   | `SELECT * FROM users WHERE id = ?`    | `a7f3c8…`|
+
+The detector normalizes SQL (literals collapsed to `?`), groups by `(trace_id, template)`, and flags any pair with three or more hits. 44 hits of the same query in one request is a textbook N+1.
+
+## Step 4 — see what was logged
+
+Back in the trace detail card, switch to the **Logs** tab. Every `slog.Info/Warn/Error` call made during this request is listed, with level, message, and structured attributes — pulled from the log ring by trace ID:
+
+```
+15:34:12.104 INFO  order created order_id=ord_8f3... user_id=u42
+15:34:12.108 DEBUG user lookup cache miss user_id=u42
+15:34:12.110 DEBUG user lookup cache miss user_id=u43
+... (42 more)
+```
+
+So not only are there 44 duplicate queries — there's no caching layer between the service and the repository.
+
+## Step 5 — look at the offending query
+
+Click any span in the waterfall to see its call-stack snapshot — captured at span start via `runtime.Callers`, 20 frames deep:
+
+```
+app/services/order.service.go:87  (*OrderService).Create
+app/controllers/order.controller.go:91  (*OrderController).Create
+app/rest/routes/order.go:28  InitOrderRoutes.func1
+```
+
+Line 87 of `order.service.go` is where the offending loop lives.
+
+## Step 6 — fix, verify, replay
+
+Edit the service to batch the lookups (`UserRepository.FindManyByID(ids)`), save, Air rebuilds. Back on the dashboard, click the **Replay** button on the original slow request row. A small editor opens prefilled with the captured request body — confirm, send.
+
+The new trace appears at the top of the list with a 48ms duration. The N+1 findings panel is empty. Ship it.
+
+---
+
+That's the end-to-end loop: **visible slow request → trace drill-down → stack → logs → SQL pattern → fix → replay to verify**. No log greps, no `dlv`, no copy-pasting request bodies between curl and IDE.
+
+## Next
+
+- [Dashboard Panels](/docs/guides/debugging/dashboard-panels) — full reference for every panel you saw above.
+- [Tracing & Waterfalls](/docs/guides/debugging/tracing) — how to get a waterfall that rich in your own code.

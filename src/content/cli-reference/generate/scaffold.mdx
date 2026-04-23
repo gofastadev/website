@@ -159,19 +159,17 @@ func (c *ProductController) Create(w http.ResponseWriter, r *http.Request) error
 package routes
 
 import (
-    "github.com/gorilla/mux"
+    "github.com/go-chi/chi/v5"
     "myapp/app/rest/controllers"
     "myapp/pkg/httputil"
 )
 
-func RegisterProductRoutes(router *mux.Router, controller *controllers.ProductController) {
-    sub := router.PathPrefix("/api/v1/products").Subrouter()
-
-    sub.HandleFunc("", httputil.Handle(controller.Create)).Methods("POST")
-    sub.HandleFunc("", httputil.Handle(controller.FindAll)).Methods("GET")
-    sub.HandleFunc("/{id}", httputil.Handle(controller.FindByID)).Methods("GET")
-    sub.HandleFunc("/{id}", httputil.Handle(controller.Update)).Methods("PUT")
-    sub.HandleFunc("/{id}", httputil.Handle(controller.Delete)).Methods("DELETE")
+func RegisterProductRoutes(r chi.Router, controller *controllers.ProductController) {
+    r.Post("/products", httputil.Handle(controller.Create))
+    r.Get("/products", httputil.Handle(controller.FindAll))
+    r.Get("/products/{id}", httputil.Handle(controller.FindByID))
+    r.Put("/products/{id}", httputil.Handle(controller.Update))
+    r.Delete("/products/{id}", httputil.Handle(controller.Delete))
 }
 ```
 

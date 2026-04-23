@@ -1,0 +1,70 @@
+---
+title: Customization
+description: Ring sizes and rotation behavior, disabling individual devtools hooks, where the devtools code lives in your project, library coupling.
+---
+
+# Customization
+
+## Ring sizes
+
+Every `/debug/*` panel is backed by a fixed-size in-memory ring buffer. **When a ring fills up, the oldest entry is overwritten by the newest** — a classic FIFO circular buffer. The UI always renders newest-first, so you'll see fresh entries at the top and older ones fall off the tail. If the dashboard reports "50 total" and never grows past that, the ring is at capacity and rotating — not broken.
+
+Defaults balance memory against retention for a typical dev session:
+
+| Dashboard panel | Ring | Default cap |
+| --- | --- | --- |
+| Recent requests | request ring | **200** |
+| Recent SQL | query ring | **200** |
+| Cache ops | cache ring | **200** |
+| Traces | trace ring (full span trees, heavier) | **50** |
+| Exceptions | exception ring | **50** |
+| Logs (per-trace tab) | slog ring | **500** |
+
+These caps are **Go constants, not `config.yaml` entries**. The devtools code is scaffolded *into your project* (see `app/devtools/devtools_enabled.go`), so the knob is a one-line edit followed by a restart — no config schema, no runtime indirection, zero cost in production builds (the constants live behind `//go:build devtools`). If you need more history (long-running `gofasta dev` sessions, heavy traffic, trace drill-downs over a larger window), edit the constants at the top of `app/devtools/devtools_enabled.go` and restart:
+
+```go
+const ringCapacity = 200         // request + SQL + cache rings
+const traceRingCapacity = 50     // trace ring (heavier — holds full span trees)
+const maxBodyCapture = 64 * 1024 // request + response body cap
+const stackDepth = 20            // frames per span stack snapshot
+const logRingCapacity = 500      // slog ring
+const exceptionRingCapacity = 50 // panic ring
+```
+
+Rough memory budget: each `RequestEntry` is a few KB (two 64 KiB body caps at worst), a `TraceEntry` with 20-frame stacks per span is typically 5–20 KB, a `LogEntry` is a few hundred bytes. At defaults the total devtools footprint is usually under 10 MB even on a busy session — scale the constants up freely if you have the RAM.
+
+Because the rings are Go arrays (`[N]T`), changing the cap requires a recompile — `gofasta dev` picks it up on the next rebuild. There's no runtime reconfiguration path, by design.
+
+## Disabling individual hooks
+
+The scaffold's DI container calls every `devtools.Wrap*` helper unconditionally. To disable one of them, delete or comment the call in `app/di/providers/core.go`:
+
+```go
+// Disable slog ring recording (keep the wrapped logger's behavior
+// identical to the pkg/logger default):
+func ProvideLogger(cfg *config.LogConfig) *slog.Logger {
+    return logger.NewLogger(cfg)  // was: slog.New(devtools.WrapLogger(...))
+}
+```
+
+Wire regenerates automatically (`gofasta wire` or the pre-save Air hook). No other code changes needed.
+
+## Where things live
+
+- `app/devtools/devtools.go` — shared public API (types + function signatures)
+- `app/devtools/devtools_enabled.go` — real implementation (`//go:build devtools`)
+- `app/devtools/devtools_stub.go` — no-op implementation (`//go:build !devtools`)
+- `cmd/serve.go` — wiring: middleware chain, debug handler mount, RegisterTraceProcessor, RegisterDB
+- `app/di/providers/core.go` — ProvideLogger, ProvideCacheService, ProvideDB
+
+Edit any of these — they're plain Go files in your project, not dependencies. You own them.
+
+## Library coupling
+
+The scaffold's `app/devtools` package imports:
+
+- `github.com/gofastadev/gofasta/pkg/cache` (for `WrapCache`)
+- `go.opentelemetry.io/otel` + `go.opentelemetry.io/otel/sdk/trace` (for the `SpanProcessor`)
+- `gorm.io/gorm` (for the GORM plugin)
+
+Swap `pkg/cache` for your own cache and the `WrapCache` implementation needs a matching interface — about 40 lines of decorator code to rewrite.

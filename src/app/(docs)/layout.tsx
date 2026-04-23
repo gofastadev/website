@@ -30,6 +30,7 @@ export default async function DocsLayout({
       }
       docsRepositoryBase="https://github.com/gofastadev/website/tree/main"
       sidebar={{ defaultMenuCollapseLevel: 1 }}
+      nextThemes={{ defaultTheme: "dark" }}
       pageMap={pageMap}
     >
       {children}

@@ -11,18 +11,13 @@ vi.mock("next/navigation", () => ({
 describe("Hero", () => {
   it("renders the headline", () => {
     render(<Hero />);
-    expect(screen.getByText("Start shipping.")).toBeInTheDocument();
-  });
-
-  it("renders the Open Source badge", () => {
-    render(<Hero />);
-    expect(screen.getByText("Open Source Go Toolkit")).toBeInTheDocument();
+    expect(screen.getByText("scaffolded.")).toBeInTheDocument();
   });
 
   it("renders the subtitle", () => {
     render(<Hero />);
     expect(
-      screen.getByText(/Gofasta generates production-ready Go backends/)
+      screen.getByText(/Gofasta is a CLI and library for Go backend services/)
     ).toBeInTheDocument();
   });
 
@@ -43,8 +38,9 @@ describe("Hero", () => {
     expect(github.tagName).toBe("BUTTON");
     fireEvent.click(github);
     expect(openSpy).toHaveBeenCalledWith(
-      "https://github.com/gofastadev",
-      "_blank"
+      "https://github.com/gofastadev/cli",
+      "_blank",
+      "noopener,noreferrer"
     );
     openSpy.mockRestore();
   });
@@ -52,20 +48,25 @@ describe("Hero", () => {
   it("renders the terminal block with gofasta command", () => {
     render(<Hero />);
     expect(screen.getByText("Terminal")).toBeInTheDocument();
-    expect(screen.getByText(/gofasta/)).toBeInTheDocument();
+    expect(screen.getAllByText(/gofasta/).length).toBeGreaterThan(0);
   });
 
-  it("renders the Done message in terminal", () => {
+  it("renders the success message in terminal", () => {
     render(<Hero />);
     expect(
-      screen.getByText("Done! Project created at ./myapp")
+      screen.getByText(/Project myapp created successfully!/)
     ).toBeInTheDocument();
   });
 
-  it("renders the server running message", () => {
+  it("renders the dev server URL", () => {
+    render(<Hero />);
+    expect(screen.getByText(/http:\/\/localhost:8080/)).toBeInTheDocument();
+  });
+
+  it("renders the actual dev startup message", () => {
     render(<Hero />);
     expect(
-      screen.getByText("Server running at http://localhost:8080")
+      screen.getByText(/Starting gofasta development server.../)
     ).toBeInTheDocument();
   });
 });

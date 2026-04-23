@@ -1,6 +1,23 @@
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
+// jsdom doesn't ship IntersectionObserver — provide a no-op stub so
+// components that lean on our `useOnScreen` hook can mount under test
+// without throwing. Individual tests that need to assert intersection
+// behaviour can override this with their own stub.
+class MockIntersectionObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [] as IntersectionObserverEntry[];
+  }
+}
+vi.stubGlobal(
+  "IntersectionObserver",
+  MockIntersectionObserver as unknown as typeof IntersectionObserver
+);
+
 // Mock next/image
 vi.mock("next/image", () => ({
   default: (props: Record<string, unknown>) => {

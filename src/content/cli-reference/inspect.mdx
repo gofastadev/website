@@ -1,0 +1,131 @@
+---
+title: gofasta inspect
+description: Show the full composition of a resource — model fields, DTOs, service methods, controller methods, routes — as structured output.
+---
+
+# gofasta inspect
+
+Inspects a generated resource and emits a structured description of everything that belongs to it. Parses Go source files with the stdlib `go/parser`, not regex, so the output stays accurate even when file formatting varies.
+
+Intended for AI agents and humans who need to understand a resource's shape before modifying it — one command replaces opening six files and squinting at field names and method signatures.
+
+## Usage
+
+```bash
+gofasta inspect <ResourceName> [flags]
+```
+
+The resource name is the PascalCase model type name. Run from the project root.
+
+## What it checks
+
+For a resource like `User` (snake_case `user`), `inspect` reads:
+
+| File | Content extracted |
+|------|-------------------|
+| `app/models/user.model.go` | Struct fields + types + GORM tags |
+| `app/dtos/user.dtos.go` | Every declared DTO type + its fields |
+| `app/services/interfaces/user_service.go` | Service interface method signatures |
+| `app/rest/controllers/user.controller.go` | Public controller method signatures |
+| `app/rest/routes/user.routes.go` | Registered HTTP routes (method + path) |
+
+Missing files are reported as null/empty fields in the JSON payload and omitted from the text output — the command reports what it finds, not what it expects.
+
+## Examples
+
+Text output:
+
+```bash
+$ gofasta inspect User
+Resource: User (user)
+
+Model (app/models/user.model.go)
+  models.BaseModelImpl   models.BaseModelImpl
+  FirstName              string
+  OtherNames             string
+  Email                  string
+  PhoneNumber            string
+  Password               string
+
+DTOs
+  User (11 field(s))
+  TUserResponseDto (2 field(s))
+  TUsersResponseDto (2 field(s))
+  TCreateUserDto (5 field(s))
+  ...
+
+Service methods
+  FindUsersWithFilters(ctx context.Context, filters dtos.UserFiltersDto) *dtos.TUsersResponseDto, error
+  CreateUser(ctx context.Context, input dtos.TCreateUserDto) *dtos.TUserResponseDto, error
+  ...
+
+Routes
+  GET     /api/v1/users
+  POST    /api/v1/users
+  GET     /api/v1/users/{id}
+  PUT     /api/v1/users/{id}
+  DELETE  /api/v1/users/{id}
+
+Files
+  app/models/user.model.go
+  app/dtos/user.dtos.go
+  app/services/interfaces/user_service.go
+  app/rest/controllers/user.controller.go
+  app/rest/routes/user.routes.go
+```
+
+Structured JSON for agents:
+
+```bash
+$ gofasta inspect User --json | jq '.service_methods[].name'
+"FindUsersWithFilters"
+"CreateUser"
+"UpdateUser"
+"FindUserByID"
+"ArchiveUser"
+```
+
+## Output shape (JSON)
+
+```json
+{
+  "name": "User",
+  "snake": "user",
+  "model": {
+    "file": "app/models/user.model.go",
+    "fields": [
+      { "name": "FirstName", "type": "string", "tag": "gorm:\"size:100\"" }
+    ]
+  },
+  "dtos": [
+    { "file": "app/dtos/user.dtos.go", "name": "TCreateUserDto", "fields": [...] }
+  ],
+  "routes": [
+    { "method": "GET", "path": "/api/v1/users", "file": "user.routes.go" }
+  ],
+  "service_methods": [
+    { "name": "CreateUser", "signature": "CreateUser(ctx context.Context, ...)" }
+  ],
+  "controller_methods": [ ... ],
+  "files": [ "app/models/user.model.go", ... ]
+}
+```
+
+Fields are stable API.
+
+## Why this exists
+
+An agent asked to "add a SoftArchive endpoint to the Order resource" needs to know:
+
+- Does the Order service already have an Archive method it should reuse?
+- What's the shape of `TOrderArchiveDto`?
+- Is there already a DELETE route, or does it need to add one?
+- Which fields does the model have?
+
+Answering those from scratch means opening 5 files. `gofasta inspect Order` returns it all at once, in a machine-parseable shape the agent can reason over.
+
+## Related
+
+- [`gofasta routes`](/docs/cli-reference/routes) -- list every route across all resources
+- [`gofasta generate`](/docs/cli-reference/generate/scaffold) -- generate resources inspect can then inspect
+- [Project Structure](/docs/getting-started/project-structure) -- where each artifact lives

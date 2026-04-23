@@ -1,11 +1,11 @@
 ---
 title: Health
-description: Health check endpoints for Kubernetes with readiness and liveness probes and dependency status reporting.
+description: Liveness and readiness probe endpoints for load balancers, uptime monitors, and orchestrator health checks, with dependency status reporting.
 ---
 
 # Health
 
-The `health` package provides health check endpoints for monitoring application status. It supports Kubernetes-style readiness and liveness probes with dependency checks for database and cache, and aggregated status reporting.
+The `health` package provides HTTP endpoints for monitoring application status. It exposes standard liveness and readiness probe URLs with dependency checks against the database and cache. The endpoints work with any orchestrator, load balancer, or uptime monitor that polls HTTP — load balancers expecting a 200/5xx signal, uptime services like Pingdom or UptimeRobot, and the probe-style interfaces used by Kubernetes, Nomad, or container platforms that honor the same convention.
 
 ## Import
 
@@ -119,23 +119,17 @@ The readiness endpoint automatically checks:
 - **Database** -- Pings the database using the underlying `sql.DB` connection
 - **Cache (Redis)** -- Pings the cache service (if configured)
 
-### Kubernetes Probe Configuration
+### Probe Endpoint Reference
 
-```yaml
-livenessProbe:
-  httpGet:
-    path: /health/live
-    port: 8080
-  initialDelaySeconds: 5
-  periodSeconds: 10
+Use these endpoints with your load balancer, uptime monitor, or orchestrator. The scheme below is the one most platforms use to distinguish "is the process running" (liveness) from "can this instance safely take traffic" (readiness):
 
-readinessProbe:
-  httpGet:
-    path: /health/ready
-    port: 8080
-  initialDelaySeconds: 10
-  periodSeconds: 5
-```
+- `GET /health/live` — returns 200 when the process is running. Used as a restart signal; should almost always be 200 unless the process itself is dead.
+- `GET /health/ready` — returns 200 when the process can serve traffic (database and cache reachable). Returns 503 when dependencies are unavailable; a load balancer pulling this instance out of rotation temporarily will restore it when the next poll succeeds.
+
+Health poll guidance:
+
+- **Liveness** — poll every 10–30 s with a short timeout (≤5 s). A failing liveness probe should typically trigger a restart.
+- **Readiness** — poll every 5–10 s. A failing readiness probe should remove the instance from traffic but **not** restart it.
 
 ## Related Pages
 

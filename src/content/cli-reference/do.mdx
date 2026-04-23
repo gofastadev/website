@@ -1,0 +1,159 @@
+---
+title: gofasta do
+description: Run a named development workflow — a pre-defined chain of gofasta commands that together accomplish one higher-level task.
+---
+
+# gofasta do
+
+Development workflows are named sequences of gofasta sub-commands that together accomplish one higher-level task. Each one is a transparent chain — no hidden logic, no extra state, no side effects beyond what the individual commands already do. Running a workflow is equivalent to typing its commands in order; the wrapper exists to save keystrokes, document common sequences, and give CI and AI agents atomic named steps to invoke.
+
+## Usage
+
+```bash
+gofasta do <workflow> [args...] [--dry-run]
+gofasta do list
+```
+
+Inherits the global `--json` flag for machine-parseable output.
+
+## Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--dry-run` | bool | `false` | Print the commands the workflow would run without executing them |
+
+## Registered workflows
+
+| Workflow | Arguments | What it chains |
+|----------|-----------|----------------|
+| `new-rest-endpoint` | `<ResourceName> [field:type ...]` | `g scaffold` → `migrate up` → `swagger` |
+| `rebuild` | — | `wire` → `swagger` |
+| `fresh-start` | — | `init` → `migrate up` → `seed` |
+| `clean-slate` | — | `db reset` → `seed` |
+| `health-check` | — | `verify` → `status` |
+| `list` | — | Print every supported workflow |
+
+## Examples
+
+List every workflow:
+
+```bash
+$ gofasta do list
+WORKFLOW            ARGS                              DESCRIPTION
+new-rest-endpoint   <ResourceName> [field:type ...]   Scaffold a REST resource, apply its migration, regenerate Swagger
+rebuild             —                                 Regenerate every derived artifact (Wire + Swagger)
+fresh-start         —                                 First-time project setup after `git clone` — install tool deps, migrate, seed
+clean-slate         —                                 Reset the dev database to a known state — drop + re-migrate + re-seed
+health-check        —                                 Run `verify` + `status` together — the full project health report
+```
+
+Add a full REST endpoint with one command:
+
+```bash
+gofasta do new-rest-endpoint Invoice total:float status:string
+```
+
+…runs (in order):
+
+1. `gofasta g scaffold Invoice total:float status:string`
+2. `gofasta migrate up`
+3. `gofasta swagger`
+
+Preview what a workflow would do without executing:
+
+```bash
+$ gofasta do new-rest-endpoint Invoice total:float --dry-run
+
+Dry run — workflow "new-rest-endpoint" would execute:
+
+  · scaffold resource (gofasta g scaffold Invoice total:float)
+  · apply migrations (gofasta migrate up)
+  · regenerate Swagger (gofasta swagger)
+
+No commands were executed. Re-run without --dry-run to apply.
+```
+
+Fresh-clone setup in one command:
+
+```bash
+git clone https://example.com/myorg/myapp.git
+cd myapp
+gofasta do fresh-start
+```
+
+Full project health check (used as a pre-commit gate):
+
+```bash
+gofasta do health-check
+```
+
+Structured JSON output for CI:
+
+```bash
+$ gofasta do rebuild --json | jq '.steps[] | {description, status, duration_ms}'
+{ "description": "regenerate Wire", "status": "ok", "duration_ms": 1820 }
+{ "description": "regenerate Swagger", "status": "ok", "duration_ms": 430 }
+```
+
+## Output shape (JSON)
+
+```json
+{
+  "workflow": "new-rest-endpoint",
+  "status": "ok",
+  "dry_run": false,
+  "steps": [
+    {
+      "description": "scaffold resource",
+      "command": ["gofasta", "g", "scaffold", "Invoice", "total:float"],
+      "status": "ok",
+      "duration_ms": 820
+    }
+  ],
+  "duration_ms": 12340
+}
+```
+
+Status values: `ok`, `failed`, `planned` (for dry-runs). Fields are stable API.
+
+## Behavior on failure
+
+If any step fails, the chain stops and `gofasta do` emits a partial result with the failing step highlighted. The remaining steps are not attempted — workflows are strictly sequential.
+
+```json
+{
+  "workflow": "new-rest-endpoint",
+  "status": "failed",
+  "steps": [
+    { "description": "scaffold resource", "status": "ok", "duration_ms": 820 },
+    { "description": "apply migrations", "status": "failed",
+      "exit_code": 1,
+      "error": "migration failed: relation already exists" }
+  ]
+}
+```
+
+## What `gofasta do` does NOT do
+
+Being explicit about the limits:
+
+- **No templating, no code generation, no AST work.** The wrapper never reads your Go files.
+- **No undo.** If `migrate up` succeeds and `swagger` fails, the migration stays applied (same as if you'd run them individually).
+- **No parallelism.** Steps run strictly sequentially.
+- **No re-entry.** Workflows can't invoke other workflows — just sub-commands.
+- **No environment magic.** Flags, env vars, working directory all inherit unchanged from the outer `gofasta do` invocation.
+
+## Why this exists
+
+Three concrete wins:
+
+1. **Fewer round-trips for AI agents.** An agent asked to "add an Invoice resource" currently has to run three separate commands, each a separate tool invocation. `gofasta do new-rest-endpoint` = one tool call.
+2. **Named atomic steps for CI.** Pipelines doing "freshly apply generated artifacts" can call `gofasta do rebuild` as one stable step.
+3. **Discoverability.** `gofasta do list` surfaces every supported workflow, so new users don't have to read docs to find the common sequences.
+
+## Related
+
+- [`gofasta verify`](/docs/cli-reference/verify) -- the full preflight gauntlet
+- [`gofasta status`](/docs/cli-reference/status) -- project drift report
+- [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) -- the core of `new-rest-endpoint`
+- [`gofasta db`](/docs/cli-reference/db) -- the core of `clean-slate`

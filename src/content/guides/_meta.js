@@ -1,4 +1,4 @@
-export default {
+const meta = {
   "rest-api": "REST API",
   graphql: "GraphQL",
   "database-and-migrations": "Database & Migrations",
@@ -7,6 +7,9 @@ export default {
   "background-jobs": "Background Jobs",
   "email-and-notifications": "Email & Notifications",
   testing: "Testing",
+  debugging: "Debugging",
   deployment: "Deployment",
   configuration: "Configuration",
 };
+
+export default meta;

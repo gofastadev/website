@@ -1,0 +1,177 @@
+---
+title: How It Works
+description: The Wire + middleware + OTel wiring that gives you deep visibility without dirtying business code, plus the endpoint reference and the production-safety build-tag model.
+---
+
+# How it works without dirtying your code
+
+The dashboard gives you deep visibility *without* asking you to add observability code to your controllers, services, or repositories. Every hook lives in `app/devtools` (the scaffold package) and is wired through Wire DI — your business code stays unchanged.
+
+Here's the actual wiring map.
+
+## 1. HTTP middleware (`cmd/serve.go`)
+
+```go
+middlewares := []middleware.Middleware{
+    middleware.RequestID(),
+    middleware.RequestLogging(logger),
+    // Devtools Recovery wraps pkg/middleware.Recovery. In devtools
+    // builds it records the panic; in production it delegates.
+    middleware.Middleware(devtools.Recovery(middleware.Recovery(logger))),
+    middleware.CORS(cfg.Server.AllowedOrigins),
+    middleware.SecurityHeaders(cfg.Security),
+    // Request capture — pass-through no-op in production.
+    middleware.Middleware(devtools.Middleware),
+}
+```
+
+The `devtools.Middleware` captures: method, path, status, duration, request body (capped at 64 KiB), response body (same cap), and extracts the trace ID from the context.
+
+## 2. Debug endpoints (`cmd/serve.go`)
+
+```go
+mux.Handle("/debug/", devtools.Handler())
+```
+
+Serves `/debug/requests`, `/debug/sql`, `/debug/traces`, `/debug/logs`, `/debug/errors`, `/debug/cache`, `/debug/explain`, `/debug/health`, and `/debug/pprof/*`.
+
+## 3. OpenTelemetry span processor (`cmd/serve.go`)
+
+```go
+if cfg.Observability.TracingEnabled {
+    shutdown := observability.InitTracer(cfg.Observability.ServiceName)
+    defer shutdown()
+    devtools.RegisterTraceProcessor()
+}
+```
+
+Hooks a `sdktrace.SpanProcessor` into the global tracer provider. Every span captures a 20-frame call stack at `OnStart`; completed traces flush into a 50-entry ring keyed by trace ID.
+
+## 4. GORM plugin (`app/di/providers/core.go`)
+
+```go
+func ProvideDB(cfg *config.DatabaseConfig) *gorm.DB {
+    db := config.SetupDB(cfg)
+    _ = db.Use(devtools.GormPlugin())
+    return db
+}
+```
+
+Registers before/after callbacks on every op. Captures SQL, vars, rows affected, error, duration, and trace ID into a 200-entry ring.
+
+## 5. slog handler wrapper (`app/di/providers/core.go`)
+
+```go
+func ProvideLogger(cfg *config.LogConfig) *slog.Logger {
+    base := logger.NewLogger(cfg)
+    wrapped := slog.New(devtools.WrapLogger(base.Handler()))
+    slog.SetDefault(wrapped)
+    return wrapped
+}
+```
+
+Tees every log record into a 500-entry ring keyed by the trace ID extracted from the record's context.
+
+## 6. Cache decorator (`app/di/providers/core.go`)
+
+```go
+func ProvideCacheService(cfg *config.CacheConfig, log *slog.Logger) (cache.CacheService, error) {
+    inner, err := cache.NewCacheService(cfg, log)
+    if err != nil {
+        return nil, err
+    }
+    return devtools.WrapCache(inner), nil
+}
+```
+
+Decorates the cache with a per-op recorder.
+
+## 7. EXPLAIN database handle (`cmd/serve.go`)
+
+```go
+devtools.RegisterDB(container.DB)
+```
+
+Stashes the GORM handle so `/debug/explain` can run ad-hoc `EXPLAIN` queries against captured SQL (SELECT-only whitelist).
+
+## 8. Auto-instrumented service/repository layers
+
+The scaffold's `gofasta g scaffold` and `gofasta g service`/`g repository` generators emit:
+
+```go
+func (s *OrderService) Create(ctx context.Context, input ...) (..., error) {
+    ctx, span := otel.Tracer("...").Start(ctx, "OrderService.Create")
+    defer span.End()
+    // ... business logic
+}
+```
+
+Every generated service and repository method is already instrumented — no manual work. The built-in `UserService` / `UserRepository` that ships with `gofasta new` is instrumented the same way, so the trace waterfall for `/api/v1/users` is populated out of the box.
+
+See [Tracing & Waterfalls](/docs/guides/debugging/tracing) for the full layer-by-layer breakdown — what's traced automatically, what you need to add yourself, and why SQL doesn't appear as nested spans by default.
+
+## Production safety
+
+All eight hooks above compile to no-ops in production.
+
+```bash
+go build ./...           # production build — stubs only
+go build -tags devtools  # dev build — real implementations
+```
+
+`gofasta dev` sets `GOFLAGS=-tags=devtools` automatically. The CI build (`deployments/ci/github-actions-test.yml`) and the production Dockerfile never set it.
+
+What "no-op" means for each hook:
+
+| Hook | Stub behavior |
+|------|---------------|
+| `devtools.Middleware` | Identity — returns `next` unchanged |
+| `devtools.Handler()` | 404 everywhere except `/debug/health` which returns `{"devtools":"stub"}` |
+| `devtools.RegisterTraceProcessor()` | Empty function body |
+| `devtools.GormPlugin()` | Plugin whose `Initialize` returns `nil` |
+| `devtools.WrapLogger(h)` | Returns `h` unchanged |
+| `devtools.WrapCache(c)` | Returns `c` unchanged |
+| `devtools.Recovery(fallback)` | Returns `fallback` directly |
+| `devtools.RegisterDB(db)` | Empty function body |
+
+The Go compiler inlines these stubs and dead-code-eliminates the call sites, so a production binary has no unused devtools symbols. You can prove it yourself:
+
+```bash
+go build -o prod .              # production build
+go tool objdump -s devtools prod | head
+# → no devtools functions in the output
+```
+
+## Endpoint reference
+
+### Scaffold debug endpoints
+
+Mounted under `/debug/` by `devtools.Handler()`. Active only when the app is built with `-tags devtools`.
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /debug/health` | `{"devtools":"enabled"}` or `{"devtools":"stub"}` |
+| `GET /debug/requests` | Recent `RequestEntry` ring (method, path, status, duration, trace ID, request body, response body) |
+| `GET /debug/sql` | Recent `QueryEntry` ring (SQL, vars, rows, duration, error, trace ID) |
+| `GET /debug/traces` | Summary list of completed traces (spans stripped for cheap polling) |
+| `GET /debug/traces/{id}` | One full `TraceEntry` including every span, stack, event, attribute |
+| `GET /debug/logs?trace_id=&level=` | `LogEntry` ring filtered by trace ID and/or minimum level |
+| `GET /debug/errors` | Recent `ExceptionEntry` ring (recovered value, stack, trace ID, method, path) |
+| `GET /debug/cache` | Recent `CacheEntry` ring (op, key, hit/miss, duration, trace ID) |
+| `POST /debug/explain` | Run `EXPLAIN` against a captured SELECT. Body: `{"sql": "...", "vars": ["..."]}` |
+| `GET /debug/pprof/*` | Standard Go profiling endpoints (index, profile, heap, goroutine, mutex, block, allocs, trace, threadcreate) |
+
+### Dashboard API
+
+Served by the CLI on the dashboard port (default `:9090`). The dashboard proxies most of these to the corresponding `/debug/*` endpoint on your app.
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /` | HTML dashboard with server-side-rendered initial state + SSE subscriber |
+| `GET /api/state` | Current `dashboardState` JSON snapshot |
+| `GET /api/stream` | Server-Sent Events stream (5s cadence) |
+| `GET /api/trace/{id}` | Proxy to `/debug/traces/{id}` |
+| `GET /api/logs?trace_id=&level=` | Proxy to `/debug/logs` |
+| `POST /api/replay` | Re-fire a captured request. Body: `{"method": "...", "path": "...", "body": "..."}`. Returns `{"status": int, "body": string, "headers": {...}}` |
+| `POST /api/explain` | Proxy to `/debug/explain` |
+| `GET /api/har` | Download the request ring as HAR 1.2 JSON |
