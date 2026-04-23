@@ -10,3 +10,4 @@ export { QuickStartSection } from "./quick-start-section";
 export { CtaSection } from "./cta-section";
 export { FooterLanding } from "./footer-landing";
 export { ComingSoon } from "./coming-soon";
+export { NotFound } from "./not-found";
