@@ -1,4 +1,4 @@
-export default {
+const meta = {
   index: {
     display: "hidden",
   },
@@ -7,3 +7,5 @@ export default {
     title: "Documentation",
   },
 };
+
+export default meta;
