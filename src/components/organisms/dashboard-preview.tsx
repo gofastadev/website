@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { SectionHeading, FeatureCard } from "@/components/molecules";
 import { useOnScreen } from "@/hooks/use-on-screen";
@@ -496,12 +497,12 @@ export function DashboardPreview() {
         <p className="mt-10 text-center text-sm text-gray-600 dark:text-gray-400">
           Plus panic history, cache hit/miss, EXPLAIN plans, HAR export, and
           more.{" "}
-          <a
+          <Link
             href="/docs/guides/debugging/overview"
             className="text-primary underline-offset-4 hover:underline"
           >
             Read the debugging guide →
-          </a>
+          </Link>
         </p>
       </div>
     </section>

@@ -9,7 +9,6 @@ interface Destination {
   label: string;
   description: string;
   href: string;
-  external?: boolean;
 }
 
 const destinations: Destination[] = [
@@ -228,8 +227,6 @@ export function NotFound() {
               <Link
                 key={dest.href}
                 href={dest.href}
-                target={dest.external ? "_blank" : undefined}
-                rel={dest.external ? "noopener noreferrer" : undefined}
                 className="gofasta-card-glow group relative block rounded-xl border border-gray-200 bg-surface p-5 text-left transition-colors hover:border-primary/40 dark:border-gray-800"
               >
                 <div className="flex items-start justify-between gap-3">
