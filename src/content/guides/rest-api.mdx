@@ -340,7 +340,7 @@ The scaffold uses [go-chi/chi](https://github.com/go-chi/chi) as its default HTT
 
 ### What "swapping the router" means
 
-Every REST-facing file in a generated project touches the router in exactly one of three ways: it constructs the root router, it registers routes on a passed-in router argument, or it reads a path parameter. Replacing chi means editing those three touch points consistently across the files listed below. No framework code depends on chi — so once these files compile, you're done.
+Every REST-facing file in a generated project touches the router in exactly one of three ways: it constructs the root router, it registers routes on a passed-in router argument, or it reads a path parameter. Replacing chi means editing those three touch points consistently across the files listed below. No code in the gofasta library depends on chi — so once these files compile, you're done.
 
 ### Files to edit
 
@@ -352,7 +352,7 @@ Every REST-facing file in a generated project touches the router in exactly one 
 | `cmd/serve.go` | If your replacement router does not return `http.Handler`, adjust the top-level `http.NewServeMux()` mount at `mux.Handle("/", apiRouter)`. |
 | `go.mod` | `go get` the replacement and remove the chi require line (run `go mod tidy` to clean up). |
 
-That's it — the framework (`github.com/gofastadev/gofasta/pkg/*`) never imports any router. Middleware in `pkg/middleware` is plain `func(http.Handler) http.Handler`, so it works with any router that accepts `net/http` middleware.
+That's it — the gofasta library (`github.com/gofastadev/gofasta/pkg/*`) never imports any router. Middleware in `pkg/middleware` is plain `func(http.Handler) http.Handler`, so it works with any router that accepts `net/http` middleware.
 
 ### Example — swapping to gorilla/mux
 

@@ -69,7 +69,7 @@ Request → Controller → Service → Repository → Database
 
 This layout is a deliberate choice, not an oversight. The main alternative — **feature modules** (also called vertical slice architecture, package by feature, or DDD modules), where each business domain lives in its own directory containing its controller, service, repository, and model together — has real merits for large applications. Gofasta ships with a layered layout because:
 
-- **It matches the mental model of developers coming from Rails, Django, Laravel, and ASP.NET MVC.** These are the ecosystems where Rails-style scaffolding originated and where most backend engineers meet the "controller → service → repository" pipeline for the first time.
+- **It matches the mental model most backend engineers already have.** The "controller → service → repository" pipeline is the dominant pattern in mainstream MVC-style backends, and developers coming from that background find a layered layout immediately familiar.
 - **It keeps small projects small.** For an app with 3–8 resources, flat layer directories are simpler to navigate than nested feature modules.
 - **It aligns with Go's stdlib aesthetic** of small, focused packages (`net/http`, `encoding/json`, `database/sql`) rather than large multi-concern packages.
 - **Cross-cutting concerns have a natural home.** Shared DTOs, middleware, and validators don't have to be forced into a `shared/` or `common/` grab-bag.
@@ -194,7 +194,7 @@ app/
 
 - **More ceremony for small apps.** Three resources in three folders with six files each is heavier than six flat folders with three files each.
 - **Cross-feature references need discipline.** `user` referencing `invoice` can create import cycles if not careful. DDD's rule is that only aggregate roots cross module boundaries, and usually through an interface defined in the consumer side.
-- **Unfamiliar to ex-Rails developers.** Feature modules feel like Spring/NestJS/Django apps; flat layers feel like Rails. Team background matters.
+- **Unfamiliar to engineers coming from layered MVC backends.** Feature modules feel like package-by-feature / vertical-slice codebases; flat layers feel like the layered MVC backends most engineers learn first. Team background matters.
 
 ### Migration recipe
 
@@ -251,10 +251,10 @@ Migrate when:
 Stay layered when:
 
 - The app has fewer than ~10 resources.
-- The team is mostly Rails/Django-background and the flat layout matches their mental model.
+- The team is mostly coming from layered MVC backends and the flat layout matches their mental model.
 - You haven't felt real pain from the current structure — speculative refactoring is the most expensive kind.
 
-Both layouts are legitimate. The Go community is genuinely split on this — Ben Johnson's "Standard Package Layout", the NestJS-inspired vertical-slice camp, and the traditional layered camp are all actively defended in production codebases. Pick the one that fits your team and your current scale; you can migrate later if the trade-offs shift.
+Both layouts are legitimate. The Go community is genuinely split on this — Ben Johnson's "Standard Package Layout", the package-by-feature / vertical-slice camp, and the traditional layered camp are all actively defended in production codebases. Pick the one that fits your team and your current scale; you can migrate later if the trade-offs shift.
 
 ## Next Steps
 
