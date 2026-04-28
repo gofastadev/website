@@ -44,7 +44,7 @@ make test
 func SetupTestDB(t *testing.T) *gorm.DB
 ```
 
-It starts a fresh PostgreSQL container, runs the framework's base migrations (the `citext` extension and the shared trigger functions), and returns a ready-to-use `*gorm.DB`. The container is automatically torn down at the end of the test via `t.Cleanup`, so every test gets an isolated database.
+It starts a fresh PostgreSQL container, runs the gofasta library's base migrations (the `citext` extension and the shared trigger functions), and returns a ready-to-use `*gorm.DB`. The container is automatically torn down at the end of the test via `t.Cleanup`, so every test gets an isolated database.
 
 **Requirements:** Docker must be running on the machine executing the tests. The first call pulls the `postgres:16-alpine` image.
 
