@@ -4,10 +4,15 @@ import { Logo } from "./logo";
 
 describe("Logo", () => {
   it("renders the logo image", () => {
-    render(<Logo />);
-    const img = screen.getByAltText("Gofasta");
+    const { container } = render(<Logo />);
+    // The image is decorative (alt="") because the visible "Gofasta"
+    // text label beside it provides the same name to assistive tech.
+    // Look it up by src instead of alt — alt="" is the correct value
+    // and getByAltText("") is unreliable across testing-library
+    // versions.
+    const img = container.querySelector('img[src="/logo.png"]');
     expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute("src", "/logo.png");
+    expect(img).toHaveAttribute("alt", "");
   });
 
   it("renders the brand name", () => {
@@ -28,8 +33,8 @@ describe("Logo", () => {
   });
 
   it("applies rounded corners to the image", () => {
-    render(<Logo />);
-    const img = screen.getByAltText("Gofasta");
+    const { container } = render(<Logo />);
+    const img = container.querySelector('img[src="/logo.png"]');
     expect(img).toHaveClass("rounded-lg");
   });
 });

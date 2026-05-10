@@ -1,11 +1,11 @@
 ---
 title: gofasta dev
-description: Bring the full local environment up with one command — compose services + migrations + Air hot reload.
+description: Bring the full local environment up with one command — compose services + migrations + Air hot reload, with interactive restart.
 ---
 
 # `gofasta dev`
 
-One-command development loop. Runs the full pipeline: start compose services, wait for healthchecks, apply pending migrations, launch Air for hot-reload, stream structured events for agents, and tear everything down on `Ctrl+C`.
+One-command development loop. Runs the full pipeline: start compose services, wait for healthchecks, apply pending migrations, launch Air for hot-reload, stream structured events for agents, accept interactive keyboard controls, and tear everything down on `Ctrl+C`.
 
 ## Usage
 
@@ -13,18 +13,26 @@ One-command development loop. Runs the full pipeline: start compose services, wa
 gofasta dev [flags]
 ```
 
+## What runs by default
+
+`gofasta dev` activates the **`cache` and `queue` compose profiles automatically** so your scaffolded project's redis + asynqmon services come up alongside the database. Pass `--no-cache` / `--no-queue` to opt out.
+
+A second mode, [`--all-in-docker`](#all-in-docker-mode), runs Air *inside* the app container and streams its hot-reload output to the foreground — useful when you want full Docker isolation but still want to see live logs.
+
+While the dev loop is running, the terminal accepts [single-key shortcuts](#interactive-keyboard-controls) — `r` to restart everything from scratch, `q` to quit, `h` for help.
+
 ## Pipeline
 
 Each stage can be opted out independently.
 
 1. **Preflight** — verify `docker` and `docker compose` availability.
 2. **Fresh volumes** *(optional, `--fresh`)* — drop every compose volume before starting.
-3. **Service start** — `docker compose up -d <resolved services>`.
+3. **Service start** — `docker compose --profile cache --profile queue up -d <resolved services>`.
 4. **Health-wait** — poll each service's compose healthcheck until `healthy` (timeout 30s by default).
-5. **Migrate** — `migrate up` against the now-healthy database.
+5. **Migrate** — `migrate up` against the now-healthy database. *Skipped under `--all-in-docker` — the dev container runs `migrate` itself before Air.*
 6. **Seed** *(optional, `--seed`)* — run seeders after migrations.
-7. **Air** — exec `go tool air` against `.air.toml`.
-8. **Teardown** — on `SIGINT`/`SIGTERM`, stop services (volumes preserved by default).
+7. **Air** — exec `go tool air` on the host against `.air.toml`. Under `--all-in-docker`, instead tail the app container's stdout via `docker compose logs -f app`.
+8. **Teardown** — on `SIGINT`/`SIGTERM` or `q`, stop services (volumes preserved by default). On `r`, re-run the entire pipeline from scratch.
 
 On projects without a `compose.yaml`, steps 1–4 are short-circuited and the pipeline falls straight to Air — preserving the "I'm bringing my own DB" flow.
 
@@ -32,23 +40,25 @@ On projects without a `compose.yaml`, steps 1–4 are short-circuited and the pi
 
 | Flag | Default | Behavior |
 | --- | --- | --- |
+| `--all-in-docker` | `false` | Run the entire stack (including Air) inside Docker. Supporting services run detached; the app container's stdout streams to the foreground for live hot-reload logs. See [the dedicated section](#all-in-docker-mode). |
 | `--no-services` | `false` | Skip all compose orchestration; just run Air (for an externally-managed database). |
 | `--no-db` | `false` | Skip DB-like services (postgres, mysql, clickhouse, mariadb, or anything suffixed `-db`). |
-| `--no-cache` | `false` | Skip cache-like services (redis, valkey, `-cache` suffix). |
-| `--no-queue` | `false` | Skip queue-like services (asynq, nats, rabbitmq, `-queue` suffix). |
+| `--no-cache` | `false` | Skip the `cache` compose profile (which is auto-activated by default). |
+| `--no-queue` | `false` | Skip the `queue` compose profile (which is auto-activated by default). |
 | `--no-migrate` | `false` | Skip `migrate up` after services become healthy. |
+| `--no-keyboard` | `false` | Disable the [interactive keyboard layer](#interactive-keyboard-controls). Use this when stdin is piped or for non-interactive sessions. Auto-disabled when stdin is not a TTY. |
 | `--no-teardown` | `false` | Leave compose services running on exit (default: stop them). |
 | `--keep-volumes` | `true` | Preserve named volumes on teardown. Pass `--keep-volumes=false` to run `docker compose down -v` instead of `docker compose stop`. |
 | `--fresh` | `false` | Drop every compose volume before starting — forces a clean database state. |
 | `--services=<list>` | *(derived)* | Comma-separated explicit list. Overrides `--no-*` flags. |
-| `--profile=<name>` | *(none)* | Pass-through to `docker compose --profile` for optional services (e.g. `cache`, `queue`). |
+| `--profile=<name>` | *(none)* | Additional compose profile to activate. Cache and queue are auto-on unless `--no-cache` / `--no-queue`. |
 | `--wait-timeout=<duration>` | `30s` | How long to wait for compose services to report healthy. |
 | `--env-file=<path>` | `.env` | Alternate env file to load before Air. |
 | `--port=<n>` | *(from config)* | Override the `PORT` env var passed to Air / the app binary. |
-| `--rebuild` | `false` | Clear Air's `tmp/` build directory before starting so the next build is fresh. |
+| `--rebuild` | `false` | Clear Air's `tmp/` build directory before starting so the next build is fresh. Host-Air-only; no-op under `--all-in-docker`. |
 | `--seed` | `false` | Run seeders after migrations (equivalent to `gofasta seed` afterward). |
 | `--dry-run` | `false` | Print the resolved plan and exit without touching anything. |
-| `--attach-logs` | `false` | Stream `docker compose logs -f` alongside Air output. |
+| `--attach-logs` | `false` | Stream `docker compose logs -f` for every service alongside Air. Under `--all-in-docker` this multiplexes db/cache/queue alongside the app's foreground logs. |
 | `--dashboard` | `false` | Start the local dev dashboard — an HTML debug page with routes, health, and live service state. |
 | `--dashboard-port=<n>` | `9090` | Port for the dev dashboard HTTP server. |
 | `--json` | `false` *(persistent)* | Emit structured NDJSON events instead of human log lines. |
@@ -57,7 +67,61 @@ On projects without a `compose.yaml`, steps 1–4 are short-circuited and the pi
 
 1. `--no-services` wins unconditionally — start nothing.
 2. `--services=a,b,c` overrides `--no-*` filters — start exactly those.
-3. Default: every non-app service in `compose.yaml`, minus any matched by `--no-*` name heuristics.
+3. Default: every non-app service in `compose.yaml`, minus any matched by `--no-*` name heuristics. The `app` service is included only under `--all-in-docker`.
+
+**Compose profile resolution.** The profile list passed to `docker compose --profile` is built from:
+
+1. Any value of `--profile=<name>`.
+2. `cache` — unless `--no-cache` is set.
+3. `queue` — unless `--no-queue` is set.
+
+Duplicates are removed; order is stable. So the default activates `[cache queue]`; `gofasta dev --no-cache` activates `[queue]`; `gofasta dev --no-cache --no-queue` activates `[]`.
+
+## Interactive keyboard controls
+
+While the dev loop is running, gofasta puts stdin in raw mode and watches for these single-key shortcuts:
+
+| Key | Action |
+| --- | --- |
+| `r` / `R` | **Restart the entire pipeline from scratch.** Services stop, then every stage re-runs (`.env` reload → preflight → start services → wait healthy → migrate → seed → Air). Same effect as Ctrl+C and `gofasta dev` again, without leaving the process. |
+| `q` / `Q` | Quit cleanly. Equivalent to Ctrl+C — runs the existing teardown flow. |
+| `h` / `H` / `?` | Print the keybinding help inline. |
+
+When `gofasta dev` starts with the keyboard layer active you'll see a one-line banner:
+
+```
+⌨  press `r` to restart · `q` to quit · `h` for help
+```
+
+The keyboard listener auto-disables when stdin is not a TTY (CI runs, piped input). Pass `--no-keyboard` to disable it explicitly when stdin is needed by something else.
+
+**When you'd press R.** Air handles Go-source reloads automatically — you don't need R for that. Press R when something *outside* the Air-watched filesystem changes:
+
+- You edited `.env` or `config.yaml` and want the new values picked up.
+- You added or rebased migration files and want them re-applied from a clean state with `--fresh`.
+- A compose service got into a weird state and you want a fresh `up -d` cycle.
+- You want to test cold-start behavior (full pipeline replay) without exiting the process.
+
+## --all-in-docker mode
+
+Adds the `app` compose service to the orchestrated set so Air runs **inside the app container** rather than on the host. Supporting services (db, cache, queue) still run detached; the app container's stdout (Air's hot-reload output) is streamed to your terminal via `docker compose logs -f app`, so the experience matches host-side Air.
+
+```bash
+gofasta dev --all-in-docker
+```
+
+What changes vs. the default mode:
+
+| Stage | Default | `--all-in-docker` |
+| --- | --- | --- |
+| **Service start** | `compose up -d <db, cache, queue>` | `compose up -d <app, db, cache, queue>` |
+| **Migrate** | Host runs `migrate up` against `localhost:5433` | **Skipped on host** — the dev container's `CMD` runs `migrate` against `db:5432` before starting Air. |
+| **Air** | `go tool air` on the host | Air runs inside the `app` container; gofasta tails its logs to the foreground. |
+| **JSON event** | `{"event":"air","status":"running"}` | `{"event":"air","status":"running-in-docker"}` |
+
+**Mutual exclusions.** `--all-in-docker` is incompatible with `--no-services` and `--no-db` (the in-container app needs the database). Both produce a `DEV_FLAG_CONFLICT` error before any side effect runs. The flag also requires an `app` service in `compose.yaml` — gofasta scaffolds one by default; if your project's compose file is hand-authored without one, the same error fires.
+
+**Multiplexing other service logs.** By default only the app's logs reach the foreground. Pass `--attach-logs` alongside `--all-in-docker` to also stream db / cache / queue logs (compose prefixes each line with the service name).
 
 ## Structured output (`--json`)
 
@@ -72,16 +136,24 @@ Pipe `gofasta dev --json` into `jq` or your CI. One NDJSON event per line:
 {"event":"shutdown","teardown":"stopped","exit":0}
 ```
 
+Under `--all-in-docker` the `air` event carries `"status":"running-in-docker"` instead of `"running"` so consumers can branch on the runtime:
+
+```json
+{"event":"migrate","status":"skipped","message":"running inside the app container"}
+{"event":"air","status":"running-in-docker","port":8080,"urls":{"rest":"http://localhost:8080","health":"/health"}}
+```
+
 ## Error codes
 
 | Code | When |
 | --- | --- |
 | `DEV_DOCKER_UNAVAILABLE` | `docker` not on `$PATH` or daemon unreachable |
-| `DEV_COMPOSE_NOT_FOUND` | No `compose.yaml` but `--services` was set |
+| `DEV_COMPOSE_NOT_FOUND` | No `compose.yaml` but `--services` or `--all-in-docker` was set |
 | `DEV_SERVICE_UNHEALTHY` | A service didn't become healthy within `--wait-timeout` |
 | `DEV_MIGRATION_FAILED` | `migrate up` returned non-zero |
 | `DEV_AIR_NOT_INSTALLED` | `go tool air` not registered in `go.mod` |
 | `DEV_PORT_IN_USE` | The configured PORT is already bound |
+| `DEV_FLAG_CONFLICT` | Two flags asked for incompatible behavior — e.g. `--all-in-docker --no-services`, `--all-in-docker --no-db`, or `--all-in-docker` against a `compose.yaml` with no `app` service. |
 
 Each carries a `hint` and `docs` field in the JSON error payload — agents can branch on the code and surface the hint verbatim.
 
@@ -173,8 +245,18 @@ These live on the app itself (mounted under `/debug/` by `devtools.Handler()`), 
 ## Recipes
 
 ```bash
-# Everything up, hot-reload the app, Ctrl+C to stop.
+# Everything up — db, cache (redis), queue (asynqmon), Air on the host. Ctrl+C to stop.
 gofasta dev
+
+# Just the database — drop cache + queue.
+gofasta dev --no-cache --no-queue
+
+# Run the entire stack inside Docker. Air runs in the app container; its
+# logs stream to your terminal so the experience matches host-Air.
+gofasta dev --all-in-docker
+
+# --all-in-docker plus multiplexed db/cache/queue logs in the same terminal.
+gofasta dev --all-in-docker --attach-logs
 
 # Bring up services but run Air pointing at a different port.
 gofasta dev --port 8090
@@ -188,12 +270,44 @@ gofasta dev --no-services --no-migrate
 # Start with a fresh, seeded database every time.
 gofasta dev --fresh --seed
 
-# Start with the cache profile on so pkg/cache works (redis).
-gofasta dev --profile cache
+# Add an extra profile beyond the auto-on cache + queue.
+gofasta dev --profile observability
 
 # Dev dashboard + log streaming + JSON mode for a CI run.
 gofasta dev --dashboard --attach-logs --json
 
 # Print the plan without running it — useful in CI sanity checks.
 gofasta dev --dry-run --json
+
+# Disable interactive keyboard (e.g. when a parent process owns stdin).
+gofasta dev --no-keyboard
 ```
+
+## Restart workflow
+
+Once the dev loop is running, you don't need to exit it to re-run from scratch — press **`r`** at any time. The pipeline:
+
+1. SIGINTs Air (or sends teardown to the app container under `--all-in-docker`).
+2. Runs the configured teardown — `compose stop` by default, or `compose down -v` if `--keep-volumes=false`.
+3. Re-loads `.env` (so edits to it apply).
+4. Re-runs every stage from preflight through Air.
+
+A short banner is printed between iterations:
+
+```
+⟳ restarting from scratch (iteration 2)
+```
+
+If the keyboard layer is disabled (non-TTY or `--no-keyboard`), restart is unavailable — exit and re-invoke `gofasta dev` instead.
+
+## Related
+
+<RelatedPages
+  path="cli-reference/dev"
+  extra={[
+    { href: "/docs/api-reference/cache", label: "pkg/cache" },
+    { href: "/docs/api-reference/queue", label: "pkg/queue" },
+    { href: "/docs/guides/database-and-migrations", label: "Database & Migrations guide" },
+    { href: "/docs/guides/configuration", label: "Configuration guide" },
+  ]}
+/>

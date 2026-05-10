@@ -4,8 +4,12 @@ import { NavbarLanding } from "./navbar-landing";
 
 describe("NavbarLanding", () => {
   it("renders the logo", () => {
-    render(<NavbarLanding />);
-    expect(screen.getByAltText("Gofasta")).toBeInTheDocument();
+    const { container } = render(<NavbarLanding />);
+    // Logo image is intentionally decorative (alt="" — see logo.tsx);
+    // the brand-name text label beside it is what conveys identity.
+    const img = container.querySelector('img[src="/logo.png"]');
+    expect(img).toBeInTheDocument();
+    expect(screen.getByText("Gofasta")).toBeInTheDocument();
   });
 
   it("renders navigation links", () => {

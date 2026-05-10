@@ -43,6 +43,13 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+// Mock `server-only` — the package's index.js throws an error at import
+// time if it sees a client-side bundle, which is correct behavior at
+// runtime but breaks vitest (vitest doesn't classify modules as
+// server/client). Replace with an empty module so server-only imports
+// in tested components are no-ops under test.
+vi.mock("server-only", () => ({}));
+
 // Mock next-themes
 const mockSetTheme = vi.fn();
 vi.mock("next-themes", () => ({

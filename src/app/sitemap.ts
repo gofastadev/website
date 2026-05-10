@@ -3,8 +3,10 @@ import { readdirSync, statSync } from "fs";
 import { join } from "path";
 
 const BASE_URL = "https://gofasta.dev";
-const isProduction = process.env.NODE_ENV === "production";
 
+// getMdxPaths walks src/content/ and emits the URL path for every
+// .mdx file. The mapping mirrors Nextra's content routing —
+// `index.mdx` → its parent slug, every other file → its slug.
 function getMdxPaths(dir: string, basePath: string = ""): string[] {
   const paths: string[] = [];
   const entries = readdirSync(dir);
@@ -29,6 +31,10 @@ function getMdxPaths(dir: string, basePath: string = ""): string[] {
   return paths;
 }
 
+// sitemap.xml — every page that should be discoverable by search
+// engines. The home page is high priority; the docs root sits one
+// notch below it; individual doc pages sit at 0.7. The HTML sitemap
+// at /sitemap is a secondary discovery surface for humans.
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages: MetadataRoute.Sitemap = [
     {
@@ -37,19 +43,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 1.0,
     },
+    {
+      url: `${BASE_URL}/sitemap`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
   ];
-
-  if (isProduction) {
-    return [
-      ...staticPages,
-      {
-        url: `${BASE_URL}/docs/white-paper`,
-        lastModified: new Date(),
-        changeFrequency: "monthly",
-        priority: 0.8,
-      },
-    ];
-  }
 
   const contentDir = join(process.cwd(), "src", "content");
   const docPaths = getMdxPaths(contentDir);
@@ -61,14 +61,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: path === "/docs" ? 0.9 : 0.7,
   }));
 
-  return [
-    ...staticPages,
-    {
-      url: `${BASE_URL}/sitemap`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
-    ...docPages,
-  ];
+  return [...staticPages, ...docPages];
 }

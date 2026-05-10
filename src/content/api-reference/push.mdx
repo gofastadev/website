@@ -1,0 +1,266 @@
+---
+title: Push Notifications
+description: Outbound mobile push notifications via Firebase Cloud Messaging, with a provider-pluggable Sender interface.
+---
+
+# Push
+
+The `push` package provides outbound mobile push notifications. It is the mobile counterpart to [`pkg/mailer`](/docs/api-reference/mailer), [`pkg/slack`](/docs/api-reference/slack), and [`pkg/whatsapp`](/docs/api-reference/whatsapp). One provider ships in the standard build (Firebase Cloud Messaging); the `Sender` interface is provider-agnostic so swapping providers is a config-only change.
+
+Inbound webhooks (delivery receipts, click events, APNs token-refresh) are intentionally **not** in this package — each provider has its own callback shape and signing scheme; the consumer should own that route directly.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/push"
+```
+
+## Key Types
+
+### Sender
+
+The interface every provider implements. Inject via DI; the concrete sender is selected at boot by config.
+
+```go
+type Sender interface {
+    Name() string
+    SendToTokens(ctx context.Context, tokens []string, msg Message) ([]TokenResult, error)
+    SendToTopic(ctx context.Context, topic string, msg Message) (*SendResult, error)
+    SubscribeToTopic(ctx context.Context, topic string, tokens []string) (*TopicMembershipResult, error)
+    UnsubscribeFromTopic(ctx context.Context, topic string, tokens []string) (*TopicMembershipResult, error)
+}
+```
+
+Why three send verbs instead of one polymorphic `Send`? Mobile push providers strictly distinguish *targeting modes*:
+
+- **Tokens** — addressed, multicast. The provider returns one per-token result so the caller can prune dead tokens.
+- **Topic** — fan-out by subscription. The provider returns one aggregate result; per-recipient outcomes are not visible.
+- **Subscribe / Unsubscribe** — round out the topic story. Providers that don't support a verb return `ErrUnsupported` so callers can log and move on.
+
+### Message
+
+```go
+type Message struct {
+    Title    string
+    Body     string
+    Data     map[string]string  // structured payload the app reads on tap
+    Priority Priority           // PriorityNormal | PriorityHigh
+
+    ImageURL    string
+    Sound       string  // "default" or empty for silent
+    Badge       *int    // iOS badge count; nil = leave unchanged
+    ClickAction string  // Android-only intent name
+
+    // Provider-specific escape hatches; rarely needed.
+    AndroidOverride map[string]any
+    AppleOverride   map[string]any
+    WebPushOverride map[string]any
+}
+```
+
+`Data` values are constrained to strings — that's the FCM data-message contract, and Apple/Expo follow similar shapes. Encode complex values as JSON if needed.
+
+### Priority
+
+Maps to platform-specific priority enums:
+
+```go
+type Priority string
+
+const (
+    PriorityNormal Priority = "normal"
+    PriorityHigh   Priority = "high"
+)
+```
+
+- FCM Android: `PriorityNormal` → `"normal"`, `PriorityHigh` → `"high"`
+- APNs (via FCM): `PriorityNormal` → `"5"`, `PriorityHigh` → `"10"`
+
+`PriorityHigh` wakes the app immediately and shows the notification; `PriorityNormal` can be deferred by the OS to save battery.
+
+### TokenResult
+
+Per-token outcome of a multicast send:
+
+```go
+type TokenResult struct {
+    Token         string
+    OK            bool
+    ProviderMsgID string
+    Error         string
+    ErrorCode     string  // "UNREGISTERED", "INVALID_ARGUMENT", "QUOTA_EXCEEDED", ...
+}
+
+func (r TokenResult) IsTokenInvalidated() bool
+```
+
+`IsTokenInvalidated()` returns `true` when the per-token error indicates the token should be removed from your registry — drive automatic cleanup with this after every multicast.
+
+### SendResult
+
+Provider acknowledgment of a topic-targeted send:
+
+```go
+type SendResult struct {
+    OK              bool
+    ProviderMsgID   string
+    Status          string
+    RawResponseJSON string
+}
+```
+
+`Status` reflects what the provider returned at SEND time — **not** delivery confirmation (which arrives later via webhook).
+
+### TopicMembershipResult
+
+Aggregate outcome of a topic (un)subscribe call:
+
+```go
+type TopicMembershipResult struct {
+    SuccessCount int
+    FailureCount int
+    Errors       []string
+}
+```
+
+## Errors
+
+```go
+var ErrUnsupported   = errors.New("push: operation not supported by this provider")
+var ErrNotConfigured = errors.New("push: no provider configured (set PUSH_PROVIDER)")
+```
+
+`ErrNotConfigured` is what the noop sender returns when no provider is selected — surfacing the misconfig as a runtime error rather than a silent no-op so it shows up in your tests instead of in production.
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewSender` | `func NewSender(cfg *config.PushConfig, logger *slog.Logger) (Sender, error)` | Factory: returns the sender selected by `cfg.Provider`. Used by Wire DI. |
+| `NewFCMSender` | `func NewFCMSender(cfg FCMConfig, logger *slog.Logger) (*FCMSender, error)` | Direct constructor for the FCM sender. |
+
+## Configuration
+
+### `config.yaml`
+
+```yaml
+push:
+  provider: fcm           # "" (disabled), or "fcm"
+  fcm:
+    credentials_file_path: configs/firebase-service-account.json
+    # OR inline (useful for containerized deploys):
+    # credentials_json: |
+    #   {"type":"service_account",...}
+    project_id: ""        # optional override; read from credentials when empty
+```
+
+### Env vars
+
+```bash
+export GOFASTA_PUSH_PROVIDER=fcm
+export GOFASTA_PUSH_FCM_CREDENTIALS_FILE_PATH=configs/firebase-service-account.json
+export GOFASTA_PUSH_FCM_PROJECT_ID=my-firebase-project
+```
+
+When both `credentials_json` (inline) and `credentials_file_path` are set, the inline JSON wins.
+
+## Usage
+
+### Send to a single device token
+
+```go
+import "github.com/gofastadev/gofasta/pkg/push"
+
+results, err := sender.SendToTokens(ctx, []string{deviceToken}, push.Message{
+    Title:    "Order shipped",
+    Body:     "Your order #42 just left the warehouse.",
+    Priority: push.PriorityHigh,
+    Data: map[string]string{
+        "screen": "shipment",
+        "id":     "42",
+    },
+    Sound: "default",
+})
+if err != nil {
+    return fmt.Errorf("push call failed: %w", err)
+}
+
+// Per-token outcomes — the slice has one entry per input token, in order.
+for _, r := range results {
+    if !r.OK {
+        log.Warn("push failed", "token", r.Token, "code", r.ErrorCode, "err", r.Error)
+        if r.IsTokenInvalidated() {
+            // Revoke the token from your registry.
+            tokenRepo.Delete(ctx, r.Token)
+        }
+    }
+}
+```
+
+### Multicast with token cleanup
+
+```go
+allTokens := userRepo.AllPushTokens(ctx, userID)
+results, err := sender.SendToTokens(ctx, allTokens, msg)
+if err != nil {
+    return err
+}
+
+dead := []string{}
+for _, r := range results {
+    if r.IsTokenInvalidated() {
+        dead = append(dead, r.Token)
+    }
+}
+if len(dead) > 0 {
+    tokenRepo.DeleteMany(ctx, dead)
+}
+```
+
+### Send to a topic
+
+```go
+res, err := sender.SendToTopic(ctx, "promos", push.Message{
+    Title: "20% off this weekend",
+    Body:  "Tap to see eligible products.",
+    Data:  map[string]string{"campaign": "weekend-2026-02"},
+})
+if err != nil {
+    return err
+}
+log.Info("topic push sent", "msg_id", res.ProviderMsgID, "status", res.Status)
+```
+
+### Topic subscriptions
+
+```go
+// Subscribe a batch of tokens server-side. Some providers don't expose this —
+// the noop sender does, and FCM does, but adding e.g. APNs-direct later may
+// require subscribing client-side via the SDK.
+res, err := sender.SubscribeToTopic(ctx, "promos", []string{tokenA, tokenB})
+if errors.Is(err, push.ErrUnsupported) {
+    log.Info("provider does not expose server-side subscribe — handle client-side")
+    return nil
+}
+if err != nil {
+    return err
+}
+log.Info("subscribed", "ok", res.SuccessCount, "fail", res.FailureCount)
+```
+
+## Adding a new provider
+
+To add Expo / OneSignal / APNs-direct / AWS SNS / etc.:
+
+1. Drop a `<provider>.go` file implementing `Sender` into `pkg/push`. Mirror the structure of `fcm.go`.
+2. Add a sub-config struct in `pkg/config/config.go` and reference it from `PushConfig`.
+3. Add a switch case in `factory.go`.
+
+No code outside `pkg/push` needs to change.
+
+## Related Pages
+
+- [Mailer](/docs/api-reference/mailer) — outbound email
+- [Slack](/docs/api-reference/slack) — outbound chat
+- [WhatsApp](/docs/api-reference/whatsapp) — outbound WhatsApp messaging
+- [Notifications](/docs/api-reference/notifications) — multi-channel notification orchestration

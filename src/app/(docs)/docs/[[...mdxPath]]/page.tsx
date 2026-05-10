@@ -69,6 +69,23 @@ function buildStructuredData(
     meta?.description ??
     "Gofasta documentation for the Go backend toolkit.";
 
+  // Section name derived from the first path segment (e.g. "cli-reference" → "Cli Reference"),
+  // mirroring the OG-image `section` so JSON-LD and OG share a single source of truth.
+  const articleSection = segments[0]
+    ? segments[0]
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+    : "Docs";
+
+  // Mirror the OG image URL on the schema so Google can use it as the
+  // article hero image in rich results. Same query-string contract as
+  // generateMetadata above.
+  const ogImageUrl = `https://gofasta.dev/api/og?title=${encodeURIComponent(title)}&section=${encodeURIComponent(articleSection)}`;
+
+  // Per-page keywords come from the same SEO map as the metadata side
+  // — keep them in sync so structured data and meta tags don't diverge.
+  const keywords = getKeywordsForPath(urlPath);
+
   const breadcrumbItems = [
     { name: "Home", url: "https://gofasta.dev" },
     { name: "Docs", url: "https://gofasta.dev/docs" },
@@ -85,6 +102,9 @@ function buildStructuredData(
     "@graph": [
       {
         "@type": "BreadcrumbList",
+        // The breadcrumb's parent: Google groups sitelinks better when
+        // BreadcrumbList nests under a WebPage with the current URL.
+        mainEntity: { "@type": "WebPage", "@id": fullUrl },
         itemListElement: breadcrumbItems.map((item, i) => ({
           "@type": "ListItem",
           position: i + 1,
@@ -97,6 +117,10 @@ function buildStructuredData(
         headline: title,
         description,
         url: fullUrl,
+        inLanguage: "en",
+        articleSection,
+        keywords: keywords.length > 0 ? keywords.join(", ") : undefined,
+        image: ogImageUrl,
         author: { "@type": "Organization", name: "Gofasta" },
         publisher: {
           "@type": "Organization",

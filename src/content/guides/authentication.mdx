@@ -5,7 +5,7 @@ description: JWT authentication, login and registration flows, middleware, Casbi
 
 # Authentication
 
-Gofasta provides a complete authentication system out of the box, using JWT tokens for stateless auth and Casbin for role-based access control. The starter `User` model and auth endpoints are included in every new project.
+The scaffold imports `pkg/auth` as its **default authentication layer** — JWT tokens for stateless auth, Casbin for role-based access control, and a starter `User` model with login and registration endpoints in every new project. Like every `pkg/*` default, it is **opt-out**: a developer who prefers a different JWT library or RBAC engine can delete the `pkg/auth` import and `go get` an alternative without touching the rest of the project.
 
 ## Overview
 
@@ -368,3 +368,13 @@ type AuthResponse struct {
 - [Configure your application](/docs/guides/configuration)
 - [Auth API reference](/docs/api-reference/auth)
 - [Middleware API reference](/docs/api-reference/middleware)
+
+## Related
+
+<RelatedPages
+  path="guides/authentication"
+  extra={[
+    { href: "/docs/api-reference/auth", label: "pkg/auth" },
+    { href: "/docs/api-reference/sessions", label: "pkg/session" },
+  ]}
+/>

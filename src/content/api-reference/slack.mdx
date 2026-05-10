@@ -1,0 +1,198 @@
+---
+title: Slack
+description: Outbound Slack messaging via incoming webhooks or bot tokens, with file uploads and threading support.
+---
+
+# Slack
+
+The `slack` package provides outbound Slack messaging primitives. It is the chat counterpart to [`pkg/mailer`](/docs/api-reference/mailer): a `Sender` interface and one or more concrete implementations selected by configuration.
+
+Two delivery modes ship in the standard build:
+
+- **`webhook`** — the simplest path. A single Incoming Webhook URL is configured per app; `PostMessage` POSTs the payload to that URL. Channel/icon/username are determined by the webhook owner; the `Channel` field on `Message` is ignored. **Files cannot be uploaded** in webhook mode.
+- **`api`** — uses bot tokens against `api.slack.com`. `PostMessage` hits `chat.postMessage`, `UploadFile` hits `files.uploadV2` (the modern 2-step external-upload + complete flow). Supports threading, blocks, attachments, and per-call channel overrides.
+
+Inbound interactivity (Slack POSTing to your service when a user clicks a button) is intentionally **not** in this package — that webhook belongs in the service that owns the domain action; only signing-secret verification and `action_id` routing live there. This package stays focused on outbound traffic so swapping providers is trivial.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/slack"
+```
+
+## Key Types
+
+### Sender
+
+```go
+type Sender interface {
+    Name() string
+    PostMessage(ctx context.Context, msg Message) (*PostResult, error)
+    UploadFile(ctx context.Context, file FileUpload) (*PostResult, error)
+}
+```
+
+Named `Sender` (not `SlackSender`) because callers import the package as `slack` — `slack.Sender` reads naturally; `slack.SlackSender` stutters.
+
+### Message
+
+```go
+type Message struct {
+    Channel         string  // channel ID (e.g. "C04JB471TQU"); ignored by webhook senders
+    Text            string
+    BlocksJSON      string  // raw block-kit JSON (e.g. `[{"type":"section",...}]`)
+    AttachmentsJSON string  // raw attachments JSON (legacy; prefer Blocks)
+    ThreadTimestamp string  // optional — reply-in-thread
+    IconEmoji       string  // optional — overrides default icon
+    IconURL         string
+    Username        string  // optional — overrides bot display name
+    UnfurlLinks     *bool   // tri-state — nil = provider default
+    UnfurlMedia     *bool
+}
+```
+
+Only one of (`Text`, `BlocksJSON`, `AttachmentsJSON`) is required; passing several is allowed — Slack uses `Text` as the notification fallback when blocks are present.
+
+`BlocksJSON` and `AttachmentsJSON` are passed through as raw JSON strings so callers can construct rich Block Kit messages without taking a dependency on a Slack SDK. **Callers are responsible for valid JSON.**
+
+### FileUpload
+
+```go
+type FileUpload struct {
+    Channels        []string  // channel IDs to share the upload into
+    Filename        string
+    Title           string
+    InitialComment  string
+    Content         []byte
+    ContentType     string  // MIME type
+    ThreadTimestamp string
+}
+```
+
+The API sender handles the 2-step `files.uploadV2` flow (get URL → PUT bytes → complete) under the hood.
+
+### PostResult
+
+```go
+type PostResult struct {
+    OK              bool
+    Channel         string  // canonical channel ID Slack chose
+    Timestamp       string  // message ts — unique per channel
+    ProviderMsgID   string  // alias for Timestamp; included for parity with pkg/whatsapp
+    RawResponseJSON string  // entire response body, for debugging
+}
+```
+
+`Timestamp` is the message identifier within a channel — store it if you want to thread replies, edit, or delete the message later.
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewSlackSender` | `func NewSlackSender(cfg *config.SlackConfig, logger *slog.Logger) (Sender, error)` | Factory: returns the sender selected by `cfg.Provider`. Used by Wire DI. |
+| `NewWebhookSender` | `func NewWebhookSender(webhookURL string, logger *slog.Logger) *WebhookSender` | Direct constructor for the webhook sender. |
+| `NewAPISender` | `func NewAPISender(token string, logger *slog.Logger) *APISender` | Direct constructor for the bot-token sender. |
+
+## Configuration
+
+### `config.yaml`
+
+```yaml
+slack:
+  provider: webhook       # "" (disabled), "webhook", or "api"
+
+  # webhook mode
+  webhook_url: https://hooks.slack.com/services/T0.../B0.../...
+
+  # api mode
+  bot_token: xoxb-your-bot-token
+
+  # consumed by inbound interactivity handlers in your app code,
+  # not by pkg/slack itself — but lives here so all slack config
+  # is in one block.
+  signing_secret: your-signing-secret
+```
+
+### Env vars
+
+```bash
+export GOFASTA_SLACK_PROVIDER=api
+export GOFASTA_SLACK_BOT_TOKEN=xoxb-...
+export GOFASTA_SLACK_SIGNING_SECRET=...
+```
+
+## Usage
+
+### Send a plain-text message (webhook)
+
+```go
+import "github.com/gofastadev/gofasta/pkg/slack"
+
+_, err := sender.PostMessage(ctx, slack.Message{
+    Text: "Deploy started for v1.4.2",
+})
+if err != nil {
+    return fmt.Errorf("slack post: %w", err)
+}
+```
+
+### Send a Block Kit message (api)
+
+```go
+blocks := `[
+  {"type":"header","text":{"type":"plain_text","text":"Deploy succeeded"}},
+  {"type":"section","fields":[
+    {"type":"mrkdwn","text":"*Service:*\nuser-api"},
+    {"type":"mrkdwn","text":"*Version:*\nv1.4.2"}
+  ]}
+]`
+
+res, err := sender.PostMessage(ctx, slack.Message{
+    Channel:    "C04JB471TQU",
+    Text:       "Deploy succeeded for user-api v1.4.2",  // notification fallback
+    BlocksJSON: blocks,
+})
+if err != nil {
+    return err
+}
+log.Info("slack message posted", "ts", res.Timestamp)
+```
+
+### Reply in a thread
+
+```go
+_, err := sender.PostMessage(ctx, slack.Message{
+    Channel:         "C04JB471TQU",
+    Text:            "Health check OK at " + time.Now().Format(time.RFC3339),
+    ThreadTimestamp: parentTimestamp,  // from a prior PostResult.Timestamp
+})
+```
+
+### Upload a file (api only)
+
+```go
+res, err := sender.UploadFile(ctx, slack.FileUpload{
+    Channels:       []string{"C04JB471TQU"},
+    Filename:       "report.csv",
+    Title:          "Weekly metrics",
+    InitialComment: "Here is the weekly metrics CSV.",
+    Content:        csvBytes,
+    ContentType:    "text/csv",
+})
+if err != nil {
+    return err
+}
+```
+
+The webhook sender returns a clear error from `UploadFile` — incoming webhooks cannot upload files; pick the `api` provider if you need this.
+
+### Disabled state (no provider selected)
+
+When `slack.provider` is empty, `NewSlackSender` returns a noop sender whose `PostMessage` and `UploadFile` both return `slack: not configured (set slack.provider in config.yaml to enable)`. Surface this in your tests so misconfigurations are loud rather than silent.
+
+## Related Pages
+
+- [Mailer](/docs/api-reference/mailer) — outbound email
+- [Push Notifications](/docs/api-reference/push) — outbound mobile push
+- [WhatsApp](/docs/api-reference/whatsapp) — outbound WhatsApp messaging
+- [Notifications](/docs/api-reference/notifications) — multi-channel notification orchestration
