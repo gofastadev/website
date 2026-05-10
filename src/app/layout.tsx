@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins, Geist_Mono } from "next/font/google";
 import { Head } from "nextra/components";
+import { Analytics } from "@/components/atoms";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -93,7 +94,15 @@ export default function RootLayout({
       className={`dark ${poppins.variable} ${geistMono.variable}`}
     >
       <Head faviconGlyph="G" />
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* GA4 + Microsoft Clarity. Each tracker is opt-in via its
+            own NEXT_PUBLIC_* env var; when unset (e.g. in dev) the
+            Analytics component renders nothing. Both load via
+            next/script with strategy=afterInteractive so they don't
+            affect FCP/LCP. */}
+        <Analytics />
+      </body>
     </html>
   );
 }

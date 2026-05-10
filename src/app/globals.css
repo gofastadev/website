@@ -251,8 +251,15 @@ body {
 }
 
 @keyframes gofasta-term-line-in {
-  from { opacity: 0; transform: translateY(4px); filter: blur(2px); }
-  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+  /* Slide + blur in without ramping opacity through transparent
+     states. An earlier version animated `opacity: 0 → 1`, which made
+     each line fail axe-core's color-contrast check whenever the
+     auditor captured a mid-stagger frame (the brief window where the
+     text is half-transparent on the dark terminal bg). The "cascade
+     in" visual comes from the delayed translateY + blur; the opacity
+     ramp wasn't carrying its weight. */
+  from { transform: translateY(4px); filter: blur(2px); }
+  to   { transform: translateY(0); filter: blur(0); }
 }
 
 @keyframes gofasta-chip-in {
@@ -480,12 +487,13 @@ body {
   animation: gofasta-fade-up 700ms ease-out both;
 }
 
-/* Terminal line-by-line reveal — each `.gofasta-term-line` fades,
-   slides, and blur-clears into view. Stagger via the `--delay` custom
-   property set inline per line. */
+/* Terminal line-by-line reveal — each `.gofasta-term-line` slides
+   and blur-clears into view. Stagger via the `--delay` custom
+   property set inline per line. Opacity stays at 1 throughout so
+   axe-core's color-contrast audit doesn't catch any line at a
+   transparent intermediate frame. */
 .gofasta-term-line {
   display: block;
-  opacity: 0;
   animation: gofasta-term-line-in 450ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
   animation-delay: var(--gofasta-term-delay, 0s);
 }

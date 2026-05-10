@@ -183,6 +183,38 @@ Nextra provides built-in components you can use in any MDX file without importin
 
 The page set grows with the library and CLI — see [gofasta.dev/docs](https://gofasta.dev/docs) for the live count via the sidebar.
 
+## Analytics
+
+The site supports two complementary analytics integrations: **Google Analytics 4** for aggregate behavior metrics, and **Microsoft Clarity** for session replay + heatmaps. Each is opt-in via its own environment variable; when an env var is unset (the default for local development) the corresponding `<script>` tag is not rendered and no third-party domain is contacted.
+
+Both load through `next/script` with `strategy="afterInteractive"`, so they fire after hydration and never affect FCP / LCP / CLS metrics. The integration is in `src/components/atoms/analytics.tsx`.
+
+### Configuration
+
+Set the env vars in your deployment environment (Vercel project settings, `.env.production`, etc.):
+
+| Variable | Source | Format |
+|---|---|---|
+| `NEXT_PUBLIC_GA4_MEASUREMENT_ID` | Google Analytics → Admin → Data Streams → your stream → Measurement ID | `G-XXXXXXXXXX` |
+| `NEXT_PUBLIC_CLARITY_PROJECT_ID` | Microsoft Clarity → Settings → Setup → Project ID | 10-character lowercase string |
+
+Both must be `NEXT_PUBLIC_*` so Next inlines them at build time. **Don't** set them for preview / dev environments — analytics from non-production traffic muddies your real metrics.
+
+### What each tool gives you
+
+- **GA4** — pageviews, sessions, traffic sources, conversion funnels, retention cohorts. Use this to answer *"how many people landed on `/docs/cli-reference/dev` last month"* or *"what's the conversion rate from `/` to `/docs/getting-started/quick-start`"*.
+- **Clarity** — session replay, heatmaps, scroll depth, dead-click detection, rage-click detection. Use this to answer *"why are users bouncing from this page"* or *"what's the most-clicked section in the hero"*. Free, no session caps, no sampling.
+
+### GDPR / CCPA caveat
+
+This integration loads analytics scripts unconditionally when the env vars are set. Sites serving traffic from regions that require prior consent (EU under GDPR, California under CPRA, etc.) need a consent banner that gates these scripts until the user opts in. Implementing that banner is **out of scope for this integration** — it would mean adding a consent UI, a state machine for the user's choice, and conditional rendering of `<Analytics />`. Track it as a separate task before going live for EU traffic.
+
+The minimum-viable path if you need basic compliance fast:
+1. Add a cookie banner (`react-cookie-consent`, `cookie-consent`, or build one).
+2. Set GA4 to "consent denied" by default via `gtag('consent', 'default', { analytics_storage: 'denied' })`.
+3. Update the consent state on user opt-in via `gtag('consent', 'update', { analytics_storage: 'granted' })`.
+4. For Clarity, use Clarity's [consent API](https://learn.microsoft.com/en-us/clarity/setup-and-installation/cookie-consent).
+
 ## Performance measurement
 
 Run Lighthouse against the running dev or production server to measure SEO, performance, accessibility, and best-practices scores. Use these commands; the JSON output is gitignored so repeat runs don't pollute the working tree.
