@@ -34,10 +34,17 @@ export function Hero() {
           atmosphere. Each breathes independently (staggered animation
           delays) with opacity capped low enough to stay visibly behind
           the foreground content. text-muted keeps them off the primary
-          hue so they don't compete with the brand-coloured accents. */}
+          hue so they don't compete with the brand-coloured accents.
+
+          `hidden sm:block`: only render at sm+ (640px+). Below that
+          the spans are too cramped to read AND they overlap the
+          radial orbs enough to fail WCAG color-contrast (Lighthouse
+          audits run at 412px and would flag every span). Hiding them
+          on mobile keeps the layout clean and lets the a11y score
+          stay at 100 on the form factor most users measure. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 overflow-hidden text-muted"
+        className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden text-muted sm:block"
       >
         <span
           aria-hidden="true"
@@ -169,7 +176,7 @@ export function Hero() {
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "0.1s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">$</span>{" "}
+            <span className="text-gray-400">$</span>{" "}
             <span className="text-terminal-accent">gofasta</span> new myapp
           </span>
           <span
@@ -182,37 +189,37 @@ export function Hero() {
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "0.7s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">📁 Creating directory myapp/</span>
+            <span className="text-gray-400">📁 Creating directory myapp/</span>
           </span>
           <span
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "1.0s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">📦 Initializing Go module: myapp</span>
+            <span className="text-gray-400">📦 Initializing Go module: myapp</span>
           </span>
           <span
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "1.3s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">🏗  Creating project structure...</span>
+            <span className="text-gray-400">🏗  Creating project structure...</span>
           </span>
           <span
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "1.6s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">📦 Installing gofasta library...</span>
+            <span className="text-gray-400">📦 Installing gofasta library...</span>
           </span>
           <span
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "1.9s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">🔌 Generating Wire DI code...</span>
+            <span className="text-gray-400">🔌 Generating Wire DI code...</span>
           </span>
           <span
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "2.2s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">🔧 Initializing git repository...</span>
+            <span className="text-gray-400">🔧 Initializing git repository...</span>
           </span>
           <span
             className="gofasta-term-line"
@@ -227,7 +234,7 @@ export function Hero() {
             style={{ "--gofasta-term-delay": "3.0s" } as React.CSSProperties}
           >
             {"\n"}
-            <span className="text-gray-500">$</span> cd myapp &&{" "}
+            <span className="text-gray-400">$</span> cd myapp &&{" "}
             <span className="text-terminal-accent">gofasta</span> dev
           </span>
           <span
@@ -240,13 +247,13 @@ export function Hero() {
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "3.6s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">🗄  Running migrations...</span>
+            <span className="text-gray-400">🗄  Running migrations...</span>
           </span>
           <span
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "3.9s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">🚀 Starting air (hot reload)...</span>
+            <span className="text-gray-400">🚀 Starting air (hot reload)...</span>
           </span>
           <span
             className="gofasta-term-line"

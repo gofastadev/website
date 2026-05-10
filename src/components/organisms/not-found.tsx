@@ -61,10 +61,15 @@ export function NotFound() {
       />
 
       {/* Breathing Go fragments — lighter than the hero so they don't
-          drown out the centerpiece numeral. */}
+          drown out the centerpiece numeral.
+
+          `hidden sm:block`: same rationale as hero.tsx — fragments are
+          too cramped on mobile and overlap the radial orbs enough to
+          fail WCAG color-contrast. Decorative atmosphere is desktop-
+          only so the mobile a11y audit stays at 100. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 overflow-hidden text-muted"
+        className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden text-muted sm:block"
       >
         <span
           className="gofasta-code-breath absolute left-[5%] top-[14%] font-mono text-xs whitespace-nowrap"
@@ -139,7 +144,7 @@ export function NotFound() {
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "0.1s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">$</span>{" "}
+            <span className="text-gray-400">$</span>{" "}
             <span className="text-terminal-accent">gofasta</span> resolve{" "}
             <span className="text-gray-400">&lt;requested-path&gt;</span>
           </span>
@@ -161,7 +166,7 @@ export function NotFound() {
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "1.3s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">        ├─ </span>
+            <span className="text-gray-400">        ├─ </span>
             <span className="text-terminal-accent">/</span>
             <span className="text-gray-400">                         → Home</span>
           </span>
@@ -169,7 +174,7 @@ export function NotFound() {
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "1.6s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">        ├─ </span>
+            <span className="text-gray-400">        ├─ </span>
             <span className="text-terminal-accent">
               /docs/getting-started
             </span>
@@ -179,7 +184,7 @@ export function NotFound() {
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "1.9s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">        ├─ </span>
+            <span className="text-gray-400">        ├─ </span>
             <span className="text-terminal-accent">/docs/cli-reference</span>
             <span className="text-gray-400">       → CLI reference</span>
           </span>
@@ -187,7 +192,7 @@ export function NotFound() {
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "2.2s" } as React.CSSProperties}
           >
-            <span className="text-gray-500">        └─ </span>
+            <span className="text-gray-400">        └─ </span>
             <span className="text-terminal-accent">/docs/white-paper</span>
             <span className="text-gray-400">         → White paper</span>
           </span>
@@ -196,7 +201,7 @@ export function NotFound() {
             style={{ "--gofasta-term-delay": "2.8s" } as React.CSSProperties}
           >
             {"\n"}
-            <span className="text-gray-500">$</span>{" "}
+            <span className="text-gray-400">$</span>{" "}
             <span className="text-terminal-accent">gofasta</span> home{" "}
             <span className="gofasta-cursor" aria-hidden="true" />
           </span>
