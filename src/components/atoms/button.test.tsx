@@ -8,7 +8,10 @@ describe("Button", () => {
     const button = screen.getByRole("button", { name: "Click me" });
     expect(button).toBeInTheDocument();
     expect(button.className).toContain("bg-primary");
-    expect(button.className).toContain("text-white");
+    // Dark navy text on Go cyan satisfies WCAG AAA (~6:1) — the
+    // earlier `text-white` only reached 2.3:1 and failed Lighthouse's
+    // color-contrast audit. Hex matches the gopher's outline color.
+    expect(button.className).toContain("text-[#00283A]");
   });
 
   it("renders with secondary variant", () => {

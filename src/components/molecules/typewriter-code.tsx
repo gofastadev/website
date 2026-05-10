@@ -79,7 +79,7 @@ export function TypewriterCode({
             </span>
           )}
           {language && (
-            <span className="font-mono text-xs uppercase tracking-wider text-gray-500">
+            <span className="font-mono text-xs uppercase tracking-wider text-gray-400">
               {language}
             </span>
           )}

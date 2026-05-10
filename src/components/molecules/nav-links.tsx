@@ -38,6 +38,13 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
           <Link href="/sitemap" className={linkStyles[variant]}>
             Sitemap
           </Link>
+          {/* GDPR / CPRA: explicit "manage cookies" link in the
+              footer is a baseline compliance requirement so users
+              can revoke consent without re-finding the banner.
+              Doubles as the CPRA "Do Not Sell or Share" link. */}
+          <Link href="/cookies" className={linkStyles[variant]}>
+            Cookies
+          </Link>
           <Link
             href="https://github.com/gofastadev/gofasta/blob/main/LICENSE"
             target="_blank"

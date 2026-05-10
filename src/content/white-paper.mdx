@@ -1440,12 +1440,15 @@ EXPOSE 8080
 CMD ["/server", "serve"]
 ```
 
-`compose.yaml` includes the application and PostgreSQL with health checks:
+`compose.yaml` includes the application, PostgreSQL, Redis (cache profile), and asynqmon (queue profile) with health checks. The development loop is driven by a single command:
 
 ```bash
-make up    # Start application + database
-make dev   # Start with hot reload
+gofasta dev                 # db + cache + queue + Air on the host, auto-on profiles
+gofasta dev --all-in-docker # everything inside Docker, including Air
+gofasta dev --no-services   # Air only, bring your own database
 ```
+
+`gofasta dev` orchestrates the full pipeline — preflight, service-start with health-wait, migration apply, optional seed, Air hot-reload — and exposes interactive controls (`r` to restart from scratch, `q` to quit, `h` for help) plus a `--dashboard` flag that mounts a live request inspector with trace waterfalls, EXPLAIN-on-click, N+1 detection, and HAR export.
 
 ### 21.3 VPS Deployment
 

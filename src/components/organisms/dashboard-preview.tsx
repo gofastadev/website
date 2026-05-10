@@ -341,7 +341,7 @@ export function DashboardPreview() {
                   <div className="text-sm font-bold text-primary sm:text-base">
                     Gofasta dev dashboard
                   </div>
-                  <div className="mt-0.5 text-[11px] text-gray-500">
+                  <div className="mt-0.5 text-[11px] text-gray-400">
                     Live debug view —{" "}
                     <span className="text-gray-300">http://localhost:8080</span>
                   </div>
@@ -377,7 +377,7 @@ export function DashboardPreview() {
               <TableFrame>
                 <table className="w-full text-left font-mono text-[11px] sm:text-xs">
                   <thead>
-                    <tr className="border-b border-gray-800 text-[10px] font-medium uppercase tracking-widest text-gray-500">
+                    <tr className="border-b border-gray-800 text-[10px] font-medium uppercase tracking-widest text-gray-400">
                       <th className="w-20 px-3 py-1.5">Time</th>
                       <th className="w-14 px-3 py-1.5">Method</th>
                       <th className="px-3 py-1.5">Path</th>
@@ -391,7 +391,7 @@ export function DashboardPreview() {
                         key={r.id}
                         className="gofasta-dashboard-row border-b border-gray-900 last:border-0"
                       >
-                        <td className="px-3 py-1.5 text-gray-500">{r.time}</td>
+                        <td className="px-3 py-1.5 text-gray-400">{r.time}</td>
                         <td className="px-3 py-1.5">
                           <MethodBadge method={r.method} />
                         </td>
@@ -415,7 +415,7 @@ export function DashboardPreview() {
               <TableFrame>
                 <table className="w-full text-left font-mono text-[11px] sm:text-xs">
                   <thead>
-                    <tr className="border-b border-gray-800 text-[10px] font-medium uppercase tracking-widest text-gray-500">
+                    <tr className="border-b border-gray-800 text-[10px] font-medium uppercase tracking-widest text-gray-400">
                       <th className="w-20 px-3 py-1.5">Time</th>
                       <th className="w-10 px-3 py-1.5 text-right">Rows</th>
                       <th className="w-12 px-3 py-1.5 text-right">Dur</th>
@@ -428,7 +428,7 @@ export function DashboardPreview() {
                         key={q.id}
                         className="gofasta-dashboard-row border-b border-gray-900 last:border-0"
                       >
-                        <td className="px-3 py-1.5 text-gray-500">{q.time}</td>
+                        <td className="px-3 py-1.5 text-gray-400">{q.time}</td>
                         <td className="px-3 py-1.5 text-right text-gray-400">
                           {q.rows}
                         </td>
@@ -464,9 +464,15 @@ export function DashboardPreview() {
                 </div>
               </TableFrame>
 
-              <div className="mt-3 text-[10px] text-gray-500">
+              <div className="mt-3 text-[10px] text-gray-400">
                 Updated{" "}
-                <span className="gofasta-dashboard-updated font-mono text-gray-400">
+                {/* `text-gray-300` (was -400): the
+                    `gofasta-dashboard-updated` animation dips opacity
+                    to 0.45 mid-cycle. At gray-400 the effective color
+                    drops below WCAG AA contrast; gray-300 stays
+                    above the threshold even at the low-opacity frame
+                    that axe-core may capture. */}
+                <span className="gofasta-dashboard-updated font-mono text-gray-300">
                   just now
                 </span>{" "}
                 · refreshes every 5s via SSE
@@ -544,7 +550,7 @@ function MetricCard({
 }) {
   return (
     <div className="overflow-hidden rounded-lg border border-gray-800 bg-gray-900/50 px-3 py-2">
-      <div className="text-[9px] font-semibold uppercase tracking-widest text-gray-500">
+      <div className="text-[9px] font-semibold uppercase tracking-widest text-gray-400">
         {label}
       </div>
       <div className="mt-1 truncate">{children}</div>
@@ -667,11 +673,14 @@ function TraceRow({
           className="truncate font-mono text-[11px] text-gray-300"
           style={{ paddingLeft: `${span.depth * 10}px` }}
         >
-          <span className="text-gray-500">
+          <span className="text-gray-400">
             {span.depth > 0 ? "└─ " : ""}
           </span>
           {span.name}
-          <span className="ml-1.5 text-[9px] uppercase tracking-widest text-gray-600">
+          {/* `text-gray-400` (was -600): gray-600 on the dark trace
+              row only reaches ~3:1 and fails WCAG AA for small text.
+              gray-400 hits ~5:1 on the same background. */}
+          <span className="ml-1.5 text-[9px] uppercase tracking-widest text-gray-400">
             {span.kind}
           </span>
         </div>
@@ -680,13 +689,20 @@ function TraceRow({
             className="absolute top-0 bottom-0 rounded-sm bg-primary/70"
             style={{ left: `${left}%`, width: `${width}%` }}
           />
-          <div className="absolute inset-0 flex items-center justify-end pr-1 font-mono text-[9px] text-gray-300">
-            {span.duration}ms
+          {/* Duration label sits at the right edge of the trace row.
+              When the cyan fill is wide the text is on cyan; when it's
+              narrow the text sits over the dark gap. Wrap in a tiny
+              dark pill so the background under the text is fixed and
+              the contrast stays at WCAG AA regardless of bar width. */}
+          <div className="absolute inset-0 flex items-center justify-end pr-1">
+            <span className="rounded-sm bg-gray-900/80 px-1 font-mono text-[9px] font-semibold text-white">
+              {span.duration}ms
+            </span>
           </div>
         </div>
       </div>
       {highlighted && span.stack ? (
-        <pre className="mt-1.5 ml-3 overflow-auto rounded-sm bg-gray-900/80 p-2 font-mono text-[9.5px] leading-relaxed text-gray-500">
+        <pre className="mt-1.5 ml-3 overflow-auto rounded-sm bg-gray-900/80 p-2 font-mono text-[9.5px] leading-relaxed text-gray-400">
           {span.stack.join("\n")}
         </pre>
       ) : null}

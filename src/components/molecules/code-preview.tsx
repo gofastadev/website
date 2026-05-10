@@ -26,7 +26,7 @@ export function CodePreview({
             <span className="text-xs font-medium text-gray-300">{label}</span>
           )}
           {language && (
-            <span className="font-mono text-xs uppercase tracking-wider text-gray-500">
+            <span className="font-mono text-xs uppercase tracking-wider text-gray-400">
               {language}
             </span>
           )}

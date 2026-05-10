@@ -10,10 +10,16 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
+  // Dark navy text on Go cyan reaches ~6:1 contrast (passes WCAG AA
+  // for normal text and AAA for large/bold). White text on the same
+  // bg only hits ~2.3:1 and fails Lighthouse's color-contrast audit.
+  // The dark-navy is the gopher's outline color — brand-coherent.
   primary:
-    "bg-primary text-white",
+    "bg-primary text-[#00283A] dark:text-[#00283A]",
+  // Secondary keeps the inverse: outline-only at rest, solid on hover.
+  // Same dark-text rule when the cyan fill activates.
   secondary:
-    "border border-primary hover:bg-primary text-primary hover:text-white",
+    "border border-primary text-primary hover:bg-primary hover:text-[#00283A] dark:hover:text-[#00283A]",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
