@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Poppins, Geist_Mono } from "next/font/google";
 import { Head } from "nextra/components";
 import { Analytics } from "@/components/atoms";
+import { CookieBanner } from "@/components/organisms";
+import { ConsentProvider } from "@/contexts/consent-context";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -95,13 +97,22 @@ export default function RootLayout({
     >
       <Head faviconGlyph="G" />
       <body>
-        {children}
-        {/* GA4 + Microsoft Clarity. Each tracker is opt-in via its
-            own NEXT_PUBLIC_* env var; when unset (e.g. in dev) the
-            Analytics component renders nothing. Both load via
-            next/script with strategy=afterInteractive so they don't
-            affect FCP/LCP. */}
-        <Analytics />
+        {/* ConsentProvider wraps EVERYTHING so the cookies page,
+            footer "Manage cookies" link, banner, and Analytics all
+            read the same record. The provider is a client component
+            but accepts server-rendered children — it stays a thin
+            React Context boundary, no extra JS in the page bodies. */}
+        <ConsentProvider>
+          {children}
+          {/* GA4 (with Google Consent Mode v2 default-denied) +
+              Microsoft Clarity (gated until consent). Both are opt-in
+              via NEXT_PUBLIC_* env vars; when unset (dev / preview)
+              nothing renders. */}
+          <Analytics />
+          {/* GDPR/CPRA banner. Renders only on first visit (and after
+              `Manage cookies` resets the record). */}
+          <CookieBanner />
+        </ConsentProvider>
       </body>
     </html>
   );

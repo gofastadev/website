@@ -466,7 +466,13 @@ export function DashboardPreview() {
 
               <div className="mt-3 text-[10px] text-gray-400">
                 Updated{" "}
-                <span className="gofasta-dashboard-updated font-mono text-gray-400">
+                {/* `text-gray-300` (was -400): the
+                    `gofasta-dashboard-updated` animation dips opacity
+                    to 0.45 mid-cycle. At gray-400 the effective color
+                    drops below WCAG AA contrast; gray-300 stays
+                    above the threshold even at the low-opacity frame
+                    that axe-core may capture. */}
+                <span className="gofasta-dashboard-updated font-mono text-gray-300">
                   just now
                 </span>{" "}
                 · refreshes every 5s via SSE

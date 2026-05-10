@@ -10,3 +10,5 @@ export { QuickStartSection } from "./quick-start-section";
 export { CtaSection } from "./cta-section";
 export { FooterLanding } from "./footer-landing";
 export { NotFound } from "./not-found";
+export { CookieBanner } from "./cookie-banner";
+export { CookiePreferences } from "./cookie-preferences";
