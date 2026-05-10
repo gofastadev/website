@@ -1,0 +1,231 @@
+---
+title: WhatsApp
+description: Outbound WhatsApp messaging via UltraMsg, Twilio, or Meta Cloud API — with media attachments and threaded replies.
+---
+
+# WhatsApp
+
+The `whatsapp` package provides outbound WhatsApp messaging. It is the chat counterpart to [`pkg/mailer`](/docs/api-reference/mailer), [`pkg/slack`](/docs/api-reference/slack), and [`pkg/push`](/docs/api-reference/push).
+
+Three providers ship in the standard build:
+
+- **`ultramsg`** — third-party UltraMsg instance API. Simple form-encoded POSTs against an instance-scoped base URL. Good for dev / small deployments where the operator already runs a paid UltraMsg instance.
+- **`twilio`** — Twilio Programmable Messaging WhatsApp. HTTP Basic auth (Account SID + Auth Token), addresses formatted as `whatsapp:+E164`, sender numbers must be approved in the Twilio console. Production-grade.
+- **`meta`** — Meta WhatsApp Cloud API (Graph). Direct from Meta; requires an approved WhatsApp Business Account (WABA) and a phone-number-id. Bearer auth, JSON payloads, supports template messages and interactive components.
+
+All three implement the same `Sender` interface. Switching providers is a config-only change.
+
+Inbound webhook handlers (incoming messages, delivery receipts, read receipts) are intentionally **not** in this package — each provider has its own callback shape and signing scheme; the consumer should own that route directly.
+
+## Import
+
+```go
+import "github.com/gofastadev/gofasta/pkg/whatsapp"
+```
+
+## Key Types
+
+### Sender
+
+```go
+type Sender interface {
+    Name() string
+    Send(ctx context.Context, msg Message) (*SendResult, error)
+    DeleteMessage(ctx context.Context, providerMsgID string) error
+}
+```
+
+`DeleteMessage` is best-effort — only some providers (UltraMsg, Meta) expose it. Twilio does not. Implementations that don't support delete return `ErrUnsupported` so callers can log and move on.
+
+### Message
+
+```go
+type Message struct {
+    To   string  // E.164 phone number (e.g. "+250788123456")
+    Body string
+
+    Media                *MediaAttachment  // optional attachment
+    ReplyToProviderMsgID string            // quote-reply / threaded reply
+    PreviewURL           *bool             // tri-state — nil = provider default
+}
+```
+
+`To` is plain E.164 — the provider adapts to its own wire format (Twilio's `whatsapp:+250...`, UltraMsg's bare `250...`) inside the implementation.
+
+`PreviewURL` toggles link unfurls. `nil` = provider default. Only Meta and Twilio honor it; UltraMsg ignores.
+
+### MediaAttachment
+
+One image / document / video / audio / sticker:
+
+```go
+type MediaAttachment struct {
+    Type        string  // "image" | "document" | "video" | "audio" | "sticker"
+    URL         string
+    Content     []byte
+    Filename    string  // required for documents; ignored for image/video
+    ContentType string  // MIME type; required when sending via Content
+    Caption     string  // image/video/document caption
+}
+```
+
+Two delivery modes:
+
+- **URL** — provider downloads the asset from a public URL. Fast, no upload step. The URL must be reachable from the provider's network and stable for at least the duration of the call.
+- **Content** — raw bytes. The provider handles the upload (Meta: `POST /media`; UltraMsg: separate media-upload endpoint then attaches the returned URL).
+
+At least **one** of `URL` or `Content` must be set; if both are present, providers prefer `URL` (cheaper).
+
+### SendResult
+
+```go
+type SendResult struct {
+    OK              bool
+    ProviderMsgID   string
+    Status          string
+    RawResponseJSON string  // entire response body, for debugging / support tickets
+}
+```
+
+`Status` reflects the provider's reported state at SEND time — **not** delivery confirmation (which arrives later via webhook).
+
+## Errors
+
+```go
+var ErrUnsupported = errors.New("whatsapp: operation not supported by this provider")
+```
+
+Returned by providers (and the noop sender) for verbs they don't implement — most commonly `DeleteMessage` on Twilio.
+
+## Key Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `NewSender` | `func NewSender(cfg *config.WhatsAppConfig, logger *slog.Logger) (Sender, error)` | Factory: returns the sender selected by `cfg.Provider`. Used by Wire DI. |
+| `NewUltraMsgSender` | `func NewUltraMsgSender(cfg config.WhatsAppUltraMsgConfig, logger *slog.Logger) Sender` | Direct constructor for the UltraMsg sender. |
+| `NewTwilioSender` | `func NewTwilioSender(cfg config.WhatsAppTwilioConfig, logger *slog.Logger) Sender` | Direct constructor for the Twilio sender. |
+| `NewMetaSender` | `func NewMetaSender(cfg config.WhatsAppMetaConfig, logger *slog.Logger) Sender` | Direct constructor for the Meta Cloud API sender. |
+
+## Configuration
+
+### `config.yaml`
+
+```yaml
+whatsapp:
+  provider: meta            # "" (disabled), "ultramsg", "twilio", or "meta"
+
+  ultramsg:
+    base_url: https://api.ultramsg.com
+    instance_id: instance60301
+    token: your-instance-token
+
+  twilio:
+    account_sid: ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    auth_token: your-auth-token
+    from_number: "+14155238886"
+
+  meta:
+    access_token: EAA...                # Graph access token
+    phone_number_id: "123456789012345"  # WABA phone number id
+    api_version: v20.0                  # optional; defaults to v20.0
+```
+
+### Env vars
+
+```bash
+export GOFASTA_WHATSAPP_PROVIDER=meta
+export GOFASTA_WHATSAPP_META_ACCESS_TOKEN=EAA...
+export GOFASTA_WHATSAPP_META_PHONE_NUMBER_ID=123456789012345
+```
+
+## Usage
+
+### Send a plain text
+
+```go
+import "github.com/gofastadev/gofasta/pkg/whatsapp"
+
+res, err := sender.Send(ctx, whatsapp.Message{
+    To:   "+250788123456",
+    Body: "Your code is 8421. It expires in 5 minutes.",
+})
+if err != nil {
+    return fmt.Errorf("whatsapp send: %w", err)
+}
+log.Info("whatsapp queued", "msg_id", res.ProviderMsgID, "status", res.Status)
+```
+
+### Send an image with a caption
+
+```go
+res, err := sender.Send(ctx, whatsapp.Message{
+    To:   "+250788123456",
+    Body: "Here is your receipt for order #42.",  // sent as text + media caption
+    Media: &whatsapp.MediaAttachment{
+        Type:    "image",
+        URL:     "https://cdn.example.com/receipts/42.png",
+        Caption: "Order #42 receipt",
+    },
+})
+```
+
+### Send a PDF document (raw bytes)
+
+```go
+pdfBytes, _ := os.ReadFile("invoice.pdf")
+
+res, err := sender.Send(ctx, whatsapp.Message{
+    To: "+250788123456",
+    Media: &whatsapp.MediaAttachment{
+        Type:        "document",
+        Content:     pdfBytes,
+        Filename:    "invoice-042.pdf",
+        ContentType: "application/pdf",
+        Caption:     "Your invoice for January",
+    },
+})
+```
+
+### Reply to an earlier message (quote)
+
+```go
+res, err := sender.Send(ctx, whatsapp.Message{
+    To:                   "+250788123456",
+    Body:                 "We received your photo — processing now.",
+    ReplyToProviderMsgID: incomingMessageID,  // wamid.../SID/UltraMsg id
+})
+```
+
+### Best-effort delete
+
+```go
+err := sender.DeleteMessage(ctx, providerMsgID)
+if errors.Is(err, whatsapp.ErrUnsupported) {
+    log.Info("provider does not expose delete — message stays in user's history")
+    return nil
+}
+if err != nil {
+    return err
+}
+```
+
+### Disabled state (no provider selected)
+
+When `whatsapp.provider` is empty, `NewSender` returns a noop sender whose `Send` returns `whatsapp: not configured (set whatsapp.provider in config.yaml to enable)`. Tests that exercise message-sending paths will surface the misconfiguration immediately rather than silently dropping messages.
+
+## Adding a new provider
+
+To add MessageBird / Vonage / GreenAPI / 360dialog / Bird / etc.:
+
+1. Drop a `<provider>.go` file implementing `Sender` into `pkg/whatsapp`. Mirror the structure of `ultramsg.go` or `meta.go`.
+2. Add a sub-config struct in `pkg/config/config.go` and reference it from `WhatsAppConfig`.
+3. Add a switch case in `provider.go`'s `NewSender`.
+
+No code outside `pkg/whatsapp` needs to change.
+
+## Related Pages
+
+- [Mailer](/docs/api-reference/mailer) — outbound email
+- [Slack](/docs/api-reference/slack) — outbound chat
+- [Push Notifications](/docs/api-reference/push) — outbound mobile push
+- [Notifications](/docs/api-reference/notifications) — multi-channel notification orchestration

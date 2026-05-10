@@ -1,0 +1,177 @@
+---
+title: GraphQL
+description: Shared GraphQL schema fragments for pagination, sorting, errors, and the health probe.
+---
+
+# GraphQL
+
+The `graphql` package is **not Go code** — it ships a small set of shared `.gql` schema fragments that scaffolded projects pull into their gqlgen build. The fragments cover the cross-cutting concerns every backend ends up needing: pagination input/output, sort orientation, common API errors, and a simple health Query/Mutation.
+
+The package is consumed by gqlgen's `schema` glob in your project's `gqlgen.yml`; you do not import it as Go code.
+
+## Import
+
+The fragments are loaded by gqlgen, not the Go compiler. In your project's `gqlgen.yml`:
+
+```yaml
+schema:
+  - app/graphql/schema/**/*.gql
+```
+
+The CLI scaffold copies the fragments below into `app/graphql/schema/` at project creation time. You can also `go:embed` them from the library if you need to feed them to gqlgen programmatically:
+
+```go
+import _ "embed"
+
+//go:embed common.gql
+var CommonGQL string
+```
+
+## Schema: `common.gql`
+
+Contains pagination + sorting inputs, the response envelope, and the error DTO that the rest of the codebase converges on.
+
+```graphql
+scalar DateTime
+
+enum SortOrientation {
+  ASC
+  DESC
+}
+
+input TPaginationInputDto {
+  limit: Int
+  page: Int
+}
+
+input TSortingInputDto {
+  sortByField: String!
+  sortOrientation: SortOrientation
+}
+
+type TPaginationObjectDto {
+  totalRecords: Int
+  recordsPerPage: Int
+  totalPages: Int
+  currentPage: Int
+}
+
+type TCommonAPIErrorDto {
+  fieldName: String
+  message: String!
+}
+
+type TCommonResponseDto {
+  status: Int!
+  message: String
+  errors: [TCommonAPIErrorDto!]
+}
+```
+
+These types mirror the Go DTOs in [`pkg/types`](/docs/api-reference/types). Keeping the shapes identical means the same response shape works for REST and GraphQL — pagination, sorting, and error envelopes round-trip without any per-transport translation in your service layer.
+
+## Schema: `server.health.gql`
+
+A minimal health probe so gqlgen has a non-empty Query/Mutation root from the very first build of a new project:
+
+```graphql
+type Query {
+  queryHealth: TCommonResponseDto!
+}
+
+type Mutation {
+  mutationHealth: TCommonResponseDto!
+}
+```
+
+When you scaffold a resource with `gofasta g scaffold <Name> --graphql`, the generator extends these roots with `<name>(...)`, `<names>(...)`, `create<Name>(...)`, `update<Name>(...)`, `delete<Name>(...)` operations.
+
+## GraphQLConfig
+
+Routing for the GraphQL server is configured via `pkg/config`'s `GraphQLConfig` struct, applied in your `cmd/serve.go`:
+
+```go
+type GraphQLConfig struct {
+    PlaygroundRoute string `koanf:"playground_route"`
+    GeneralRoute    string `koanf:"general_route"`
+}
+```
+
+Defaults from `config.yaml`:
+
+```yaml
+graphql:
+  playground_route: /graphql-playground
+  general_route: /graphql
+```
+
+Environment-variable overrides use the `GOFASTA_` prefix:
+
+```bash
+export GOFASTA_GRAPHQL_GENERAL_ROUTE=/api/graphql
+export GOFASTA_GRAPHQL_PLAYGROUND_ROUTE=/api/graphql-playground
+```
+
+## Usage
+
+### Page-able query
+
+A scaffolded list query is auto-generated to use `TPaginationInputDto` + `TSortingInputDto` and return `TPaginationObjectDto` alongside the data:
+
+```graphql
+type ProductsResponse {
+  data: [Product!]!
+  pagination: TPaginationObjectDto!
+}
+
+extend type Query {
+  products(
+    pagination: TPaginationInputDto
+    sort: TSortingInputDto
+  ): ProductsResponse!
+}
+```
+
+Your resolver receives Go pointers to the DTOs:
+
+```go
+func (r *queryResolver) Products(
+    ctx context.Context,
+    pagination *types.TPaginationInputDto,
+    sort *types.TSortingInputDto,
+) (*ProductsResponse, error) {
+    return r.svc.List(ctx, pagination, sort)
+}
+```
+
+### Surfacing errors
+
+Service-layer `*errors.AppError` values are mapped to GraphQL error extensions by [`pkg/errors`](/docs/api-reference/errors)' GraphQL presenter — you don't have to convert them by hand. Errors meant for the user-visible payload travel via `TCommonResponseDto.errors`:
+
+```go
+return &TCommonResponseDto{
+    Status:  http.StatusUnprocessableEntity,
+    Message: "validation failed",
+    Errors: []*types.TCommonAPIErrorDto{
+        {FieldName: ptr("price"), Message: "must be > 0"},
+    },
+}, nil
+```
+
+## Adding to an existing project
+
+If your project predates this package and doesn't have the fragments locally, copy them in once:
+
+```bash
+mkdir -p app/graphql/schema
+cp $(go env GOPATH)/pkg/mod/github.com/gofastadev/gofasta@*/pkg/graphql/schema/*.gql \
+   app/graphql/schema/
+```
+
+Then point gqlgen at them in `gqlgen.yml` and re-run `gofasta wire`.
+
+## Related Pages
+
+- [Types](/docs/api-reference/types) — Go DTOs that mirror these GraphQL types
+- [Errors](/docs/api-reference/errors) — Application errors + GraphQL presenter
+- [HTTP Utilities](/docs/api-reference/http-utilities) — REST request/response helpers using the same DTO shapes

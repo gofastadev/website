@@ -2,7 +2,19 @@
 
 [![CI](https://github.com/gofastadev/website/actions/workflows/ci.yml/badge.svg)](https://github.com/gofastadev/website/actions/workflows/ci.yml) [![CodeQL](https://github.com/gofastadev/website/actions/workflows/codeql.yml/badge.svg)](https://github.com/gofastadev/website/actions/workflows/codeql.yml) [![codecov](https://codecov.io/gh/gofastadev/website/graph/badge.svg)](https://codecov.io/gh/gofastadev/website) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/gofastadev/website/blob/main/LICENSE) [![Next.js](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js)](https://nextjs.org) [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org) [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com) [![Nextra](https://img.shields.io/badge/Nextra-4-000?logo=nextra)](https://nextra.site) [![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-black?logo=vercel)](https://gofasta.dev)
 
-The official documentation website for [Gofasta](https://github.com/gofastadev/gofasta) — a Go backend toolkit — and its [CLI tool](https://github.com/gofastadev/cli). Live at **[gofasta.dev](https://gofasta.dev)**.
+The official documentation website for [Gofasta](https://gofasta.dev) — a Go backend toolkit. Live at **[gofasta.dev](https://gofasta.dev)**. This is the source for every page on the docs site.
+
+## The Gofasta project
+
+Gofasta is split across three independent repositories. Each has its own release cycle and `go.mod` / `package.json`.
+
+| Repo | Role |
+|------|------|
+| [`gofastadev/website`](https://github.com/gofastadev/website) | **You are here.** The docs site at **[gofasta.dev](https://gofasta.dev)**. |
+| [`gofastadev/cli`](https://github.com/gofastadev/cli) | The `gofasta` binary — `gofasta new`, code generation, and the dev loop. |
+| [`gofastadev/gofasta`](https://github.com/gofastadev/gofasta) | The library your project imports — every package under `pkg/*`. |
+
+For the rendered docs themselves, visit **[gofasta.dev](https://gofasta.dev)**. This README covers running and contributing to the site itself.
 
 ## What This Repo Contains
 
@@ -11,7 +23,7 @@ This is the source code for the Gofasta documentation site. It is built with [Ne
 The site has two parts:
 
 - **Landing page** (`/`) — A custom React page with a hero section, feature grid, and quick start guide
-- **Documentation** (`/docs`) — 60+ pages of guides, CLI reference, and gofasta library API documentation, all written in MDX
+- **Documentation** (`/docs`) — Guides, CLI reference, and gofasta library API documentation, all written in MDX. Page counts in the [Documentation Sections](#documentation-sections) table at the bottom of this README.
 
 ## Tech Stack
 
@@ -166,8 +178,14 @@ Nextra provides built-in components you can use in any MDX file without importin
 |---------|------|-------|-------------|
 | Getting Started | `content/getting-started/` | 4 | Introduction, installation, quick start, project structure |
 | Guides | `content/guides/` | 10 | REST, GraphQL, auth, database, deployment, etc. |
-| CLI Reference | `content/cli-reference/` | 21 | Every CLI command and generation subcommand |
-| Library API | `content/api-reference/` | 26 | Package-by-package reference for all `pkg/*` packages |
+| CLI Reference | `content/cli-reference/` | 22 + 13 | Every top-level CLI command, plus the `generate/` subcommand subdirectory |
+| Library API | `content/api-reference/` | 30 | Package-by-package reference for every `pkg/*` |
+
+Counts auto-derive from the filesystem; if you add or remove a `.mdx` file, please update the table accordingly so this stays honest.
+
+## Maintenance and sustainability
+
+Gofasta is currently maintained by one person; sustainability planning — release cadence, security SLOs, the solo-to-team transition, and the automation arc that retires manual steps as the project matures — is documented in the [release coordination repo](https://github.com/gofastadev/release), specifically in [`CADENCE.md`](https://github.com/gofastadev/release/blob/main/CADENCE.md), [`RELEASING.md`](https://github.com/gofastadev/release/blob/main/RELEASING.md), and [`COMMUNITY.md`](https://github.com/gofastadev/release/blob/main/COMMUNITY.md). Read those three together for the full picture.
 
 ## License
 

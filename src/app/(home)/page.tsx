@@ -10,7 +10,6 @@ import {
   ArchitectureStrip,
   QuickStartSection,
   CtaSection,
-  ComingSoon,
 } from "@/components/organisms";
 import { getKeywordsForPath } from "@/lib/seo-keywords";
 
@@ -61,13 +60,7 @@ const jsonLd = {
   ],
 };
 
-const isProduction = process.env.NODE_ENV === "production";
-
 export default function HomePage() {
-  if (isProduction) {
-    return <ComingSoon />;
-  }
-
   return (
     <LandingTemplate>
       <script
