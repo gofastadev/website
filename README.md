@@ -23,7 +23,7 @@ This is the source code for the Gofasta documentation site. It is built with [Ne
 The site has two parts:
 
 - **Landing page** (`/`) — A custom React page with a hero section, feature grid, and quick start guide
-- **Documentation** (`/docs`) — Guides, CLI reference, and gofasta library API documentation, all written in MDX. Page counts in the [Documentation Sections](#documentation-sections) table at the bottom of this README.
+- **Documentation** (`/docs`) — Guides, CLI reference, and gofasta library API documentation, all written in MDX. See the [Documentation Sections](#documentation-sections) table at the bottom of this README for the layout.
 
 ## Tech Stack
 
@@ -174,14 +174,14 @@ Nextra provides built-in components you can use in any MDX file without importin
 
 ## Documentation Sections
 
-| Section | Path | Pages | Description |
-|---------|------|-------|-------------|
-| Getting Started | `content/getting-started/` | 4 | Introduction, installation, quick start, project structure |
-| Guides | `content/guides/` | 10 | REST, GraphQL, auth, database, deployment, etc. |
-| CLI Reference | `content/cli-reference/` | 22 + 13 | Every top-level CLI command, plus the `generate/` subcommand subdirectory |
-| Library API | `content/api-reference/` | 30 | Package-by-package reference for every `pkg/*` |
+| Section | Path | Description |
+|---------|------|-------------|
+| Getting Started | `content/getting-started/` | Introduction, installation, quick start, project structure |
+| Guides | `content/guides/` | REST, GraphQL, auth, database, deployment, etc. |
+| CLI Reference | `content/cli-reference/` | Every top-level CLI command, plus the `generate/` subcommand subdirectory |
+| Library API | `content/api-reference/` | Package-by-package reference for every `pkg/*` in the gofasta library |
 
-Counts auto-derive from the filesystem; if you add or remove a `.mdx` file, please update the table accordingly so this stays honest.
+The page set grows with the library and CLI — see [gofasta.dev/docs](https://gofasta.dev/docs) for the live count via the sidebar.
 
 ## Maintenance and sustainability
 
