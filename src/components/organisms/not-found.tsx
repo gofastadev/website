@@ -261,7 +261,7 @@ export function NotFound() {
             href="https://github.com/gofastadev/website/issues/new"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary hover:underline"
+            className="text-primary underline underline-offset-4"
           >
             Let us know on GitHub
           </Link>

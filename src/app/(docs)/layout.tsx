@@ -16,7 +16,8 @@ export default async function DocsLayout({
         <Navbar
           logo={
             <span className="flex items-center gap-2">
-              <Image src="/logo.png" alt="Gofasta" width={28} height={28} className="rounded-lg" />
+              {/* Decorative — text label "Gofasta" follows; alt="" prevents redundant SR readout. */}
+              <Image src="/logo.png" alt="" width={28} height={28} className="rounded-lg" />
               <span className="text-lg font-bold">Gofasta</span>
             </span>
           }

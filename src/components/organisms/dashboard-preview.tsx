@@ -497,9 +497,12 @@ export function DashboardPreview() {
         <p className="mt-10 text-center text-sm text-gray-600 dark:text-gray-400">
           Plus panic history, cache hit/miss, EXPLAIN plans, HAR export, and
           more.{" "}
+          {/* Always underlined — Lighthouse / WCAG flag links inside
+              body text that rely on color alone. Hover state continues
+              to work via the underline-offset bump. */}
           <Link
             href="/docs/guides/debugging/overview"
-            className="text-primary underline-offset-4 hover:underline"
+            className="text-primary underline underline-offset-4 hover:underline-offset-2"
           >
             Read the debugging guide →
           </Link>

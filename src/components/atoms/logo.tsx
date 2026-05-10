@@ -9,7 +9,10 @@ interface LogoProps {
 export function Logo({ className }: LogoProps) {
   return (
     <Link href="/" className={cn("flex items-center gap-2", className)}>
-      <Image src="/logo.png" alt="Gofasta" width={32} height={32} className="rounded-lg" />
+      {/* Decorative logo — `alt=""` because the visible text label
+          beside it provides the same name to assistive tech, and
+          Lighthouse axe-core flags duplicate alt+text as redundant. */}
+      <Image src="/logo.png" alt="" width={32} height={32} className="rounded-lg" />
       <span className="text-xl font-bold text-gray-900 dark:text-white">Gofasta</span>
     </Link>
   );

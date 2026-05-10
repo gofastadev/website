@@ -3,6 +3,14 @@ import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
+// One-year immutable cache for the rendered OG image. Safe because the
+// query string fully determines output: changing title/section yields
+// a different URL, so cache invalidation is automatic. The header
+// makes Vercel / any CDN serve repeat fetches from the edge instead
+// of re-rendering the SVG each time a Slack/Twitter/iMessage preview
+// fires.
+const OG_CACHE_HEADER = "public, max-age=31536000, immutable";
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const title = searchParams.get("title") ?? "Documentation";
@@ -88,6 +96,10 @@ export async function GET(request: NextRequest) {
         </div>
       </div>
     ),
-    { width: 1200, height: 630 },
+    {
+      width: 1200,
+      height: 630,
+      headers: { "Cache-Control": OG_CACHE_HEADER },
+    },
   );
 }

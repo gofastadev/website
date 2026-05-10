@@ -40,72 +40,84 @@ export function Hero() {
         className="pointer-events-none absolute inset-0 z-0 overflow-hidden text-muted"
       >
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute left-[4%] top-[12%] font-mono text-xs whitespace-nowrap"
           style={{ animationDelay: "0s" }}
         >
           package backend
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute right-[6%] top-[10%] font-mono text-xs whitespace-nowrap"
           style={{ animationDelay: "1.2s" }}
         >
           import &quot;context&quot;
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute left-[8%] top-[24%] font-mono text-sm whitespace-nowrap"
           style={{ animationDelay: "2.4s" }}
         >
           type User struct &#123;
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute right-[4%] top-[26%] font-mono text-sm whitespace-nowrap"
           style={{ animationDelay: "0.6s" }}
         >
           func (s *svc) Get(ctx) …
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute left-[5%] top-[42%] font-mono text-xs whitespace-nowrap"
           style={{ animationDelay: "3.6s" }}
         >
           defer wg.Done()
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute right-[7%] top-[44%] font-mono text-xs whitespace-nowrap"
           style={{ animationDelay: "1.8s" }}
         >
           go func() &#123; … &#125;()
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute left-[7%] top-[58%] font-mono text-xs whitespace-nowrap"
           style={{ animationDelay: "4.8s" }}
         >
           chan&lt;- events
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute right-[5%] top-[60%] font-mono text-xs whitespace-nowrap"
           style={{ animationDelay: "2.2s" }}
         >
           return nil, err
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute left-[6%] top-[74%] font-mono text-[11px] whitespace-nowrap"
           style={{ animationDelay: "5.4s" }}
         >
           {"// 78 files scaffolded"}
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute right-[9%] top-[76%] font-mono text-[11px] whitespace-nowrap"
           style={{ animationDelay: "3.0s" }}
         >
           interface &#123;&#125;
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute left-[3%] top-[88%] font-mono text-xs whitespace-nowrap"
           style={{ animationDelay: "6.6s" }}
         >
           ctx, cancel := context.…
         </span>
         <span
+          aria-hidden="true"
           className="gofasta-code-breath absolute right-[3%] top-[90%] font-mono text-xs whitespace-nowrap"
           style={{ animationDelay: "4.2s" }}
         >
