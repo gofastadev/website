@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/atoms";
 import { CopyableCommand, TerminalBlock } from "@/components/molecules";
+import { trackEvent } from "@/lib/analytics";
 
 export function Hero() {
   const router = useRouter();
@@ -150,16 +151,30 @@ export function Hero() {
           <Button
             variant="primary"
             size="lg"
-            onClick={() => router.push("/docs/getting-started/introduction")}
+            onClick={() => {
+              trackEvent("cta_get_started", {
+                location: "hero",
+                destination: "/docs/getting-started/introduction",
+              });
+              router.push("/docs/getting-started/introduction");
+            }}
           >
             Get Started
           </Button>
           <Button
             variant="secondary"
             size="lg"
-            onClick={() =>
-              window.open("https://github.com/gofastadev/cli", "_blank", "noopener,noreferrer")
-            }
+            onClick={() => {
+              trackEvent("cta_view_github", {
+                location: "hero",
+                repo: "gofastadev/cli",
+              });
+              window.open(
+                "https://github.com/gofastadev/cli",
+                "_blank",
+                "noopener,noreferrer",
+              );
+            }}
           >
             View on GitHub
           </Button>

@@ -4,3 +4,6 @@ export { ThemeToggle } from "./theme-toggle";
 export { StepNumber } from "./step-number";
 export { FeatureIcon } from "./feature-icon";
 export { Analytics } from "./analytics";
+export { PageviewTracker } from "./pageview-tracker";
+export { SectionTracker } from "./section-tracker";
+export { ScrollDepthTracker } from "./scroll-depth-tracker";

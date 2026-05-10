@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/atoms";
 import { CopyableCommand } from "@/components/molecules";
+import { trackEvent } from "@/lib/analytics";
 
 export function CtaSection() {
   const router = useRouter();
@@ -34,14 +35,23 @@ export function CtaSection() {
           <Button
             variant="primary"
             size="lg"
-            onClick={() => router.push("/docs/getting-started/introduction")}
+            onClick={() => {
+              trackEvent("cta_get_started", {
+                location: "cta_section",
+                destination: "/docs/getting-started/introduction",
+              });
+              router.push("/docs/getting-started/introduction");
+            }}
           >
             Get Started
           </Button>
           <Button
             variant="secondary"
             size="lg"
-            onClick={() => router.push("/docs/white-paper")}
+            onClick={() => {
+              trackEvent("cta_read_white_paper", { location: "cta_section" });
+              router.push("/docs/white-paper");
+            }}
           >
             Read the Whitepaper
           </Button>

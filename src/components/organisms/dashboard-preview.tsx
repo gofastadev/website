@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { SectionHeading, FeatureCard } from "@/components/molecules";
 import { useOnScreen } from "@/hooks/use-on-screen";
+import { trackEvent } from "@/lib/analytics";
 
 // Curated tiles for the capability grid. Keep this list tight — the
 // docs page (cli-reference/dev.mdx) is the enumeration; the landing is
@@ -509,6 +510,11 @@ export function DashboardPreview() {
           <Link
             href="/docs/guides/debugging/overview"
             className="text-primary underline underline-offset-4 hover:underline-offset-2"
+            onClick={() =>
+              trackEvent("read_debugging_guide", {
+                location: "dashboard_preview_footnote",
+              })
+            }
           >
             Read the debugging guide →
           </Link>

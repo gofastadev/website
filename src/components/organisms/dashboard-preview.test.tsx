@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import { DashboardPreview } from "./dashboard-preview";
+
+const trackEventSpy = vi.fn();
+vi.mock("@/lib/analytics", () => ({
+  trackEvent: (...args: unknown[]) => trackEventSpy(...args),
+}));
 
 // FiringIntersectionObserver reports the target as intersecting on the
 // next microtask. Used in the ticker test so useOnScreen flips to
@@ -84,6 +89,17 @@ describe("DashboardPreview", () => {
       name: /Read the debugging guide/i,
     });
     expect(link).toHaveAttribute("href", "/docs/guides/debugging/overview");
+  });
+
+  it("fires read_debugging_guide when the debugging-guide link is clicked", () => {
+    trackEventSpy.mockReset();
+    render(<DashboardPreview />);
+    fireEvent.click(
+      screen.getByRole("link", { name: /Read the debugging guide/i }),
+    );
+    expect(trackEventSpy).toHaveBeenCalledWith("read_debugging_guide", {
+      location: "dashboard_preview_footnote",
+    });
   });
 
   it("renders the mockup browser url bar pointing at localhost:9090", () => {

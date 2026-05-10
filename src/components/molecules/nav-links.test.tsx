@@ -1,8 +1,17 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { NavLinks } from "./nav-links";
 
+const trackEventSpy = vi.fn();
+vi.mock("@/lib/analytics", () => ({
+  trackEvent: (...args: unknown[]) => trackEventSpy(...args),
+}));
+
 describe("NavLinks", () => {
+  beforeEach(() => {
+    trackEventSpy.mockReset();
+  });
+
   it("renders Docs and GitHub links in header variant", () => {
     render(<NavLinks variant="header" />);
     expect(screen.getByText("Docs")).toBeInTheDocument();
@@ -55,5 +64,80 @@ describe("NavLinks", () => {
   it("applies custom className", () => {
     const { container } = render(<NavLinks className="my-class" />);
     expect(container.firstChild).toHaveClass("my-class");
+  });
+
+  // Click-tracking coverage for every link in both variants. The
+  // analytics layer is the only thing being verified here — actual
+  // navigation is handled by next/link and is out of scope for unit
+  // tests.
+
+  it("header Docs click fires nav_to_docs", () => {
+    render(<NavLinks variant="header" />);
+    fireEvent.click(screen.getByText("Docs"));
+    expect(trackEventSpy).toHaveBeenCalledWith("nav_to_docs", {
+      destination: "/docs/getting-started/introduction",
+    });
+  });
+
+  it("header GitHub click fires nav_to_github_library", () => {
+    render(<NavLinks variant="header" />);
+    fireEvent.click(screen.getByText("GitHub"));
+    expect(trackEventSpy).toHaveBeenCalledWith("nav_to_github_library", {
+      destination: "https://github.com/gofastadev/gofasta",
+    });
+  });
+
+  it("footer Docs click fires footer_link_click with label=Docs", () => {
+    render(<NavLinks variant="footer" />);
+    fireEvent.click(screen.getByText("Docs"));
+    expect(trackEventSpy).toHaveBeenCalledWith("footer_link_click", {
+      label: "Docs",
+      destination: "/docs/getting-started/introduction",
+    });
+  });
+
+  it("footer GitHub click fires footer_link_click with label=GitHub", () => {
+    render(<NavLinks variant="footer" />);
+    fireEvent.click(screen.getByText("GitHub"));
+    expect(trackEventSpy).toHaveBeenCalledWith("footer_link_click", {
+      label: "GitHub",
+      destination: "https://github.com/gofastadev/gofasta",
+    });
+  });
+
+  it("footer White Paper click fires footer_link_click", () => {
+    render(<NavLinks variant="footer" />);
+    fireEvent.click(screen.getByText("White Paper"));
+    expect(trackEventSpy).toHaveBeenCalledWith("footer_link_click", {
+      label: "White Paper",
+      destination: "/docs/white-paper",
+    });
+  });
+
+  it("footer Sitemap click fires footer_link_click", () => {
+    render(<NavLinks variant="footer" />);
+    fireEvent.click(screen.getByText("Sitemap"));
+    expect(trackEventSpy).toHaveBeenCalledWith("footer_link_click", {
+      label: "Sitemap",
+      destination: "/sitemap",
+    });
+  });
+
+  it("footer Cookies click fires footer_link_click", () => {
+    render(<NavLinks variant="footer" />);
+    fireEvent.click(screen.getByText("Cookies"));
+    expect(trackEventSpy).toHaveBeenCalledWith("footer_link_click", {
+      label: "Cookies",
+      destination: "/cookies",
+    });
+  });
+
+  it("footer License click fires footer_link_click", () => {
+    render(<NavLinks variant="footer" />);
+    fireEvent.click(screen.getByText("License"));
+    expect(trackEventSpy).toHaveBeenCalledWith("footer_link_click", {
+      label: "License",
+      destination: "https://github.com/gofastadev/gofasta/blob/main/LICENSE",
+    });
   });
 });

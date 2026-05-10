@@ -11,6 +11,7 @@ import {
   QuickStartSection,
   CtaSection,
 } from "@/components/organisms";
+import { ScrollDepthTracker, SectionTracker } from "@/components/atoms";
 import { getKeywordsForPath } from "@/lib/seo-keywords";
 
 export const metadata: Metadata = {
@@ -67,15 +68,40 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <Hero />
-      <AudienceTiles />
-      <ValuePillars />
-      <AgentSpotlight />
-      <DashboardPreview />
-      <FeaturesGrid />
-      <ArchitectureStrip />
-      <QuickStartSection />
-      <CtaSection />
+      {/* Page-level analytics:
+          - ScrollDepthTracker fires 25/50/75/100% milestones.
+          - Each <SectionTracker> fires a one-shot section_view event
+            when the section first scrolls into view. Combined these
+            answer "how far down the landing do visitors actually
+            get, and which sections do they actually see?" */}
+      <ScrollDepthTracker />
+      <SectionTracker name="hero">
+        <Hero />
+      </SectionTracker>
+      <SectionTracker name="audience_tiles">
+        <AudienceTiles />
+      </SectionTracker>
+      <SectionTracker name="value_pillars">
+        <ValuePillars />
+      </SectionTracker>
+      <SectionTracker name="agent_spotlight">
+        <AgentSpotlight />
+      </SectionTracker>
+      <SectionTracker name="dashboard_preview">
+        <DashboardPreview />
+      </SectionTracker>
+      <SectionTracker name="features_grid">
+        <FeaturesGrid />
+      </SectionTracker>
+      <SectionTracker name="architecture_strip">
+        <ArchitectureStrip />
+      </SectionTracker>
+      <SectionTracker name="quick_start_section">
+        <QuickStartSection />
+      </SectionTracker>
+      <SectionTracker name="cta_section">
+        <CtaSection />
+      </SectionTracker>
     </LandingTemplate>
   );
 }

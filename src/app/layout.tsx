@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Poppins, Geist_Mono } from "next/font/google";
 import { Head } from "nextra/components";
-import { Analytics } from "@/components/atoms";
+import { Analytics, PageviewTracker } from "@/components/atoms";
 import { CookieBanner } from "@/components/organisms";
 import { ConsentProvider } from "@/contexts/consent-context";
 import "./globals.css";
@@ -109,6 +110,16 @@ export default function RootLayout({
               via NEXT_PUBLIC_* env vars; when unset (dev / preview)
               nothing renders. */}
           <Analytics />
+          {/* SPA pageview firing — GA4's auto page_view only covers
+              the initial document load; this fires gtag('event',
+              'page_view') on every client-side route change so doc
+              navigations show up in reports. Wrapped in <Suspense>
+              because useSearchParams() inside it would otherwise
+              de-opt the entire app to dynamic rendering; this
+              contains the dynamic boundary. */}
+          <Suspense fallback={null}>
+            <PageviewTracker />
+          </Suspense>
           {/* GDPR/CPRA banner. Renders only on first visit (and after
               `Manage cookies` resets the record). */}
           <CookieBanner />

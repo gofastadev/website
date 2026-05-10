@@ -8,6 +8,13 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
+// Mock trackEvent so we can verify Hero CTAs fire the correct analytics
+// events without spinning up a real GA4 environment.
+const trackEventSpy = vi.fn();
+vi.mock("@/lib/analytics", () => ({
+  trackEvent: (...args: unknown[]) => trackEventSpy(...args),
+}));
+
 describe("Hero", () => {
   it("renders the headline", () => {
     render(<Hero />);
@@ -68,5 +75,26 @@ describe("Hero", () => {
     expect(
       screen.getByText(/Starting gofasta development server.../)
     ).toBeInTheDocument();
+  });
+
+  it("fires cta_get_started when the primary CTA is clicked", () => {
+    trackEventSpy.mockReset();
+    render(<Hero />);
+    fireEvent.click(screen.getByText("Get Started"));
+    expect(trackEventSpy).toHaveBeenCalledWith("cta_get_started", {
+      location: "hero",
+      destination: "/docs/getting-started/introduction",
+    });
+  });
+
+  it("fires cta_view_github when the secondary CTA is clicked", () => {
+    trackEventSpy.mockReset();
+    vi.spyOn(window, "open").mockImplementation(() => null);
+    render(<Hero />);
+    fireEvent.click(screen.getByText("View on GitHub"));
+    expect(trackEventSpy).toHaveBeenCalledWith("cta_view_github", {
+      location: "hero",
+      repo: "gofastadev/cli",
+    });
   });
 });
