@@ -1,11 +1,11 @@
 ---
 title: Quick Start
-description: Create your first Gofasta project in under 5 minutes.
+description: Scaffold a project, start the full dev loop with one command, and ship your first resource — in under five minutes.
 ---
 
 # Quick Start
 
-This guide walks you through creating a new Gofasta project, starting the server, and generating your first resource.
+Five minutes, four commands, a working backend with REST + database + hot reload + observability + interactive controls.
 
 ## Step 1: Create a Project
 
@@ -19,112 +19,123 @@ Or with a full Go module path:
 gofasta new github.com/myorg/myapp
 ```
 
-This creates a REST-only project (GraphQL is not included by default):
-
-```
-Creating project...
-Running go mod init...
-Copying template files...
-Installing dependencies (go get)...
-Installing tool dependencies (wire, air, swag)...
-Registering tools (go mod edit -tool)...
-Running go mod tidy...
-Generating Wire DI code...
-Initializing git repository...
-Done! Project created at ./myapp
-```
-
-To include GraphQL support (gqlgen schema, resolvers, `/graphql` endpoint, and playground), pass the `--graphql` flag:
+This scaffolds a REST-only project. Add `--graphql` if you want gqlgen + a `/graphql` endpoint + playground generated alongside REST:
 
 ```bash
 gofasta new myapp --graphql
 ```
 
-```
-Creating project...
-Running go mod init...
-Copying template files...
-Installing dependencies (go get)...
-Installing tool dependencies (gqlgen, wire, air, swag)...
-Registering tools (go mod edit -tool)...
-Running go mod tidy...
-Generating Wire DI code...
-Generating GraphQL code...
-Initializing git repository...
-Done! Project created at ./myapp
-```
+The output narrates every step — Wire DI generation, `go mod tidy`, git init, the works. By the time it finishes you have a project that compiles, runs, has a starter `User` resource, and can be deployed as-is.
 
-## Step 2: Start the Server
+## Step 2: Start the Dev Loop
 
 ```bash
 cd myapp
+gofasta dev
 ```
 
-**Option A: Docker (recommended)** — starts the app and PostgreSQL together:
+That single command brings up everything: the database (Postgres in Docker), the cache (Redis), the queue dashboard (asynqmon), runs pending migrations, then launches Air for hot-reload on the host. Everything tears down cleanly on `Ctrl+C`.
 
-```bash
-make up
-```
+What's actually happening under the hood:
 
-**Option B: Host machine** — requires a local PostgreSQL instance:
+| Stage | What runs |
+|---|---|
+| **1. Preflight** | Verifies `docker` and `docker compose` are available. |
+| **2. Service start** | `docker compose up -d` with the `cache` + `queue` profiles auto-activated. db, redis, and asynqmon come up together. |
+| **3. Health-wait** | Polls each service's compose healthcheck until ready (30s timeout). |
+| **4. Migrate** | Runs `migrate up` against the now-healthy database. |
+| **5. Air** | Execs `go tool air` against `.air.toml` — your code rebuilds on every save. |
+| **6. Teardown** | On `Ctrl+C`, stops services (volumes preserved so the next run reuses your data). |
 
-```bash
-docker compose up db -d    # Start just the database
-make dev                   # Run with hot reload
-```
-
-Your app is now running:
+Your app is live at:
 
 | Endpoint | URL |
-|----------|-----|
+|---|---|
 | REST API | `http://localhost:8080/api/v1/` |
-| Health Check | `http://localhost:8080/health` |
-| Swagger | `http://localhost:8080/swagger` (after running `gofasta swagger`) |
+| Health check | `http://localhost:8080/health` |
+| Prometheus metrics | `http://localhost:8080/metrics` |
+| Swagger UI | `http://localhost:8080/swagger/index.html` *(after `gofasta swagger`)* |
 
-If you created the project with `--graphql`, these endpoints are also available:
+If you scaffolded with `--graphql`:
 
 | Endpoint | URL |
-|----------|-----|
+|---|---|
 | GraphQL | `http://localhost:8080/graphql` |
 | GraphQL Playground | `http://localhost:8080/graphql-playground` |
 
+### Interactive controls while it's running
+
+`gofasta dev` puts your terminal in raw mode and listens for single-key shortcuts. You'll see a banner the moment the loop starts:
+
+```
+⌨  press `r` to restart · `q` to quit · `h` for help
+```
+
+| Key | Action |
+|---|---|
+| `r` / `R` | **Restart the entire pipeline from scratch** — services stop, `.env` reloads, every stage re-runs. Use this after editing `.env`, `config.yaml`, or rebasing migrations. Air-watched Go files don't need it; Air picks those up automatically. |
+| `q` / `Q` | Quit cleanly. Same effect as `Ctrl+C`. |
+| `h` / `H` / `?` | Print the keybinding help inline. |
+
+The listener auto-disables when stdin isn't a TTY (CI runs, piped input). Pass `--no-keyboard` to disable it explicitly.
+
+### Useful flags
+
+| Flag | What it does |
+|---|---|
+| `gofasta dev --dry-run` | Print what *would* run, exit. Great in CI to validate compose + config without spinning anything up. |
+| `gofasta dev --fresh` | Drop every compose volume before starting. Clean slate database. |
+| `gofasta dev --seed` | Run seeders after migrations. |
+| `gofasta dev --no-cache` | Skip the cache (Redis). Use when you don't need it. |
+| `gofasta dev --no-queue` | Skip the queue dashboard. |
+| `gofasta dev --no-services` | Skip compose entirely. Air only — use when you bring your own database. |
+| `gofasta dev --all-in-docker` | Run *everything* in Docker, including Air. Supporting services run detached; the app container's stdout streams to your terminal so hot-reload feels identical to host-Air. |
+| `gofasta dev --dashboard` | Spin up the [dev dashboard](/docs/cli-reference/dev#the-dashboard) on `:9090` — live routes, request inspector, trace waterfall, EXPLAIN-on-click, panic history, cache hit/miss, HAR export. Only available with the `devtools` build tag, which `gofasta dev` sets automatically. |
+| `gofasta dev --attach-logs` | Stream `docker compose logs -f` alongside Air output. |
+| `gofasta dev --json` | NDJSON event stream instead of human log lines — for CI and agents. |
+
+Full reference at [/docs/cli-reference/dev](/docs/cli-reference/dev).
+
 ## Step 3: Generate a Resource
 
-Create a full `Product` resource with one command:
+In a separate terminal (leave `gofasta dev` running):
 
 ```bash
 gofasta g scaffold Product name:string price:float
 ```
 
-This generates **11 files** and patches 4 existing files:
+This generates **11 files** and patches **4** existing files in one shot:
 
 | Generated file | What it is |
-|---------------|-----------|
+|---|---|
 | `app/models/product.model.go` | Database model |
 | `db/migrations/000006_create_products.up.sql` | Create table migration |
 | `db/migrations/000006_create_products.down.sql` | Drop table migration |
 | `app/repositories/interfaces/product_repository.go` | Repository interface |
-| `app/repositories/product.repository.go` | Repository implementation |
+| `app/repositories/product.repository.go` | Repository implementation (GORM) |
 | `app/services/interfaces/product_service.go` | Service interface |
 | `app/services/product.service.go` | Service implementation |
-| `app/dtos/product.dtos.go` | Request/response DTOs |
+| `app/dtos/product.dtos.go` | Request/response DTOs with validation |
 | `app/di/providers/product.go` | Wire DI provider |
 | `app/rest/controllers/product.controller.go` | REST controller |
-| `app/rest/routes/product.routes.go` | Route definitions |
+| `app/rest/routes/product.routes.go` | Route definitions (GET, POST, PUT, DELETE) |
 
-It also automatically patches:
-- `app/di/container.go` — adds `ProductService` and `ProductController` fields
-- `app/di/wire.go` — adds `ProductSet` to the Wire build
-- `app/rest/routes/index.routes.go` — registers Product routes
-- `cmd/serve.go` — wires `ProductController` into the route config
+Plus automatic patches to wire everything in:
 
-## Step 4: Run Migrations
+- `app/di/container.go` — `ProductService` + `ProductController` fields
+- `app/di/wire.go` — `ProductSet` added to the Wire build
+- `app/rest/routes/index.routes.go` — `/api/v1/products` registered
+- `cmd/serve.go` — controller wired into route config
 
-```bash
-gofasta migrate up
-```
+If you scaffolded the project with `--graphql`, pass `--graphql` here too and the resolver + `.gql` schema get generated alongside.
 
-## Step 5: Test Your API
+### Press `r` to apply
+
+Back in the `gofasta dev` terminal, **press `r`**. The pipeline tears down, re-runs preflight, re-applies migrations (your new `000006_create_products` runs), and Air rebuilds against the new generated code. Your `/api/v1/products` endpoint is now live — no manual `gofasta migrate up`, no separate restart cycle.
+
+> Air does pick up `.go` saves automatically. You only need `r` for things outside Air's watch — migrations, config changes, `.env` edits.
+
+## Step 4: Test Your API
 
 ```bash
 # Create a product
@@ -132,25 +143,27 @@ curl -X POST http://localhost:8080/api/v1/products \
   -H "Content-Type: application/json" \
   -d '{"name": "Widget", "price": 9.99}'
 
-# List all products
+# List
 curl http://localhost:8080/api/v1/products
 
-# Get a single product
+# Get one
 curl http://localhost:8080/api/v1/products/{id}
 
-# Update a product
+# Update
 curl -X PUT http://localhost:8080/api/v1/products/{id} \
   -H "Content-Type: application/json" \
   -d '{"name": "Updated Widget", "price": 19.99}'
 
-# Delete a product
+# Delete
 curl -X DELETE http://localhost:8080/api/v1/products/{id}
 ```
+
+Want to see every captured request, SQL query, and trace span live? Start `gofasta dev --dashboard` and open `http://localhost:9090`. Click a request row → see its trace waterfall, the SQL it ran, the response body, and a one-click Replay button.
 
 ## Supported Field Types
 
 | Type | Go type | SQL type (Postgres) | GraphQL type |
-|------|---------|-------------------|-------------|
+|---|---|---|---|
 | `string` | `string` | `VARCHAR(255)` | `String` |
 | `text` | `string` | `TEXT` | `String` |
 | `int` | `int` | `INTEGER` | `Int` |
@@ -161,11 +174,14 @@ curl -X DELETE http://localhost:8080/api/v1/products/{id}
 
 SQL types are automatically adapted for MySQL, SQLite, SQL Server, and ClickHouse based on the `database.driver` in your `config.yaml`.
 
-## Next Steps
+## What's next
 
-- [Understand the project structure](/docs/getting-started/project-structure)
-- [Learn about code generation](/docs/guides/code-generation)
-- [Set up authentication](/docs/guides/authentication)
+- **[gofasta dev — full reference](/docs/cli-reference/dev)** — every flag, every event, the dashboard's debug surfaces (trace waterfall, EXPLAIN-on-click, N+1 detection, HAR export)
+- **[Code generation](/docs/guides/code-generation)** — every generator: model, repository, service, controller, job, task, email-template, resolver
+- **[Configuration](/docs/guides/configuration)** — `config.yaml` schema, env-var overrides, multi-database support
+- **[Authentication](/docs/guides/authentication)** — JWT + Casbin RBAC, scaffolded auth flows
+- **[Agent integrations](/docs/cli-reference/ai)** — `gofasta ai claude`, `cursor`, `codex`, `aider`, `windsurf`
+- **[Deployment](/docs/guides/deployment)** — one-command VPS deploy via `gofasta deploy`
 
 ## Related
 

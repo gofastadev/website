@@ -27,6 +27,8 @@ When you run `gofasta new myapp`, the CLI creates a complete, ready-to-run proje
 - **Docker** — Production Dockerfile and Docker Compose configuration
 - **Deployment** — One-command VPS deploy via `gofasta deploy` (Docker or binary over SSH), with generated systemd units and nginx reverse-proxy config
 - **CI/CD** — GitHub Actions workflow templates for testing, releasing, and deploying
+- **A one-command dev loop** — `gofasta dev` boots db + cache + queue dashboard, runs migrations, and starts Air for hot reload. Press `r` mid-session to restart the whole stack from scratch, `q` to quit, `h` for help. Supports `--all-in-docker` for full-Docker mode, `--dashboard` for a live request inspector (trace waterfalls, EXPLAIN-on-click, panic history, HAR export), and `--json` for agent-readable structured events.
+- **Agent-native tooling** — every command honors `--json`, every error carries a stable code + remediation hint + docs link, and `gofasta ai claude|cursor|codex|aider|windsurf` installs per-agent configuration in one command.
 
 A starter `User` resource is included so the project compiles and runs out of the box.
 
