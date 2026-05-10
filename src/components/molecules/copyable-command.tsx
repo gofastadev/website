@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics";
 
 interface CopyableCommandProps {
   /** The command text that gets both displayed and copied. */
@@ -54,6 +55,12 @@ export function CopyableCommand({
         document.body.removeChild(textarea);
       }
       setCopied(true);
+      // Successful copy → fire a conversion-grade event. The
+      // `command` text is included so we can see WHICH commands get
+      // copied (the install snippet, a generator example, etc.) in
+      // GA4 reports — invaluable for tracking which install path is
+      // most popular.
+      trackEvent("copy_install_command", { command });
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
       timerRef.current = window.setTimeout(() => setCopied(false), 1800);
     } catch {

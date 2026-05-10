@@ -2,11 +2,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { CopyableCommand } from "./copyable-command";
 
+const trackEventSpy = vi.fn();
+vi.mock("@/lib/analytics", () => ({
+  trackEvent: (...args: unknown[]) => trackEventSpy(...args),
+}));
+
 describe("CopyableCommand", () => {
   beforeEach(() => {
     // Fresh Clipboard API stub per test so call counts don't bleed.
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
+    trackEventSpy.mockReset();
   });
 
   it("renders the command and default prompt", () => {
@@ -123,6 +129,33 @@ describe("CopyableCommand", () => {
     fireEvent.click(button);
     await waitFor(() => expect(clearSpy).toHaveBeenCalled());
     clearSpy.mockRestore();
+  });
+
+  it("fires copy_install_command with the command text on successful copy", async () => {
+    render(
+      <CopyableCommand command="go install github.com/gofastadev/cli/cmd/gofasta@latest" />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /copy command to clipboard/i }),
+    );
+    await waitFor(() => {
+      expect(trackEventSpy).toHaveBeenCalledWith("copy_install_command", {
+        command: "go install github.com/gofastadev/cli/cmd/gofasta@latest",
+      });
+    });
+  });
+
+  it("does NOT fire copy_install_command when the clipboard rejects", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("permission denied"));
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<CopyableCommand command="secret" />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /copy command to clipboard/i }),
+    );
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    // The catch branch swallows the error before trackEvent fires.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(trackEventSpy).not.toHaveBeenCalled();
   });
 
   it("reverts to the idle state after the 1.8s feedback window elapses", async () => {
