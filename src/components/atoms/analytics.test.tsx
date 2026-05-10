@@ -142,4 +142,71 @@ describe("Analytics", () => {
     expect(container.querySelector('[data-src*="googletagmanager.com"]')).toBeInTheDocument();
     expect(container.querySelector('[data-id="gtag-consent-default"]')).toBeInTheDocument();
   });
+
+  // The useEffect that calls `gtag('consent','update', ...)` is the
+  // runtime contract between the user's consent click and Google's
+  // Consent Mode. These tests pin its behavior so the privacy
+  // posture cannot regress without somebody noticing.
+  it("calls gtag('consent','update') with granted=analytics_storage when the user accepts", async () => {
+    const gtagSpy = vi.fn();
+    (window as unknown as { gtag: typeof gtagSpy }).gtag = gtagSpy;
+    consentState.consent = { analytics: true, decidedAt: "2026-01-01T00:00:00.000Z", version: 1 };
+    const Analytics = await loadAnalytics({ ga4: "G-UPDATE" });
+    render(<Analytics />);
+    expect(gtagSpy).toHaveBeenCalledWith("consent", "update", {
+      analytics_storage: "granted",
+      ad_storage: "denied",
+      ad_user_data: "denied",
+      ad_personalization: "denied",
+    });
+    delete (window as unknown as { gtag?: unknown }).gtag;
+  });
+
+  it("calls gtag('consent','update') with denied when the user rejects", async () => {
+    const gtagSpy = vi.fn();
+    (window as unknown as { gtag: typeof gtagSpy }).gtag = gtagSpy;
+    consentState.consent = { analytics: false, decidedAt: "2026-01-01T00:00:00.000Z", version: 1 };
+    const Analytics = await loadAnalytics({ ga4: "G-UPDATE" });
+    render(<Analytics />);
+    expect(gtagSpy).toHaveBeenCalledWith("consent", "update", {
+      analytics_storage: "denied",
+      ad_storage: "denied",
+      ad_user_data: "denied",
+      ad_personalization: "denied",
+    });
+    delete (window as unknown as { gtag?: unknown }).gtag;
+  });
+
+  it("does NOT call gtag('consent','update') while consent is still undecided", async () => {
+    const gtagSpy = vi.fn();
+    (window as unknown as { gtag: typeof gtagSpy }).gtag = gtagSpy;
+    consentState.consent = { analytics: null, decidedAt: null, version: 1 };
+    const Analytics = await loadAnalytics({ ga4: "G-UPDATE" });
+    render(<Analytics />);
+    expect(gtagSpy).not.toHaveBeenCalled();
+    delete (window as unknown as { gtag?: unknown }).gtag;
+  });
+
+  it("does NOT call gtag('consent','update') when GA4 is not configured", async () => {
+    // Without a GA4 measurement ID, the effect is a no-op even if a
+    // consent decision exists — there's no GA4 property to inform.
+    const gtagSpy = vi.fn();
+    (window as unknown as { gtag: typeof gtagSpy }).gtag = gtagSpy;
+    consentState.consent = { analytics: true, decidedAt: "2026-01-01T00:00:00.000Z", version: 1 };
+    const Analytics = await loadAnalytics({});
+    render(<Analytics />);
+    expect(gtagSpy).not.toHaveBeenCalled();
+    delete (window as unknown as { gtag?: unknown }).gtag;
+  });
+
+  it("does NOT call window.gtag if gtag is not a function (e.g. Consent Mode init hasn't run yet)", async () => {
+    // Real-world edge case: the Analytics component mounts before the
+    // beforeInteractive consent-default script has executed. The
+    // effect guards against `typeof window.gtag !== 'function'`.
+    delete (window as unknown as { gtag?: unknown }).gtag;
+    consentState.consent = { analytics: true, decidedAt: "2026-01-01T00:00:00.000Z", version: 1 };
+    const Analytics = await loadAnalytics({ ga4: "G-UPDATE" });
+    // Should not throw.
+    expect(() => render(<Analytics />)).not.toThrow();
+  });
 });

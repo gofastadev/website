@@ -59,8 +59,10 @@ export function Analytics() {
   // no-op when GA4 isn't configured or when the user hasn't decided
   // yet (analytics === null).
   useEffect(() => {
+    // No `typeof window === "undefined"` guard needed — useEffect
+    // never fires during SSR. This block is client-only by
+    // construction.
     if (!GA4_ID) return;
-    if (typeof window === "undefined") return;
     if (typeof window.gtag !== "function") return;
     if (consent.analytics === null) return;
 
