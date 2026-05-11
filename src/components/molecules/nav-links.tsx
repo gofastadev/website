@@ -44,6 +44,17 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
         Docs
       </Link>
       <Link
+        href="/blog"
+        className={linkStyles[variant]}
+        onClick={() =>
+          isHeader
+            ? trackEvent("nav_to_blog", { destination: "/blog" })
+            : trackFooterClick("Blog", "/blog")
+        }
+      >
+        Blog
+      </Link>
+      <Link
         href="https://github.com/gofastadev/gofasta"
         target="_blank"
         rel="noopener noreferrer"

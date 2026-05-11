@@ -12,9 +12,10 @@ describe("NavLinks", () => {
     trackEventSpy.mockReset();
   });
 
-  it("renders Docs and GitHub links in header variant", () => {
+  it("renders Docs, Blog, and GitHub links in header variant", () => {
     render(<NavLinks variant="header" />);
     expect(screen.getByText("Docs")).toBeInTheDocument();
+    expect(screen.getByText("Blog")).toBeInTheDocument();
     expect(screen.getByText("GitHub")).toBeInTheDocument();
   });
 
@@ -84,6 +85,28 @@ describe("NavLinks", () => {
     fireEvent.click(screen.getByText("GitHub"));
     expect(trackEventSpy).toHaveBeenCalledWith("nav_to_github_library", {
       destination: "https://github.com/gofastadev/gofasta",
+    });
+  });
+
+  it("Blog link points to /blog", () => {
+    render(<NavLinks variant="header" />);
+    expect(screen.getByText("Blog")).toHaveAttribute("href", "/blog");
+  });
+
+  it("header Blog click fires nav_to_blog", () => {
+    render(<NavLinks variant="header" />);
+    fireEvent.click(screen.getByText("Blog"));
+    expect(trackEventSpy).toHaveBeenCalledWith("nav_to_blog", {
+      destination: "/blog",
+    });
+  });
+
+  it("footer Blog click fires footer_link_click with label=Blog", () => {
+    render(<NavLinks variant="footer" />);
+    fireEvent.click(screen.getByText("Blog"));
+    expect(trackEventSpy).toHaveBeenCalledWith("footer_link_click", {
+      label: "Blog",
+      destination: "/blog",
     });
   });
 

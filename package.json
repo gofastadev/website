@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/generate-llms-txt.mjs",
+    "prebuild": "node scripts/generate-llms-txt.mjs && node scripts/check-blog-images.mjs",
     "build": "next build",
     "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind",
     "start": "next start",

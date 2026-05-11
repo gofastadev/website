@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
-const trackEventMock = vi.fn();
+const { trackEventMock } = vi.hoisted(() => ({
+  trackEventMock: vi.fn(),
+}));
 vi.mock("@/lib/analytics", () => ({
   trackEvent: trackEventMock,
 }));

@@ -78,6 +78,14 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: siteUrl,
+    // Feed discovery: feed-aware browsers and aggregators (Reeder,
+    // NetNewsWire, Inoreader) advertise these so a reader can "follow"
+    // the blog without us shipping a sidebar widget. RSS is the broad
+    // compat target; JSON Feed is the modern alternative.
+    types: {
+      "application/rss+xml": "/blog/rss.xml",
+      "application/feed+json": "/blog/feed.json",
+    },
   },
   other: {
     "theme-color": "#00ADD8",

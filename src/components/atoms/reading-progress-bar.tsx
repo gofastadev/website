@@ -34,9 +34,11 @@ export function ReadingProgressBar() {
         setProgress(computeProgress());
       });
     };
-    // Set the initial value so the bar shows the correct width on
-    // first paint instead of always starting at 0.
-    setProgress(computeProgress());
+    // Initial sync goes through the same rAF-batched handler so the
+    // bar shows the correct width on first paint without violating
+    // the react-hooks/set-state-in-effect rule (no synchronous
+    // setState inside useEffect).
+    handler();
     window.addEventListener("scroll", handler, { passive: true });
     window.addEventListener("resize", handler);
     return () => {

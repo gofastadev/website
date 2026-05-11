@@ -713,13 +713,32 @@ const PAGE_KEYWORDS: Record<string, string[]> = {
     "test fixtures",
     "mock helpers",
   ],
+
+  // Blog index — engineering-blog / dev-blog search clusters plus
+  // the toolkit's own brand terms.
+  "/blog": [
+    "blog",
+    "engineering blog",
+    "developer blog",
+    "Go blog",
+    "release notes",
+    "changelog",
+    "Gofasta blog",
+  ],
 };
 
 /**
  * Returns the combined keywords for a given URL path.
  * Base keywords are always included.
+ *
+ * Paths under `/blog/` (post slugs and tag pages) share the
+ * `/blog` keyword set since individual posts don't have curated
+ * keyword lists — the page title + body do the lifting there.
  */
 export function getKeywordsForPath(path: string): string[] {
+  if (path.startsWith("/blog/") || path === "/blog") {
+    return [...BASE_KEYWORDS, ...PAGE_KEYWORDS["/blog"]];
+  }
   const pageKeywords = PAGE_KEYWORDS[path] ?? [];
   return [...BASE_KEYWORDS, ...pageKeywords];
 }

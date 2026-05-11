@@ -55,4 +55,22 @@ describe("getKeywordsForPath", () => {
     const keywords = getKeywordsForPath("/docs/guides/graphql");
     expect(keywords.length).toBeGreaterThan(BASE_KEYWORDS.length);
   });
+
+  it("returns blog keywords for /blog (the blog index)", () => {
+    const keywords = getKeywordsForPath("/blog");
+    expect(keywords).toEqual(expect.arrayContaining(BASE_KEYWORDS));
+    expect(keywords).toEqual(expect.arrayContaining(["blog", "Gofasta blog"]));
+  });
+
+  it("returns blog keywords for /blog/<slug> (a post page)", () => {
+    const keywords = getKeywordsForPath("/blog/hello-gofasta");
+    expect(keywords).toEqual(expect.arrayContaining(BASE_KEYWORDS));
+    expect(keywords).toEqual(expect.arrayContaining(["engineering blog"]));
+  });
+
+  it("returns blog keywords for /blog/tags/<tag> pages too", () => {
+    const keywords = getKeywordsForPath("/blog/tags/golang");
+    expect(keywords).toEqual(expect.arrayContaining(BASE_KEYWORDS));
+    expect(keywords).toEqual(expect.arrayContaining(["Go blog"]));
+  });
 });

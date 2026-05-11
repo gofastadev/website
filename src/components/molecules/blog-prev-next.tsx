@@ -1,6 +1,41 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { BlogPost } from "@/lib/blog";
+
+// Tiny inline arrow glyphs — avoids pulling lucide-react into the
+// bundle just for two chevrons. The viewBox/path is the standard
+// shape used across the design system.
+function ChevronLeft({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+function ChevronRight({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
 
 // Prev/Next pair rendered at the bottom of an article. `prev` is the
 // post *older* than the current one, `next` is the post *newer*. If
