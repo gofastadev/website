@@ -64,7 +64,7 @@ export function BlogRelatedPosts({
               <span className="text-sm font-medium text-foreground">
                 {post.title}
               </span>
-              <span className="mt-1 block text-xs text-gray-600 dark:text-gray-400">
+              <span className="mt-1 block text-xs text-gray-700 dark:text-gray-400">
                 {post.readingTime.text}
               </span>
             </Link>

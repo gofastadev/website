@@ -51,7 +51,7 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
           />
         </div>
         <div className="flex flex-1 flex-col gap-3 p-5">
-          <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+          <div className="flex items-center gap-3 text-xs text-gray-700 dark:text-gray-400">
             <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
             <span aria-hidden>·</span>
             <span>{post.readingTime.text}</span>
@@ -59,7 +59,7 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
           <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">
             {post.title}
           </h3>
-          <p className="line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
+          <p className="line-clamp-2 text-sm text-gray-700 dark:text-gray-400">
             {post.description}
           </p>
           {visibleTags.length > 0 ? (

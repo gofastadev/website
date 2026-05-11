@@ -35,22 +35,22 @@ export function BlogArticleHeader({ post }: BlogArticleHeaderProps) {
         {post.title}
       </h1>
 
-      <p className="text-lg text-gray-700 dark:text-gray-300">
+      <p className="text-lg text-gray-800 dark:text-gray-300">
         {post.description}
       </p>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-700 dark:text-gray-400">
         {post.authorUrl ? (
           <Link
             href={post.authorUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-gray-800 hover:text-primary dark:text-gray-200"
+            className="font-medium text-gray-900 hover:text-primary dark:text-gray-200"
           >
             {post.author}
           </Link>
         ) : (
-          <span className="font-medium text-gray-800 dark:text-gray-200">
+          <span className="font-medium text-gray-900 dark:text-gray-200">
             {post.author}
           </span>
         )}

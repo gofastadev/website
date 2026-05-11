@@ -88,7 +88,7 @@ export default async function BlogIndexPage({
           <h1 className="text-4xl font-bold text-foreground sm:text-5xl">
             Blog
           </h1>
-          <p className="mt-3 max-w-2xl text-lg text-gray-700 dark:text-gray-300">
+          <p className="mt-3 max-w-2xl text-lg text-gray-800 dark:text-gray-300">
             Engineering notes on the Gofasta toolkit — CLI changes, library
             updates, and longer-form posts on Go backend topics.
           </p>
@@ -103,7 +103,7 @@ export default async function BlogIndexPage({
             ))}
           </div>
         ) : !featured ? (
-          <p className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-600 dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-400">
+          <p className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-700 dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-400">
             No posts yet. The first one is on its way.
           </p>
         ) : null}

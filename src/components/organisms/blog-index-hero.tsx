@@ -45,11 +45,11 @@ export function BlogIndexHero({ post }: BlogIndexHeroProps) {
           <h2 className="text-3xl font-bold leading-tight text-foreground group-hover:text-primary sm:text-4xl">
             {post.title}
           </h2>
-          <p className="text-base text-gray-700 dark:text-gray-300">
+          <p className="text-base text-gray-800 dark:text-gray-300">
             {post.description}
           </p>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-medium text-gray-800 dark:text-gray-200">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-700 dark:text-gray-400">
+            <span className="font-medium text-gray-900 dark:text-gray-200">
               {post.author}
             </span>
             <span aria-hidden>·</span>

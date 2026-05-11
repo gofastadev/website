@@ -77,7 +77,7 @@ export function BlogImage({ src, alt, title }: BlogImageProps) {
         className="w-full rounded-lg border border-gray-200 dark:border-white/10"
       />
       {caption ? (
-        <figcaption className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+        <figcaption className="mt-2 text-center text-sm text-gray-700 dark:text-gray-400">
           {caption}
         </figcaption>
       ) : null}

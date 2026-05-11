@@ -60,7 +60,7 @@ export function BlogPrevNext({ prev, next }: BlogPrevNextProps) {
           href={`/blog/${prev.slug}`}
           className="group flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.02]"
         >
-          <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">
+          <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-gray-600 dark:text-gray-500">
             <ChevronLeft className="h-3 w-3" aria-hidden />
             Older post
           </span>
@@ -76,7 +76,7 @@ export function BlogPrevNext({ prev, next }: BlogPrevNextProps) {
           href={`/blog/${next.slug}`}
           className="group flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 text-right transition-colors hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.02] sm:items-end"
         >
-          <span className="flex items-center justify-end gap-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">
+          <span className="flex items-center justify-end gap-1 text-xs uppercase tracking-wide text-gray-600 dark:text-gray-500">
             Newer post
             <ChevronRight className="h-3 w-3" aria-hidden />
           </span>

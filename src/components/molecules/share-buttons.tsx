@@ -54,7 +54,7 @@ export function ShareButtons({ url, title }: ShareButtonsProps) {
       aria-label="Share this post"
       className="my-8 flex flex-wrap items-center gap-3 border-t border-gray-200 pt-6 dark:border-white/10"
     >
-      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      <span className="text-sm font-medium text-gray-800 dark:text-gray-300">
         Share
       </span>
       {SHARE_PLATFORMS.map((platform) => (
