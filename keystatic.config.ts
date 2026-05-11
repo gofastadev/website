@@ -2,15 +2,11 @@ import { config, fields, collection } from "@keystatic/core";
 
 // Keystatic editor config for the Gofasta blog.
 //
-// Storage mode is environment-conditional:
-//
-//   - `local` in development → saves commit to the local working
-//     tree, no auth required. Lets the team draft posts via the
-//     Keystatic UI without round-tripping through GitHub.
-//   - `github` in production → saves open a Pull Request against
-//     the configured repo. The `branchPrefix` puts each post on a
-//     dedicated `keystatic/<slug>` branch so each post is reviewed
-//     independently, and Vercel issues a preview deploy per branch.
+// Storage mode is capability-conditional, not environment-conditional:
+// if every GitHub OAuth env var is present, we use `github` (PR mode
+// with a `keystatic/` branch prefix); otherwise we fall back to
+// `local` so builds without secrets (CI, dev, preview deploys
+// without the OAuth app linked) still succeed.
 //
 // Required env vars for github mode (Vercel Production scope):
 //   KEYSTATIC_GITHUB_CLIENT_ID
@@ -22,18 +18,22 @@ import { config, fields, collection } from "@keystatic/core";
 // custom components must be passed at render time (see
 // `src/lib/blog-mdx-components.tsx`).
 
+const hasGithubCredentials =
+  Boolean(process.env.KEYSTATIC_GITHUB_CLIENT_ID) &&
+  Boolean(process.env.KEYSTATIC_GITHUB_CLIENT_SECRET) &&
+  Boolean(process.env.KEYSTATIC_SECRET);
+
 export default config({
-  storage:
-    process.env.NODE_ENV === "development"
-      ? { kind: "local" }
-      : {
-          kind: "github",
-          repo: { owner: "gofastadev", name: "website" },
-          // PR mode — saves open a Pull Request on a dedicated branch
-          // instead of committing to main. Editorial review + preview
-          // deploy per post.
-          branchPrefix: "keystatic/",
-        },
+  storage: hasGithubCredentials
+    ? {
+        kind: "github",
+        repo: { owner: "gofastadev", name: "website" },
+        // PR mode — saves open a Pull Request on a dedicated branch
+        // instead of committing to main. Editorial review + preview
+        // deploy per post.
+        branchPrefix: "keystatic/",
+      }
+    : { kind: "local" },
   ui: {
     brand: { name: "Gofasta" },
   },
@@ -41,7 +41,7 @@ export default config({
     posts: collection({
       label: "Blog posts",
       slugField: "title",
-      path: "src/content/blog/*",
+      path: "data/blog/*",
       format: { contentField: "body" },
       entryLayout: "content",
       schema: {

@@ -14,7 +14,7 @@ import type { BlogPost } from "./blog";
 // reader-friendly markup without paying the cost of MDX/React
 // compilation per request.
 //
-// The MDX bodies served from `src/content/blog/` are constrained by
+// The MDX bodies served from `content/blog/` are constrained by
 // Keystatic to disallow `import` and raw HTML tags. That makes them
 // effectively pure markdown plus a small set of custom components.
 // Custom component JSX won't expand correctly into HTML here (feed

@@ -4,9 +4,8 @@ import { buildJsonFeed, type SiteMeta } from "@/lib/feed";
 // /blog/feed.json — JSON Feed 1.1 alternative to the RSS feed. Some
 // modern readers (NetNewsWire, Feedbin) prefer JSON Feed; some
 // aggregators only know RSS. Publishing both maximizes compat at no
-// real cost.
+// real cost. `force-static` materializes the feed at build time.
 export const dynamic = "force-static";
-export const revalidate = false;
 
 const META: SiteMeta = {
   siteUrl: "https://gofasta.dev",

@@ -19,12 +19,14 @@ import {
 import { getKeywordsForPath } from "@/lib/seo-keywords";
 import { buildBlogPostingJsonLd } from "@/lib/structured-data";
 
-// All blog routes are statically generated at build time so:
-//   - Pagefind (postbuild) can index every post,
-//   - first byte is CDN-cached on Vercel's edge,
-//   - the build output is auditable (one HTML file per post on disk).
+// `force-static` + `generateStaticParams` + `dynamicParams = false`
+// guarantees each post is prerendered to flat HTML at build time —
+// required for Pagefind to find them via the postbuild step, and
+// good for LCP since the first byte comes from the edge CDN.
+// Without `force-static`, `next-mdx-remote/rsc`'s async render path
+// gets the route classified as dynamic and the HTML never lands on
+// disk for Pagefind to crawl.
 export const dynamic = "force-static";
-export const revalidate = false;
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
@@ -129,7 +131,10 @@ export default async function BlogPostPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <article className="mx-auto max-w-3xl px-6 pt-28 pb-24">
+      <article
+        className="mx-auto max-w-3xl px-6 pt-28 pb-24"
+        data-pagefind-body
+      >
         <BlogArticleHeader post={post} />
         <div className="prose prose-invert max-w-none prose-headings:scroll-mt-24 prose-a:text-primary prose-pre:rounded-lg prose-pre:border prose-pre:border-white/10">
           <MDXRemote

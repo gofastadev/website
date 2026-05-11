@@ -6,8 +6,10 @@ import { BlogPostCard } from "@/components/molecules/blog-post-card";
 import { getAllTags, getPostsByTag, slugifyTag } from "@/lib/blog";
 import { getKeywordsForPath } from "@/lib/seo-keywords";
 
+// See the [slug] route for rationale — Pagefind only indexes static
+// routes, and prerendering at build time keeps the tag page on the
+// CDN edge.
 export const dynamic = "force-static";
-export const revalidate = false;
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
@@ -106,7 +108,10 @@ export default async function BlogTagPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <main className="mx-auto max-w-6xl px-6 pt-32 pb-24">
+      <main
+        className="mx-auto max-w-6xl px-6 pt-32 pb-24"
+        data-pagefind-body
+      >
         <header className="mb-10">
           <Link
             href="/blog"

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 // blog-mdx-components.tsx
 //
 // Component map passed to `<MDXRemote components={...}>` when rendering
-// posts under `src/content/blog/`. Distinct from the project-root
+// posts under `content/blog/`. Distinct from the project-root
 // `mdx-components.tsx` (which Nextra uses for the docs route) — the
 // blog uses `next-mdx-remote/rsc` and has its own surface concerns
 // (Callout styling, captioned figures, etc.).

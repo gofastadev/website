@@ -7,11 +7,11 @@ import { getAllPosts, getAllTags } from "@/lib/blog";
 import { getKeywordsForPath } from "@/lib/seo-keywords";
 
 // /blog — paginated index of every published post. `force-static`
-// means the page is built ahead of time so Pagefind (run via
-// postbuild) can index it, and every reader gets a CDN-cached HTML
-// payload at request time. New posts surface on the next deploy.
+// pre-renders the page to flat HTML at build time so Pagefind can
+// index it via the postbuild step. searchParams still works at the
+// edge (Next.js falls back to client-side reading when the route is
+// static), so ?page=N pagination is unaffected.
 export const dynamic = "force-static";
-export const revalidate = false;
 
 const POSTS_PER_PAGE = 12;
 const CANONICAL = "https://gofasta.dev/blog";
@@ -80,7 +80,10 @@ export default async function BlogIndexPage({
 
   return (
     <LandingTemplate>
-      <main className="mx-auto max-w-6xl px-6 pt-32 pb-24">
+      <main
+        className="mx-auto max-w-6xl px-6 pt-32 pb-24"
+        data-pagefind-body
+      >
         <header className="mb-10">
           <h1 className="text-4xl font-bold text-white sm:text-5xl">Blog</h1>
           <p className="mt-3 max-w-2xl text-lg text-gray-300">

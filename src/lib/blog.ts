@@ -7,7 +7,7 @@ import { computeReadingTime, type ReadingTimeResult } from "./reading-time";
 // ─────────────────────────────────────────────────────────────────────
 // src/lib/blog.ts
 //
-// Filesystem-backed reader over MDX posts in `src/content/blog/`. The
+// Filesystem-backed reader over MDX posts in `content/blog/`. The
 // reader is exposed via a factory (`createBlogService(dir)`) so tests
 // can point at a fixture directory, and the project's default surface
 // (used by routes) is constructed once from `process.cwd()`.
@@ -218,17 +218,31 @@ export function createBlogService(
   };
 }
 
-export const DEFAULT_BLOG_DIR = path.join(
-  process.cwd(),
-  "src",
-  "content",
-  "blog",
-);
+// `process.cwd()` is captured lazily on first use rather than at
+// module-import time. Next.js's build pipeline evaluates modules
+// during analysis under a working directory that's NOT the project
+// root, so binding the path at import would freeze a stale value
+// before generateStaticParams runs.
+export function getDefaultBlogDir(): string {
+  return path.join(process.cwd(), "data", "blog");
+}
 
-const defaultService = createBlogService(DEFAULT_BLOG_DIR);
+function getDefaultService(): BlogService {
+  return createBlogService(getDefaultBlogDir());
+}
 
-export const getAllPosts = defaultService.getAllPosts;
-export const getPost = defaultService.getPost;
-export const getPostsByTag = defaultService.getPostsByTag;
-export const getAdjacentPosts = defaultService.getAdjacentPosts;
-export const getAllTags = defaultService.getAllTags;
+export function getAllPosts(): BlogPost[] {
+  return getDefaultService().getAllPosts();
+}
+export function getPost(slug: string): BlogPost | null {
+  return getDefaultService().getPost(slug);
+}
+export function getPostsByTag(tag: string): BlogPost[] {
+  return getDefaultService().getPostsByTag(tag);
+}
+export function getAdjacentPosts(slug: string): AdjacentPosts {
+  return getDefaultService().getAdjacentPosts(slug);
+}
+export function getAllTags(): TagSummary[] {
+  return getDefaultService().getAllTags();
+}

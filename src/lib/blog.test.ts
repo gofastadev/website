@@ -464,7 +464,7 @@ describe("getAllTags", () => {
 describe("default service exports", () => {
   it("are callable and return arrays / null for missing slugs", async () => {
     // Importing the module already constructs the default service
-    // against `process.cwd()/src/content/blog`. We just call each
+    // against `process.cwd()/content/blog`. We just call each
     // exported function once to exercise the binding line; we don't
     // assert on the content (it depends on the real repo state).
     const blog = await import("./blog");
