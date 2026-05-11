@@ -53,18 +53,18 @@ export function BlogPrevNext({ prev, next }: BlogPrevNextProps) {
   return (
     <nav
       aria-label="Adjacent posts"
-      className="mt-12 grid grid-cols-1 gap-4 border-t border-white/10 pt-8 sm:grid-cols-2"
+      className="mt-12 grid grid-cols-1 gap-4 border-t border-gray-200 pt-8 dark:border-white/10 sm:grid-cols-2"
     >
       {prev ? (
         <Link
           href={`/blog/${prev.slug}`}
-          className="group flex flex-col gap-1 rounded-lg border border-white/10 bg-white/[0.02] p-4 transition-colors hover:border-primary/40"
+          className="group flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.02]"
         >
-          <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-gray-500">
+          <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">
             <ChevronLeft className="h-3 w-3" aria-hidden />
             Older post
           </span>
-          <span className="font-medium text-white group-hover:text-primary">
+          <span className="font-medium text-foreground group-hover:text-primary">
             {prev.title}
           </span>
         </Link>
@@ -74,13 +74,13 @@ export function BlogPrevNext({ prev, next }: BlogPrevNextProps) {
       {next ? (
         <Link
           href={`/blog/${next.slug}`}
-          className="group flex flex-col gap-1 rounded-lg border border-white/10 bg-white/[0.02] p-4 text-right transition-colors hover:border-primary/40 sm:items-end"
+          className="group flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 text-right transition-colors hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.02] sm:items-end"
         >
-          <span className="flex items-center justify-end gap-1 text-xs uppercase tracking-wide text-gray-500">
+          <span className="flex items-center justify-end gap-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">
             Newer post
             <ChevronRight className="h-3 w-3" aria-hidden />
           </span>
-          <span className="font-medium text-white group-hover:text-primary">
+          <span className="font-medium text-foreground group-hover:text-primary">
             {next.title}
           </span>
         </Link>

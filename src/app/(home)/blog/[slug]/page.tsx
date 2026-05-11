@@ -136,7 +136,7 @@ export default async function BlogPostPage({
         data-pagefind-body
       >
         <BlogArticleHeader post={post} />
-        <div className="prose prose-invert max-w-none prose-headings:scroll-mt-24 prose-a:text-primary prose-pre:rounded-lg prose-pre:border prose-pre:border-white/10">
+        <div className="prose max-w-none prose-headings:scroll-mt-24 prose-a:text-primary prose-pre:rounded-lg prose-pre:border prose-pre:border-gray-200 dark:prose-invert dark:prose-pre:border-white/10">
           <MDXRemote
             source={post.body}
             components={blogMdxComponents}

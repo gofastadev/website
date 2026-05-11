@@ -12,8 +12,11 @@ export interface BlogTagCloudProps {
 export function BlogTagCloud({ tags }: BlogTagCloudProps) {
   if (tags.length === 0) return null;
   return (
-    <aside aria-label="All tags" className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+    <aside
+      aria-label="All tags"
+      className="rounded-xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.02]"
+    >
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400">
         Tags
       </h2>
       <ul className="flex flex-wrap gap-2">

@@ -31,24 +31,28 @@ export function BlogArticleHeader({ post }: BlogArticleHeaderProps) {
         </div>
       ) : null}
 
-      <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl">
+      <h1 className="text-4xl font-bold leading-tight text-foreground sm:text-5xl">
         {post.title}
       </h1>
 
-      <p className="text-lg text-gray-300">{post.description}</p>
+      <p className="text-lg text-gray-700 dark:text-gray-300">
+        {post.description}
+      </p>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-400">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
         {post.authorUrl ? (
           <Link
             href={post.authorUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-gray-200 hover:text-primary"
+            className="font-medium text-gray-800 hover:text-primary dark:text-gray-200"
           >
             {post.author}
           </Link>
         ) : (
-          <span className="font-medium text-gray-200">{post.author}</span>
+          <span className="font-medium text-gray-800 dark:text-gray-200">
+            {post.author}
+          </span>
         )}
         <span aria-hidden>·</span>
         <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
@@ -65,7 +69,7 @@ export function BlogArticleHeader({ post }: BlogArticleHeaderProps) {
         ) : null}
       </div>
 
-      <div className="relative aspect-[1200/630] w-full overflow-hidden rounded-xl border border-white/10 bg-black/40">
+      <div className="relative aspect-[1200/630] w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-100 dark:border-white/10 dark:bg-black/40">
         <Image
           src={post.coverUrl}
           alt=""

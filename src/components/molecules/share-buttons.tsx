@@ -52,16 +52,18 @@ export function ShareButtons({ url, title }: ShareButtonsProps) {
     <div
       role="group"
       aria-label="Share this post"
-      className="my-8 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6"
+      className="my-8 flex flex-wrap items-center gap-3 border-t border-gray-200 pt-6 dark:border-white/10"
     >
-      <span className="text-sm font-medium text-gray-300">Share</span>
+      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        Share
+      </span>
       {SHARE_PLATFORMS.map((platform) => (
         <a
           key={platform}
           href={buildShareUrl(platform, url, title)}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-primary/40 hover:text-primary"
+          className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700 transition-colors hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-gray-300"
           onClick={() => trackEvent("share_click", { platform, url })}
         >
           {PLATFORM_LABELS[platform]}

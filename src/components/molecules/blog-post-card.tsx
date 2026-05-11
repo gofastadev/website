@@ -32,7 +32,7 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
   return (
     <article
       className={cn(
-        "group overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] transition-colors hover:border-primary/40",
+        "group overflow-hidden rounded-xl border border-gray-200 bg-white transition-colors hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.02]",
         className,
       )}
     >
@@ -41,7 +41,7 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
         className="flex h-full flex-col"
         aria-label={post.title}
       >
-        <div className="relative aspect-[1200/630] w-full overflow-hidden bg-black/40">
+        <div className="relative aspect-[1200/630] w-full overflow-hidden bg-gray-100 dark:bg-black/40">
           <Image
             src={post.coverUrl}
             alt=""
@@ -51,15 +51,17 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
           />
         </div>
         <div className="flex flex-1 flex-col gap-3 p-5">
-          <div className="flex items-center gap-3 text-xs text-gray-400">
+          <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
             <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
             <span aria-hidden>·</span>
             <span>{post.readingTime.text}</span>
           </div>
-          <h3 className="text-lg font-semibold text-white group-hover:text-primary">
+          <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">
             {post.title}
           </h3>
-          <p className="line-clamp-2 text-sm text-gray-400">{post.description}</p>
+          <p className="line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
+            {post.description}
+          </p>
           {visibleTags.length > 0 ? (
             <div className="mt-auto flex flex-wrap gap-2 pt-2">
               {visibleTags.map((tag) => (

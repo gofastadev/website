@@ -115,14 +115,14 @@ export default async function BlogTagPage({
         <header className="mb-10">
           <Link
             href="/blog"
-            className="mb-4 inline-block text-sm text-gray-400 hover:text-primary"
+            className="mb-4 inline-block text-sm text-gray-600 hover:text-primary dark:text-gray-400"
           >
             ← All posts
           </Link>
-          <h1 className="text-4xl font-bold text-white sm:text-5xl">
+          <h1 className="text-4xl font-bold text-foreground sm:text-5xl">
             #{normalized}
           </h1>
-          <p className="mt-3 text-lg text-gray-300">
+          <p className="mt-3 text-lg text-gray-700 dark:text-gray-300">
             {posts.length} {posts.length === 1 ? "post" : "posts"} tagged
             {" "}<span className="font-medium text-primary">{normalized}</span>.
           </p>

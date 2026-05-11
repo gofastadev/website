@@ -9,6 +9,15 @@ vi.mock("@giscus/react", () => ({
   ),
 }));
 
+// Override the global next-themes mock so individual tests can toggle
+// `resolvedTheme` and assert how the Giscus iframe theme reacts.
+const themeRef = vi.hoisted(() => ({
+  current: undefined as "light" | "dark" | undefined,
+}));
+vi.mock("next-themes", () => ({
+  useTheme: () => ({ resolvedTheme: themeRef.current }),
+}));
+
 import { Comments } from "./comments";
 
 const FULL_ENV = {
@@ -22,6 +31,7 @@ const ENV_KEYS = Object.keys(FULL_ENV) as (keyof typeof FULL_ENV)[];
 const previousValues: Record<string, string | undefined> = {};
 
 beforeEach(() => {
+  themeRef.current = undefined;
   for (const k of ENV_KEYS) {
     previousValues[k] = process.env[k];
     process.env[k] = FULL_ENV[k];
@@ -88,5 +98,23 @@ describe("Comments (Giscus wrapper)", () => {
     delete process.env.NEXT_PUBLIC_GISCUS_CATEGORY_ID;
     const { container } = render(<Comments />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it("passes Giscus a light theme when next-themes resolves to light", () => {
+    themeRef.current = "light";
+    render(<Comments />);
+    const props = JSON.parse(
+      screen.getByTestId("giscus-mount").getAttribute("data-props") ?? "{}",
+    );
+    expect(props.theme).toBe("light");
+  });
+
+  it("passes Giscus a dark theme when next-themes resolves to dark", () => {
+    themeRef.current = "dark";
+    render(<Comments />);
+    const props = JSON.parse(
+      screen.getByTestId("giscus-mount").getAttribute("data-props") ?? "{}",
+    );
+    expect(props.theme).toBe("dark");
   });
 });

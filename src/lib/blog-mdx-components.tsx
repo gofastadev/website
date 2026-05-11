@@ -17,10 +17,14 @@ import type { ReactNode } from "react";
 
 export type CalloutType = "info" | "warning" | "tip";
 
+// Each variant ships a light/dark color pair so the callout reads
+// well on the white background in light mode and the dark surface in
+// dark mode.
 const CALLOUT_STYLES: Record<CalloutType, string> = {
-  info: "border-primary/50 bg-primary/5 text-gray-100",
-  warning: "border-amber-500/60 bg-amber-500/5 text-amber-100",
-  tip: "border-emerald-500/60 bg-emerald-500/5 text-emerald-100",
+  info: "border-primary/50 bg-primary/5 text-gray-800 dark:text-gray-100",
+  warning:
+    "border-amber-500/60 bg-amber-500/10 text-amber-800 dark:bg-amber-500/5 dark:text-amber-100",
+  tip: "border-emerald-500/60 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-500/5 dark:text-emerald-100",
 };
 
 const CALLOUT_LABELS: Record<CalloutType, string> = {
@@ -70,10 +74,10 @@ export function BlogImage({ src, alt, title }: BlogImageProps) {
         alt={alt ?? ""}
         loading="lazy"
         decoding="async"
-        className="w-full rounded-lg border border-white/10"
+        className="w-full rounded-lg border border-gray-200 dark:border-white/10"
       />
       {caption ? (
-        <figcaption className="mt-2 text-center text-sm text-gray-400">
+        <figcaption className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
           {caption}
         </figcaption>
       ) : null}

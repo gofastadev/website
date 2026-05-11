@@ -49,20 +49,22 @@ export function BlogRelatedPosts({
   return (
     <section
       aria-label="Related posts"
-      className="mt-12 border-t border-white/10 pt-8"
+      className="mt-12 border-t border-gray-200 pt-8 dark:border-white/10"
     >
-      <h2 className="mb-4 text-lg font-semibold text-white">Related posts</h2>
+      <h2 className="mb-4 text-lg font-semibold text-foreground">
+        Related posts
+      </h2>
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {related.map((post) => (
           <li key={post.slug}>
             <Link
               href={`/blog/${post.slug}`}
-              className="block rounded-lg border border-white/10 bg-white/[0.02] p-4 transition-colors hover:border-primary/40"
+              className="block rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.02]"
             >
-              <span className="text-sm font-medium text-white">
+              <span className="text-sm font-medium text-foreground">
                 {post.title}
               </span>
-              <span className="mt-1 block text-xs text-gray-400">
+              <span className="mt-1 block text-xs text-gray-600 dark:text-gray-400">
                 {post.readingTime.text}
               </span>
             </Link>

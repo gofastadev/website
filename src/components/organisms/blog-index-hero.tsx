@@ -22,13 +22,13 @@ export function BlogIndexHero({ post }: BlogIndexHeroProps) {
   return (
     <section
       aria-label="Featured post"
-      className="mb-12 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]"
+      className="mb-12 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-white/[0.02]"
     >
       <Link
         href={`/blog/${post.slug}`}
         className="group grid grid-cols-1 lg:grid-cols-2"
       >
-        <div className="relative aspect-[1200/630] w-full overflow-hidden bg-black/40 lg:aspect-auto">
+        <div className="relative aspect-[1200/630] w-full overflow-hidden bg-gray-100 dark:bg-black/40 lg:aspect-auto">
           <Image
             src={post.coverUrl}
             alt=""
@@ -42,12 +42,16 @@ export function BlogIndexHero({ post }: BlogIndexHeroProps) {
           <div className="text-xs font-medium uppercase tracking-widest text-primary">
             Latest post
           </div>
-          <h2 className="text-3xl font-bold leading-tight text-white group-hover:text-primary sm:text-4xl">
+          <h2 className="text-3xl font-bold leading-tight text-foreground group-hover:text-primary sm:text-4xl">
             {post.title}
           </h2>
-          <p className="text-base text-gray-300">{post.description}</p>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400">
-            <span className="font-medium text-gray-200">{post.author}</span>
+          <p className="text-base text-gray-700 dark:text-gray-300">
+            {post.description}
+          </p>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+            <span className="font-medium text-gray-800 dark:text-gray-200">
+              {post.author}
+            </span>
             <span aria-hidden>·</span>
             <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
             <span aria-hidden>·</span>

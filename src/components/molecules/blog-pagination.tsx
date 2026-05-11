@@ -38,7 +38,7 @@ export function BlogPagination({
         <Link
           href={pageHref(basePath, currentPage - 1)}
           rel="prev"
-          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-gray-300 hover:border-primary/40 hover:text-primary"
+          className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-gray-300"
         >
           Previous
         </Link>
@@ -55,7 +55,7 @@ export function BlogPagination({
               "min-w-[2.25rem] rounded-md border px-3 py-1.5 text-center text-sm transition-colors",
               isCurrent
                 ? "border-primary bg-primary/10 font-semibold text-primary"
-                : "border-white/10 text-gray-300 hover:border-primary/40 hover:text-primary",
+                : "border-gray-200 text-gray-700 hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-gray-300",
             )}
           >
             {page}
@@ -67,7 +67,7 @@ export function BlogPagination({
         <Link
           href={pageHref(basePath, currentPage + 1)}
           rel="next"
-          className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-gray-300 hover:border-primary/40 hover:text-primary"
+          className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-gray-300"
         >
           Next
         </Link>
