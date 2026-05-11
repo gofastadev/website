@@ -1,6 +1,7 @@
 import { generateStaticParamsFor, importPage } from "nextra/pages";
 import { useMDXComponents as getMDXComponents } from "../../../../../mdx-components";
 import { getKeywordsForPath } from "@/lib/seo-keywords";
+import { buildTechArticleJsonLd } from "@/lib/structured-data";
 
 export const generateStaticParams = generateStaticParamsFor("mdxPath");
 
@@ -57,81 +58,19 @@ const { wrapper: Wrapper } = getMDXComponents() as Record<
   React.ComponentType<{ toc: unknown; metadata: unknown; children: React.ReactNode }>
 >;
 
+// buildStructuredData now lives in src/lib/structured-data.ts so the
+// /blog routes can share the breadcrumb logic. This thin local wrapper
+// just unpacks Nextra's metadata shape into the lib's typed input.
 function buildStructuredData(
   mdxPath: string[] | undefined,
   meta: Record<string, string>,
 ) {
-  const segments = mdxPath ?? [];
-  const urlPath = `/docs${segments.length > 0 ? `/${segments.join("/")}` : ""}`;
-  const fullUrl = `https://gofasta.dev${urlPath}`;
-  const title = meta?.title ?? "Documentation";
-  const description =
-    meta?.description ??
-    "Gofasta documentation for the Go backend toolkit.";
-
-  // Section name derived from the first path segment (e.g. "cli-reference" → "Cli Reference"),
-  // mirroring the OG-image `section` so JSON-LD and OG share a single source of truth.
-  const articleSection = segments[0]
-    ? segments[0]
-        .replace(/-/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase())
-    : "Docs";
-
-  // Mirror the OG image URL on the schema so Google can use it as the
-  // article hero image in rich results. Same query-string contract as
-  // generateMetadata above.
-  const ogImageUrl = `https://gofasta.dev/api/og?title=${encodeURIComponent(title)}&section=${encodeURIComponent(articleSection)}`;
-
-  // Per-page keywords come from the same SEO map as the metadata side
-  // — keep them in sync so structured data and meta tags don't diverge.
-  const keywords = getKeywordsForPath(urlPath);
-
-  const breadcrumbItems = [
-    { name: "Home", url: "https://gofasta.dev" },
-    { name: "Docs", url: "https://gofasta.dev/docs" },
-    ...segments.map((seg, i) => ({
-      name: seg
-        .replace(/-/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase()),
-      url: `https://gofasta.dev/docs/${segments.slice(0, i + 1).join("/")}`,
-    })),
-  ];
-
-  return {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "BreadcrumbList",
-        // The breadcrumb's parent: Google groups sitelinks better when
-        // BreadcrumbList nests under a WebPage with the current URL.
-        mainEntity: { "@type": "WebPage", "@id": fullUrl },
-        itemListElement: breadcrumbItems.map((item, i) => ({
-          "@type": "ListItem",
-          position: i + 1,
-          name: item.name,
-          item: item.url,
-        })),
-      },
-      {
-        "@type": "TechArticle",
-        headline: title,
-        description,
-        url: fullUrl,
-        inLanguage: "en",
-        articleSection,
-        keywords: keywords.length > 0 ? keywords.join(", ") : undefined,
-        image: ogImageUrl,
-        author: { "@type": "Organization", name: "Gofasta" },
-        publisher: {
-          "@type": "Organization",
-          name: "Gofasta",
-          url: "https://gofasta.dev",
-          logo: "https://gofasta.dev/logo.png",
-        },
-        mainEntityOfPage: fullUrl,
-      },
-    ],
-  };
+  return buildTechArticleJsonLd({
+    segments: mdxPath ?? [],
+    title: meta?.title ?? "Documentation",
+    description:
+      meta?.description ?? "Gofasta documentation for the Go backend toolkit.",
+  });
 }
 
 export default async function Page(props: {

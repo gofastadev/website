@@ -117,6 +117,13 @@ async function collect(dir, urlPrefix = '', sectionPath = '') {
   for (const entry of ordered) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
+      // The blog has its own dedicated discovery surfaces (RSS feed,
+      // JSON Feed, sitemap entries, and Pagefind index). Indexing it
+      // here would (a) emit incorrect `/docs/blog/...` URLs since this
+      // script hardcodes `DOCS_BASE`, and (b) duplicate content into
+      // llms.txt that's already discoverable. Skip the entire blog
+      // subtree.
+      if (sectionPath === '' && entry.name === 'blog') continue;
       const childPrefix = `${urlPrefix}/${entry.name}`;
       const childSection = sectionPath ? `${sectionPath}/${entry.name}` : entry.name;
       pages.push(...(await collect(full, childPrefix, childSection)));

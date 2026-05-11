@@ -1,0 +1,45 @@
+---
+title: "Hello, Gofasta!"
+description: "First post on the new Gofasta blog: what the toolkit is, what it isn't, and where the CLI and library are heading."
+publishedAt: 2026-05-12T10:00:00.000Z
+author: "Gofasta Team"
+authorUrl: "https://gofasta.dev"
+tags:
+  - announcements
+  - golang
+  - toolkit
+cover: "hello-gofasta.svg"
+---
+
+# Hello, Gofasta!
+
+This is the first post on the Gofasta blog — a working journal for the people building and depending on the toolkit. Future posts will dig into specific `pkg/*` packages, CLI generator additions, and decisions worth a longer write-up than a commit message can hold.
+
+## What gofasta is
+
+Gofasta is a Go backend toolkit. It has two moving parts that live in two separate repositories:
+
+- **`github.com/gofastadev/cli`** — a Go binary you install on your machine. It scaffolds new projects with `gofasta new`, generates code with `gofasta g`, and shells out to `air`, `migrate`, and `wire` from inside your project directory. The CLI never imports the library at runtime — it only manipulates files on disk.
+- **`github.com/gofastadev/gofasta`** — a library of independent `pkg/*` packages. Each package is a self-contained building block: `pkg/auth`, `pkg/cache`, `pkg/queue`, `pkg/observability`, and so on. A scaffolded project imports the ones it needs and nothing else.
+
+A project produced by `gofasta new` is plain, idiomatic Go that you own. There's no runtime framework wrapping your code, no custom compiler, no magic. The scaffold imports a curated set of `pkg/*` packages as **opt-out defaults** — the same way a typical Go service imports a curated set of community libraries. If you want to swap `pkg/auth` for a hand-rolled JWT layer, delete the import and `go get` your alternative. Nothing else has to change.
+
+## What gofasta isn't
+
+It's not a framework. There is no central object you register handlers into and no inversion-of-control runtime that calls back into your code. The CLI generates standard Go files that compile and run on their own.
+
+It's also not a clone of a framework from another language. The shape of the library is informed by what real Go services need in production — config loading, structured logging, RBAC, request middleware, async tasks, observability — not by mapping conventions from elsewhere onto Go.
+
+## Where this is going
+
+The roadmap is split roughly across three surfaces:
+
+1. **CLI ergonomics** — faster scaffolding, better generator coverage, hot-reload that doesn't get in the way.
+2. **Library depth** — more production-tested defaults in the existing packages, especially around observability and resilience.
+3. **Documentation** — guides that go beyond "here's the API" into "here's the trade-off you should think about before you wire this up."
+
+The blog is part of (3). When a `pkg/*` package gets a non-trivial change, the why often deserves more than a CHANGELOG line. That's what posts here are for.
+
+If you build something with gofasta and want to share what worked or didn't, open an issue on either repo — we read all of them, and they often turn into posts.
+
+— The Gofasta team
