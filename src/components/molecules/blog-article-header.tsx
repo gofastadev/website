@@ -35,7 +35,12 @@ export function BlogArticleHeader({ post }: BlogArticleHeaderProps) {
         {post.title}
       </h1>
 
-      <p className="border-l-4 border-primary/40 pl-4 text-xl font-normal leading-snug text-gray-700 dark:text-gray-300 sm:text-2xl">
+      {/* Standfirst / deck — the editorial element between headline and
+          body. Medium / Substack / Hashnode convention: inline (no
+          container), notably larger than body prose, normal weight,
+          slightly muted color, generous line-height. The size + color
+          contrast does the differentiation work without a container. */}
+      <p className="text-xl font-normal leading-snug text-gray-600 dark:text-gray-400 sm:text-2xl sm:leading-snug">
         {post.description}
       </p>
 
