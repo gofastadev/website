@@ -65,8 +65,7 @@ describe("CopyableCommand", () => {
     // Strip the Clipboard API to force the legacy branch.
     Object.assign(navigator, { clipboard: undefined });
     const execSpy = vi.fn().mockReturnValue(true);
-    // @ts-expect-error — jsdom provides execCommand as any; we replace it.
-    document.execCommand = execSpy;
+    document.execCommand = execSpy as unknown as typeof document.execCommand;
 
     render(<CopyableCommand command="ls -la" />);
     fireEvent.click(
