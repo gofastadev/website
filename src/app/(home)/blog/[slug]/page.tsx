@@ -37,6 +37,18 @@ function postUrl(slug: string): string {
   return `${SITE_URL}/blog/${slug}`;
 }
 
+// Medium and Hashnode both render the post title exactly once — in the
+// article header — and start the body at H2. If an author duplicates
+// the title as a leading `# Title` heading in the body (Keystatic
+// allows it on legacy posts), strip it so the page doesn't show two
+// identical titles. Match is case-insensitive on text only.
+function stripTitleH1(body: string, title: string): string {
+  const match = body.match(/^\s*#\s+(.+?)\s*\n+/);
+  if (!match) return body;
+  if (match[1].trim().toLowerCase() !== title.trim().toLowerCase()) return body;
+  return body.slice(match[0].length);
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -137,7 +149,7 @@ export default async function BlogPostPage({
         <BlogArticleHeader post={post} />
         <div className="prose max-w-none prose-headings:scroll-mt-24 prose-a:text-primary prose-pre:rounded-lg prose-pre:border prose-pre:border-gray-200 dark:prose-invert dark:prose-pre:border-white/10">
           <MDXRemote
-            source={post.body}
+            source={stripTitleH1(post.body, post.title)}
             components={blogMdxComponents}
             options={{
               mdxOptions: {

@@ -91,7 +91,13 @@ export default config({
         }),
         body: fields.mdx({
           label: "Body",
+          description:
+            "Start at H2 — the post title (H1) is rendered above the body by the article header. Medium and Hashnode follow the same convention.",
           options: {
+            // H1 is reserved for the post title, which the article header
+            // renders from frontmatter. Allowing H1 in the body produces
+            // a duplicate title on the rendered page.
+            heading: [2, 3, 4, 5, 6],
             image: {
               directory: "public/blog/inline",
               publicPath: "/blog/inline/",

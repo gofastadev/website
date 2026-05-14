@@ -35,7 +35,7 @@ export function BlogArticleHeader({ post }: BlogArticleHeaderProps) {
         {post.title}
       </h1>
 
-      <p className="text-lg text-gray-800 dark:text-gray-300">
+      <p className="border-l-4 border-primary/40 pl-4 text-xl font-normal leading-snug text-gray-700 dark:text-gray-300 sm:text-2xl">
         {post.description}
       </p>
 
