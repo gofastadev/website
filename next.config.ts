@@ -13,6 +13,22 @@ export default withNextra({
   output: "standalone",
   turbopack: {
     root: __dirname,
+    // ── react-aria duplicate-context workaround ──────────────────────
+    // Keystatic 0.5.50 imports `@react-aria/interactions` while its
+    // button components transitively load the `react-aria` umbrella.
+    // Each ships its own bundled PressResponderContext, so toolbar
+    // PressResponders never find their pressable children → toolbar
+    // buttons render but do not fire. The shim below re-exports the
+    // subpackage's surface from the umbrella's private paths so both
+    // worlds share one set of context instances. See
+    // shims/react-aria-interactions-shim.mjs for the full rationale,
+    // and adobe/react-spectrum#5647 for the upstream bug.
+    //
+    // Remove this once Keystatic ships a version that uses the
+    // `react-aria` monopackage directly.
+    resolveAlias: {
+      "@react-aria/interactions": "./shims/react-aria-interactions-shim.mjs",
+    },
   },
   // Image optimization: serve modern formats by default. Next.js will
   // negotiate AVIF first (best compression), then WebP, then fall

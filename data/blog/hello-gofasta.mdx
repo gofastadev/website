@@ -1,15 +1,17 @@
 ---
-title: "Hello, Gofasta!"
-description: "First post on the new Gofasta blog: what the toolkit is, what it isn't, and where the CLI and library are heading."
+title: Hello, Gofasta!
+description: >-
+  First post on the new Gofasta blog: what the toolkit is, what it isn't, and
+  where the CLI and library are heading.
 publishedAt: 2026-05-10T10:00:00.000Z
-author: "Gofasta Team"
-authorUrl: "https://gofasta.dev"
+author: Gofasta Team
+authorUrl: https://gofasta.dev
 tags:
-  - announcements
   - golang
   - toolkit
-cover: "hello-gofasta.svg"
+cover: /blog/covers/hello-gofasta/cover.png
 ---
+# Hello, Gofasta!
 
 This is the first post on the Gofasta blog — a working journal for the people building and depending on the toolkit. Future posts will dig into specific `pkg/*` packages, CLI generator additions, and decisions worth a longer write-up than a commit message can hold.
 
@@ -17,8 +19,8 @@ This is the first post on the Gofasta blog — a working journal for the people 
 
 Gofasta is a Go backend toolkit. It has two moving parts that live in two separate repositories:
 
-- **`github.com/gofastadev/cli`** — a Go binary you install on your machine. It scaffolds new projects with `gofasta new`, generates code with `gofasta g`, and shells out to `air`, `migrate`, and `wire` from inside your project directory. The CLI never imports the library at runtime — it only manipulates files on disk.
-- **`github.com/gofastadev/gofasta`** — a library of independent `pkg/*` packages. Each package is a self-contained building block: `pkg/auth`, `pkg/cache`, `pkg/queue`, `pkg/observability`, and so on. A scaffolded project imports the ones it needs and nothing else.
+* **`github.com/gofastadev/cli`** — a Go binary you install on your machine. It scaffolds new projects with `gofasta new`, generates code with `gofasta g`, and shells out to `air`, `migrate`, and `wire` from inside your project directory. The CLI never imports the library at runtime — it only manipulates files on disk.
+* **`github.com/gofastadev/gofasta`** — a library of independent `pkg/*` packages. Each package is a self-contained building block: `pkg/auth`, `pkg/cache`, `pkg/queue`, `pkg/observability`, and so on. A scaffolded project imports the ones it needs and nothing else.
 
 A project produced by `gofasta new` is plain, idiomatic Go that you own. There's no runtime framework wrapping your code, no custom compiler, no magic. The scaffold imports a curated set of `pkg/*` packages as **opt-out defaults** — the same way a typical Go service imports a curated set of community libraries. If you want to swap `pkg/auth` for a hand-rolled JWT layer, delete the import and `go get` your alternative. Nothing else has to change.
 
