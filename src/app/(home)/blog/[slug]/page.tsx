@@ -147,7 +147,7 @@ export default async function BlogPostPage({
         data-pagefind-body
       >
         <BlogArticleHeader post={post} />
-        <div className="prose max-w-none prose-headings:scroll-mt-24 prose-a:text-primary prose-pre:rounded-lg prose-pre:border prose-pre:border-gray-200 dark:prose-invert dark:prose-pre:border-white/10">
+        <div className="prose max-w-none prose-headings:scroll-mt-24 prose-a:text-primary prose-pre:rounded-lg prose-pre:border prose-pre:border-gray-200 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none dark:prose-invert dark:prose-pre:border-white/10 dark:prose-code:bg-white/[0.08]">
           <MDXRemote
             source={stripTitleH1(post.body, post.title)}
             components={blogMdxComponents}

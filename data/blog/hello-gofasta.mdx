@@ -1,7 +1,8 @@
 ---
 title: Hello, Gofasta!
 description: >-
-  What the Gofasta toolkit ships, what a project scaffolded by `gofasta new` actually contains, and why every line is plain Go you own.
+  What the Gofasta toolkit ships, what a freshly scaffolded project actually
+  contains, and why every line of generated code is plain Go you own.
 publishedAt: 2026-05-10T10:00:00.000Z
 author: Gofasta Team
 authorUrl: https://gofasta.dev
@@ -21,8 +22,8 @@ Gofasta is what we built so that cost gets paid once.
 
 Gofasta is a Go backend toolkit. Two pieces, both open source under the MIT license:
 
-- **A CLI** at [`github.com/gofastadev/cli`](https://github.com/gofastadev/cli). Install it with `go install github.com/gofastadev/cli/cmd/gofasta@latest`. It scaffolds new projects, generates full CRUD layers from a single command, runs migrations, regenerates dependency injection, and reports drift in your tree. It never imports the library at runtime — it only writes files to disk.
-- **A library** at [`github.com/gofastadev/gofasta`](https://github.com/gofastadev/gofasta). Independent packages under `pkg/*` covering the concerns every backend ends up needing: configuration loading, JWT authentication, caching, structured errors, HTTP middleware, mailer, multi-channel notifications, WebSockets, scheduled jobs, async task queues, observability, feature flags, file storage, and a few more. Each package is importable on its own. None of them depend on the others.
+* **A CLI** at [`github.com/gofastadev/cli`](https://github.com/gofastadev/cli). Install it with `go install github.com/gofastadev/cli/cmd/gofasta@latest`. It scaffolds new projects, generates full CRUD layers from a single command, runs migrations, regenerates dependency injection, and reports drift in your tree. It never imports the library at runtime — it only writes files to disk.
+* **A library** at [`github.com/gofastadev/gofasta`](https://github.com/gofastadev/gofasta). Independent packages under `pkg/*` covering the concerns every backend ends up needing: configuration loading, JWT authentication, caching, structured errors, HTTP middleware, mailer, multi-channel notifications, WebSockets, scheduled jobs, async task queues, observability, feature flags, file storage, and a few more. Each package is importable on its own. None of them depend on the others.
 
 A project produced by `gofasta new` is plain, idiomatic Go that you own. The `main.go` calls `net/http`. Handlers return errors. Models are GORM structs. Dependency injection is resolved at compile time by [Google Wire](https://github.com/google/wire). You can read every line top to bottom and trace exactly what runs.
 
@@ -58,23 +59,23 @@ The goal is straightforward: an AI agent working in a Gofasta project should be 
 
 A single `gofasta new` gives you:
 
-- HTTP routing via [chi](https://github.com/go-chi/chi)
-- Database support for PostgreSQL, MySQL, SQLite, SQL Server, and ClickHouse — driver chosen from `config.yaml`
-- Migrations via [`golang-migrate`](https://github.com/golang-migrate/migrate)
-- JWT authentication plus Casbin RBAC
-- Structured logging via `slog`
-- Caching abstraction (in-memory or Redis)
-- File storage abstraction (local or S3-compatible)
-- Mailer with SMTP, SendGrid, and Brevo drivers
-- WebSocket hub for real-time channels
-- Scheduled jobs (`pkg/scheduler`) and async tasks (`pkg/queue`, backed by [asynq](https://github.com/hibiken/asynq))
-- Resilience patterns: circuit breaker and retry with exponential backoff
-- Prometheus metrics and OpenTelemetry tracing
-- Feature flags via the [OpenFeature](https://openfeature.dev) Go SDK
-- Swagger/OpenAPI generation from code comments
-- Docker setup plus a `gofasta deploy` command for VPS-via-SSH deployment
-- A debug dashboard, build-tag-gated so it costs nothing in production
-- AGENTS.md, `llms.txt` awareness, and structured CLI output across the board
+* HTTP routing via [chi](https://github.com/go-chi/chi)
+* Database support for PostgreSQL, MySQL, SQLite, SQL Server, and ClickHouse — driver chosen from `config.yaml`
+* Migrations via [`golang-migrate`](https://github.com/golang-migrate/migrate)
+* JWT authentication plus Casbin RBAC
+* Structured logging via `slog`
+* Caching abstraction (in-memory or Redis)
+* File storage abstraction (local or S3-compatible)
+* Mailer with SMTP, SendGrid, and Brevo drivers
+* WebSocket hub for real-time channels
+* Scheduled jobs (`pkg/scheduler`) and async tasks (`pkg/queue`, backed by [asynq](https://github.com/hibiken/asynq))
+* Resilience patterns: circuit breaker and retry with exponential backoff
+* Prometheus metrics and OpenTelemetry tracing
+* Feature flags via the [OpenFeature](https://openfeature.dev) Go SDK
+* Swagger/OpenAPI generation from code comments
+* Docker setup plus a `gofasta deploy` command for VPS-via-SSH deployment
+* A debug dashboard, build-tag-gated so it costs nothing in production
+* AGENTS.md, `llms.txt` awareness, and structured CLI output across the board
 
 Pick what you use; delete what you don't.
 
@@ -87,5 +88,3 @@ The roadmap splits across three surfaces:
 3. **Documentation.** Guides that go beyond "here's the API" into "here's the trade-off you should think about before you wire this up." This blog is part of that effort: when a `pkg/*` package changes in a non-trivial way, the why often deserves more than a CHANGELOG line.
 
 Start with the [Quick Start](https://gofasta.dev/docs/getting-started/quick-start) for a five-minute walkthrough, or read the full [white paper](https://gofasta.dev/docs/white-paper) for the design rationale behind every choice. Issues, ideas, and contributions are welcome on [GitHub](https://github.com/gofastadev) — we read every one, and many turn into posts here.
-
-— The Gofasta team
