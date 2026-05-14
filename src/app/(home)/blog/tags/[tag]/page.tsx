@@ -4,7 +4,7 @@ import Link from "next/link";
 import { LandingTemplate } from "@/components/templates";
 import { BlogPostCard } from "@/components/molecules/blog-post-card";
 import { getAllTags, getPostsByTag, slugifyTag } from "@/lib/blog";
-import { getKeywordsForPath } from "@/lib/seo-keywords";
+import { SITE_URL, withBaseKeywords } from "@/lib/seo";
 
 // See the [slug] route for rationale — Pagefind only indexes static
 // routes, and prerendering at build time keeps the tag page on the
@@ -15,8 +15,6 @@ export const dynamicParams = false;
 export async function generateStaticParams() {
   return getAllTags().map(({ tag }) => ({ tag }));
 }
-
-const SITE_URL = "https://gofasta.dev";
 
 function tagUrl(tag: string): string {
   return `${SITE_URL}/blog/tags/${tag}`;
@@ -40,7 +38,7 @@ export async function generateMetadata({
   return {
     title,
     description,
-    keywords: getKeywordsForPath(`/blog/tags/${normalized}`),
+    keywords: withBaseKeywords("blog", normalized, "tag archive", "tag"),
     alternates: {
       canonical: url,
       types: {

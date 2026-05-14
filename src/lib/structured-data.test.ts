@@ -1,17 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
-
-// Mock seo-keywords so we have predictable keyword output regardless
-// of which production paths are configured.
-const keywordsByPath: Record<string, string[]> = {
-  "/docs": ["docs", "kw1"],
-  "/docs/cli-reference/dev": ["cli", "dev"],
-  "/blog/wire-explained": ["wire", "di", "go"],
-  "/blog/no-keywords-post": [],
-};
-vi.mock("./seo-keywords", () => ({
-  getKeywordsForPath: (path: string) => keywordsByPath[path] ?? [],
-}));
-
+import { describe, it, expect } from "vitest";
 import {
   buildBreadcrumbJsonLd,
   buildTechArticleJsonLd,
@@ -75,11 +62,12 @@ describe("buildBreadcrumbJsonLd", () => {
 });
 
 describe("buildTechArticleJsonLd", () => {
-  it("builds a /docs root payload", () => {
+  it("builds a /docs root payload with passed-in keywords", () => {
     const out = buildTechArticleJsonLd({
       segments: [],
       title: "Documentation",
       description: "Gofasta documentation.",
+      keywords: ["docs", "kw1"],
     });
     expect(out["@graph"]).toHaveLength(2);
     const article = out["@graph"][1] as Record<string, unknown>;
@@ -98,6 +86,7 @@ describe("buildTechArticleJsonLd", () => {
       segments: ["cli-reference", "dev"],
       title: "gofasta dev",
       description: "Bring the full local environment up.",
+      keywords: ["cli", "dev"],
     });
     const article = out["@graph"][1] as Record<string, unknown>;
     expect(article.url).toBe("https://gofasta.dev/docs/cli-reference/dev");
@@ -109,11 +98,22 @@ describe("buildTechArticleJsonLd", () => {
     );
   });
 
-  it("omits keywords field when getKeywordsForPath returns []", () => {
+  it("omits the keywords field when keywords is omitted from the input", () => {
     const out = buildTechArticleJsonLd({
       segments: ["unknown-doc"],
       title: "Unknown",
-      description: "Has no keywords mapping.",
+      description: "Has no keywords passed.",
+    });
+    const article = out["@graph"][1] as Record<string, unknown>;
+    expect(article.keywords).toBeUndefined();
+  });
+
+  it("omits the keywords field when keywords is an empty array", () => {
+    const out = buildTechArticleJsonLd({
+      segments: ["empty"],
+      title: "Empty",
+      description: "Empty keyword list.",
+      keywords: [],
     });
     const article = out["@graph"][1] as Record<string, unknown>;
     expect(article.keywords).toBeUndefined();
@@ -121,7 +121,7 @@ describe("buildTechArticleJsonLd", () => {
 });
 
 describe("buildBlogPostingJsonLd", () => {
-  it("builds a full payload with author URL + updatedAt", () => {
+  it("builds a full payload with author URL + updatedAt + keywords", () => {
     const out = buildBlogPostingJsonLd({
       slug: "wire-explained",
       title: "Wire Explained",
@@ -131,6 +131,7 @@ describe("buildBlogPostingJsonLd", () => {
       publishedAt: "2026-05-12T09:00:00.000Z",
       updatedAt: "2026-05-13T10:00:00.000Z",
       coverImageUrl: "https://gofasta.dev/api/og?title=Wire&section=Blog",
+      keywords: ["wire", "di", "go"],
     });
     expect(out["@graph"]).toHaveLength(2);
     const post = out["@graph"][1] as Record<string, unknown>;
@@ -156,7 +157,7 @@ describe("buildBlogPostingJsonLd", () => {
     );
   });
 
-  it("omits author.url when not provided + falls back updatedAt to publishedAt", () => {
+  it("omits author.url when not provided + falls back updatedAt to publishedAt + omits keywords when absent", () => {
     const out = buildBlogPostingJsonLd({
       slug: "no-keywords-post",
       title: "Untitled",
@@ -172,7 +173,21 @@ describe("buildBlogPostingJsonLd", () => {
       name: "Gofasta Team",
     });
     expect((post.author as Record<string, unknown>).url).toBeUndefined();
-    // Empty keywords → field omitted entirely.
+    // Empty/missing keywords → field omitted entirely.
+    expect(post.keywords).toBeUndefined();
+  });
+
+  it("omits the keywords field when keywords is an empty array", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "empty-keywords",
+      title: "Empty",
+      description: "Empty list.",
+      authorName: "Gofasta Team",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=Empty&section=Blog",
+      keywords: [],
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
     expect(post.keywords).toBeUndefined();
   });
 

@@ -4,7 +4,7 @@ import { BlogIndexHero, BlogTagCloud } from "@/components/organisms";
 import { BlogPostCard } from "@/components/molecules/blog-post-card";
 import { BlogPagination } from "@/components/molecules/blog-pagination";
 import { getAllPosts, getAllTags } from "@/lib/blog";
-import { getKeywordsForPath } from "@/lib/seo-keywords";
+import { withBaseKeywords } from "@/lib/seo";
 
 // /blog — paginated index of every published post. `force-static`
 // pre-renders the page to flat HTML at build time so Pagefind can
@@ -20,7 +20,15 @@ export const metadata: Metadata = {
   title: "Blog — Gofasta",
   description:
     "Engineering notes on the Gofasta toolkit: CLI changes, library updates, and longer-form posts on Go backend topics.",
-  keywords: getKeywordsForPath("/blog"),
+  keywords: withBaseKeywords(
+    "blog",
+    "engineering blog",
+    "developer blog",
+    "Go blog",
+    "release notes",
+    "changelog",
+    "Gofasta blog",
+  ),
   alternates: {
     canonical: CANONICAL,
     types: {

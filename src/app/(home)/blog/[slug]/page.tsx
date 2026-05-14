@@ -16,7 +16,7 @@ import {
   getPost,
   type BlogPost,
 } from "@/lib/blog";
-import { getKeywordsForPath } from "@/lib/seo-keywords";
+import { SITE_URL, withBaseKeywords } from "@/lib/seo";
 import { buildBlogPostingJsonLd } from "@/lib/structured-data";
 
 // `force-static` + `generateStaticParams` + `dynamicParams = false`
@@ -32,8 +32,6 @@ export const dynamicParams = false;
 export async function generateStaticParams() {
   return getAllPosts().map((post) => ({ slug: post.slug }));
 }
-
-const SITE_URL = "https://gofasta.dev";
 
 function postUrl(slug: string): string {
   return `${SITE_URL}/blog/${slug}`;
@@ -54,7 +52,7 @@ export async function generateMetadata({
   return {
     title: `${post.title} — Gofasta Blog`,
     description: post.description,
-    keywords: getKeywordsForPath(`/blog/${slug}`),
+    keywords: withBaseKeywords("blog", ...post.tags),
     authors: post.authorUrl
       ? [{ name: post.author, url: post.authorUrl }]
       : [{ name: post.author }],
@@ -108,6 +106,7 @@ function buildPostJsonLd(post: BlogPost) {
     publishedAt: post.publishedAt,
     updatedAt: post.updatedAt,
     coverImageUrl: coverImage,
+    keywords: withBaseKeywords("blog", ...post.tags),
   });
 }
 

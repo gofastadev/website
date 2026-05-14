@@ -1,18 +1,24 @@
 import { generateStaticParamsFor, importPage } from "nextra/pages";
 import { useMDXComponents as getMDXComponents } from "../../../../../mdx-components";
-import { getKeywordsForPath } from "@/lib/seo-keywords";
+import { SITE_URL, withBaseKeywords } from "@/lib/seo";
 import { buildTechArticleJsonLd } from "@/lib/structured-data";
 
 export const generateStaticParams = generateStaticParamsFor("mdxPath");
+
+interface DocMeta {
+  title?: string;
+  description?: string;
+  keywords?: string[];
+}
 
 export async function generateMetadata(props: {
   params: Promise<{ mdxPath?: string[] }>;
 }) {
   const params = await props.params;
   const { metadata } = await importPage(params.mdxPath);
-  const mdxMeta = metadata as unknown as Record<string, string>;
+  const mdxMeta = metadata as DocMeta;
   const urlPath = `/docs${params.mdxPath ? `/${params.mdxPath.join("/")}` : ""}`;
-  const fullUrl = `https://gofasta.dev${urlPath}`;
+  const fullUrl = `${SITE_URL}${urlPath}`;
   const title = mdxMeta?.title ?? "Documentation";
   const description =
     mdxMeta?.description ??
@@ -24,7 +30,7 @@ export async function generateMetadata(props: {
 
   return {
     ...metadata,
-    keywords: getKeywordsForPath(urlPath),
+    keywords: withBaseKeywords(...(mdxMeta.keywords ?? [])),
     openGraph: {
       type: "article",
       locale: "en_US",
@@ -58,18 +64,13 @@ const { wrapper: Wrapper } = getMDXComponents() as Record<
   React.ComponentType<{ toc: unknown; metadata: unknown; children: React.ReactNode }>
 >;
 
-// buildStructuredData now lives in src/lib/structured-data.ts so the
-// /blog routes can share the breadcrumb logic. This thin local wrapper
-// just unpacks Nextra's metadata shape into the lib's typed input.
-function buildStructuredData(
-  mdxPath: string[] | undefined,
-  meta: Record<string, string>,
-) {
+function buildStructuredData(mdxPath: string[] | undefined, meta: DocMeta) {
   return buildTechArticleJsonLd({
     segments: mdxPath ?? [],
     title: meta?.title ?? "Documentation",
     description:
       meta?.description ?? "Gofasta documentation for the Go backend toolkit.",
+    keywords: withBaseKeywords(...(meta.keywords ?? [])),
   });
 }
 
@@ -80,10 +81,7 @@ export default async function Page(props: {
   const { default: MDXContent, toc, metadata } = await importPage(
     params.mdxPath
   );
-  const jsonLd = buildStructuredData(
-    params.mdxPath,
-    metadata as unknown as Record<string, string>,
-  );
+  const jsonLd = buildStructuredData(params.mdxPath, metadata as DocMeta);
 
   return (
     <Wrapper toc={toc} metadata={metadata}>

@@ -12,12 +12,29 @@ import {
   CtaSection,
 } from "@/components/organisms";
 import { ScrollDepthTracker, SectionTracker } from "@/components/atoms";
-import { getKeywordsForPath } from "@/lib/seo-keywords";
+import { SITE_URL, withBaseKeywords } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  keywords: getKeywordsForPath("/"),
+  keywords: withBaseKeywords(
+    "code generation",
+    "scaffolding",
+    "CLI",
+    "REST API",
+    "GraphQL",
+    "production-ready",
+    "AI coding agent",
+    "agent-native",
+    "Claude Code",
+    "Cursor",
+    "OpenAI Codex",
+    "Aider",
+    "Windsurf",
+    "AGENTS.md",
+    "llms.txt",
+    "LLM-friendly documentation",
+  ),
   alternates: {
-    canonical: "https://gofasta.dev",
+    canonical: SITE_URL,
   },
 };
 

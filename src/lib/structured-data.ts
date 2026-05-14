@@ -17,9 +17,7 @@
 // structured-data.test.ts.
 // ─────────────────────────────────────────────────────────────────────
 
-import { getKeywordsForPath } from "./seo-keywords";
-
-const SITE_URL = "https://gofasta.dev";
+import { SITE_URL } from "./seo";
 
 // Title-cases a kebab-case slug for display: "cli-reference" → "Cli Reference".
 // Used both for breadcrumb item names and for the OG-image / article
@@ -81,6 +79,8 @@ export interface TechArticleInput {
   title: string;
   /** Page description from MDX frontmatter. */
   description: string;
+  /** Fully-resolved keyword list (base + page-specific). Omitted/empty → no keywords field in the schema. */
+  keywords?: readonly string[];
 }
 
 /**
@@ -89,14 +89,13 @@ export interface TechArticleInput {
  * buildStructuredData() that used to live in the docs page.
  */
 export function buildTechArticleJsonLd(input: TechArticleInput) {
-  const { segments, title, description } = input;
+  const { segments, title, description, keywords = [] } = input;
   const urlPath = `/docs${segments.length > 0 ? `/${segments.join("/")}` : ""}`;
   const fullUrl = `${SITE_URL}${urlPath}`;
   const articleSection = segments[0] ? humanize(segments[0]) : "Docs";
   const ogImageUrl = `${SITE_URL}/api/og?title=${encodeURIComponent(
     title,
   )}&section=${encodeURIComponent(articleSection)}`;
-  const keywords = getKeywordsForPath(urlPath);
 
   const breadcrumb = buildBreadcrumbJsonLd({
     rootPath: "/docs",
@@ -153,6 +152,8 @@ export interface BlogPostingInput {
    * results; the OG dimensions give us ~756,000 px which passes.
    */
   coverImageUrl: string;
+  /** Fully-resolved keyword list (base + per-post tags). Omitted/empty → no keywords field in the schema. */
+  keywords?: readonly string[];
 }
 
 /**
@@ -170,9 +171,9 @@ export function buildBlogPostingJsonLd(input: BlogPostingInput) {
     publishedAt,
     updatedAt,
     coverImageUrl,
+    keywords = [],
   } = input;
   const fullUrl = `${SITE_URL}/blog/${slug}`;
-  const keywords = getKeywordsForPath(`/blog/${slug}`);
 
   const breadcrumb = buildBreadcrumbJsonLd({
     rootPath: "/blog",

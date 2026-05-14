@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LandingTemplate } from "@/components/templates";
-import { getKeywordsForPath } from "@/lib/seo-keywords";
+import { SITE_URL, withBaseKeywords } from "@/lib/seo";
 import { getAllPosts, getAllTags } from "@/lib/blog";
 
 export const metadata: Metadata = {
   title: "Sitemap",
   description:
     "Complete sitemap of the Gofasta documentation — all guides, CLI reference, and API reference pages.",
-  keywords: getKeywordsForPath("/"),
+  keywords: withBaseKeywords("sitemap", "site map", "all pages", "index"),
   alternates: {
-    canonical: "https://gofasta.dev/sitemap",
+    canonical: `${SITE_URL}/sitemap`,
   },
 };
 
