@@ -1,0 +1,181 @@
+---
+title: gofasta new --driver
+description: Pick the database driver for a new project. Supports postgres, mysql, sqlite, sqlserver, and clickhouse — config, migrations, Docker Compose, dev image, and README are all generated per-driver.
+keywords:
+  - "driver"
+  - "database"
+  - "postgres"
+  - "mysql"
+  - "sqlite"
+  - "sqlserver"
+  - "clickhouse"
+  - "gofasta new"
+---
+
+# `--driver`
+
+Selects the database engine the new project is wired against. Default is `postgres`. The flag is read once at scaffold time and propagated into every file that has a per-driver shape — `config.yaml`, `compose.yaml`, `compose.production.yaml`, `.env.example`, `dev.dockerfile`, `README.md`, and `db/migrations/`.
+
+```bash
+gofasta new myapp                       # postgres (default)
+gofasta new myapp --driver postgres
+gofasta new myapp --driver mysql
+gofasta new myapp --driver sqlite
+gofasta new myapp --driver sqlserver
+gofasta new myapp --driver clickhouse
+```
+
+Passing any other value fails fast with a clear error listing the accepted set. There is no "swap the driver later" command — the scaffolded files are driver-specific by design (different migration syntax per engine), so pick the driver you want up front.
+
+## Supported drivers
+
+| Driver | Default port | Compose image | DB-level invariants |
+|---|---|---|---|
+| `postgres` | 5432 | `postgres:18-alpine` | Triggers (shared PL/pgSQL functions) enforce `updated_at`, `record_version++`, and not-deletable |
+| `mysql` | 3306 | `mysql:8.4` | `updated_at` column attribute + per-table triggers for `record_version++` and not-deletable |
+| `sqlite` | (file-based) | — (no Compose service) | Per-table triggers for all three invariants (`AFTER UPDATE`, `BEFORE DELETE WHEN`) |
+| `sqlserver` | 1433 | `mcr.microsoft.com/mssql/server:2022-latest` | Combined `AFTER UPDATE` trigger + `INSTEAD OF DELETE` trigger |
+| `clickhouse` | 9000 | `clickhouse/clickhouse-server:24.8-alpine` | **Application-layer only** — ClickHouse has no row triggers |
+
+The three invariants the scaffold enforces on the `users` table (and that subsequent `g scaffold <Resource>` calls inherit) are:
+
+1. **`updated_at` auto-touch** — any `UPDATE` bumps the column to the current timestamp.
+2. **`record_version` increment** — any `UPDATE` increments the version counter, powering optimistic locking in `pkg/models`.
+3. **Not-deletable guard** — rows flagged `is_deletable = false` reject `DELETE`s at the DB layer.
+
+These are defense-in-depth: they hold for *any* client (psql, mysql CLI, sqlcmd, admin GUIs, attackers with valid credentials), not just code that goes through the generated GORM repositories. The exception is **ClickHouse**, where the engine doesn't support row triggers — the same invariants are enforced in `app/repositories/<resource>.repository.go`'s `UpdateIfVersionMatches` and equivalent methods.
+
+## What changes per driver
+
+Each `--driver` value selects a different rendered output for these files:
+
+### `config.yaml`
+
+The `database:` block carries the driver, host, port, and (Postgres only) `sslmode`. SQLite skips host/port entirely and uses `name: <project>.db`.
+
+```yaml
+# --driver postgres
+database:
+  driver: postgres
+  host: localhost
+  port: "5432"
+  sslmode: disable
+```
+
+```yaml
+# --driver sqlite
+database:
+  driver: sqlite
+  name: myapp.db
+```
+
+### `compose.yaml` and `compose.production.yaml`
+
+A `db` service is emitted with the right image, ports, environment, and healthcheck. SQLite **omits the service entirely** (the database is a file on disk; nothing to run in a container). The `app` service's `depends_on: db` is removed in the SQLite case.
+
+### `.env.example`
+
+Per-driver `DATABASE_*` defaults. Connection strings point at `localhost` and the driver's default port; the SQLite case carries only `DATABASE_NAME`.
+
+### `deployments/docker/dev.dockerfile`
+
+The startup command builds the right migrate URL shape per driver:
+
+- Postgres: `postgres://user:pass@host:port/db?sslmode=disable`
+- MySQL: `mysql://user:pass@tcp(host:port)/db`
+- SQLite: `sqlite3://./<project>.db`
+- SQL Server: `sqlserver://user:pass@host:port?database=db`
+- ClickHouse: `clickhouse://user:pass@host:port/db`
+
+The migrate binary is installed with all five driver tags regardless of `--driver`, so switching DBs in the *same* generated project is just a config change away (though the migration files won't move with you — see the caveat below).
+
+### `db/migrations/`
+
+This is the biggest difference. Each driver gets a hand-written foundational migration tree under `internal/skeleton/migrations/<driver>/`, copied into the new project at scaffold time:
+
+- **Postgres**: 5 migrations — `citext` extension, three shared PL/pgSQL functions (`update_updated_at_column`, `avoid_deleting_not_deletable_record`, `increment_record_version`), and `users`. Subsequent `g scaffold` migrations reuse the shared functions via per-table triggers.
+- **MySQL**: 1 migration — `users` with the triggers inlined into the same file (MySQL has no equivalent of CREATE OR REPLACE FUNCTION for the gofasta pattern).
+- **SQLite**: 1 migration — `users` with per-table `AFTER UPDATE` and `BEFORE DELETE WHEN` triggers inlined.
+- **SQL Server**: 1 migration — `users` with a combined `AFTER UPDATE` trigger (covers `updated_at` + `record_version++`) and a separate `INSTEAD OF DELETE` trigger for the not-deletable guard.
+- **ClickHouse**: 1 migration — `users` only, with a comment explaining that triggers don't apply.
+
+### `README.md`
+
+Driver-specific quickstart commands (`docker compose up db -d` skipped for SQLite, native client install hints per driver).
+
+## Examples
+
+### Postgres (default)
+
+```bash
+gofasta new myapp
+cd myapp
+docker compose up db -d
+gofasta init
+gofasta migrate up
+```
+
+### MySQL
+
+```bash
+gofasta new myapp --driver mysql
+cd myapp
+docker compose up db -d
+gofasta init
+gofasta migrate up
+```
+
+### SQLite (no Compose service)
+
+```bash
+gofasta new myapp --driver sqlite
+cd myapp
+gofasta init
+gofasta migrate up   # creates myapp.db in the project root
+```
+
+### SQL Server
+
+```bash
+gofasta new myapp --driver sqlserver
+cd myapp
+docker compose up db -d
+gofasta init
+gofasta migrate up
+```
+
+### ClickHouse
+
+```bash
+gofasta new myapp --driver clickhouse
+cd myapp
+docker compose up db -d
+gofasta init
+gofasta migrate up
+```
+
+## Verifying DB-level enforcement
+
+After `gofasta init` + `gofasta migrate up`, you can confirm the triggers fire by talking to the database directly (i.e. bypassing the generated repositories). Example for Postgres:
+
+```bash
+# Insert a non-deletable row, then try to delete it via psql:
+docker compose exec db psql -U myapp -c "UPDATE users SET is_deletable = false WHERE email = 'admin@example.com';"
+docker compose exec db psql -U myapp -c "DELETE FROM users WHERE email = 'admin@example.com';"
+# → ERROR:  This record is not deletable
+```
+
+Replace `psql` with the native client for your driver (`mysql`, `sqlite3`, `sqlcmd`, `clickhouse-client`). For ClickHouse, the `DELETE` will succeed at the DB layer — the not-deletable check lives in the repository instead.
+
+## Caveats
+
+- **Driver choice is sticky.** The generated `db/migrations/*.sql` files use driver-specific syntax. Switching `database.driver` in `config.yaml` after scaffold won't rewrite them; you'd have to regenerate or hand-port. Pick the driver you want at `gofasta new` time.
+- **ClickHouse is intentionally an analytics target.** It's wired up for completeness, but the typical use case is OLAP — write-heavy transactional workloads work better on one of the other four.
+- **`g scaffold <Resource>` already branches on the driver.** Once the project is generated with `--driver mysql`, every subsequent `gofasta g scaffold` or `gofasta g migration` emits MySQL syntax automatically by reading `database.driver` from `config.yaml`. No flag needed.
+
+## Related
+
+- [`gofasta new`](/docs/cli-reference/new) — full overview of the command
+- [`gofasta new --graphql`](/docs/cli-reference/new/graphql) — the other flag
+- [`gofasta migrate`](/docs/cli-reference/migrate) — runs the per-driver migrations the scaffold emits
+- [Configuration](/docs/guides/configuration) — full `config.yaml` reference

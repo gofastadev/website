@@ -10,7 +10,7 @@ keywords:
 
 # gofasta new
 
-Creates a brand-new Gofasta project from scratch. By default, this generates a REST-only project with database migrations, authentication, dependency injection, background jobs, email support, Docker configuration, and CI/CD pipelines. Pass `--graphql` to also include GraphQL support (gqlgen schema, resolvers, `/graphql` endpoint, and playground).
+Creates a brand-new Gofasta project from scratch. By default, this generates a REST-only Postgres-backed project with database migrations, authentication, dependency injection, background jobs, email support, Docker configuration, and CI/CD pipelines. Two flags adjust what gets generated: `--driver` picks the database engine, and `--graphql` adds a GraphQL layer alongside REST.
 
 ## Usage
 
@@ -24,10 +24,18 @@ The `<name>` can be a simple name like `myapp` or a full Go module path like `gi
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--graphql` | `false` | Include GraphQL support (gqlgen schema, resolvers, `/graphql` endpoint, playground) |
+| `--driver` | `postgres` | Database driver: `postgres` \| `mysql` \| `sqlite` \| `sqlserver` \| `clickhouse`. See [`--driver`](/docs/cli-reference/new/driver) for the full per-driver breakdown. |
+| `--graphql` | `false` | Include GraphQL support (gqlgen schema, resolvers, `/graphql` endpoint, playground). See [`--graphql / --gql`](/docs/cli-reference/new/graphql). |
 | `--gql` | `false` | Alias for `--graphql` |
 
-Without `--graphql`, the generated project is REST-only -- no GraphQL files, no gqlgen dependency, and no `/graphql` routes.
+### Flag references
+
+Each flag has a dedicated reference page with examples, edge cases, and per-driver details:
+
+- [**`--driver`**](/docs/cli-reference/new/driver) — pick the database engine (5 supported drivers; default `postgres`)
+- [**`--graphql` / `--gql`**](/docs/cli-reference/new/graphql) — add GraphQL alongside REST
+
+Without `--graphql`, the generated project is REST-only -- no GraphQL files, no gqlgen dependency, and no `/graphql` routes. Without `--driver`, the project is wired for Postgres — `compose.yaml` ships `postgres:18-alpine`, `config.yaml` is preset to `driver: postgres`, and `db/migrations/` contains the Postgres-flavored foundational migrations.
 
 ## Examples
 
@@ -47,6 +55,18 @@ Create a project with GraphQL support:
 
 ```bash
 gofasta new myapp --graphql
+```
+
+Create a MySQL-backed project:
+
+```bash
+gofasta new myapp --driver mysql
+```
+
+Combine flags (a SQLite + GraphQL project):
+
+```bash
+gofasta new myapp --driver sqlite --graphql
 ```
 
 ## What It Does
