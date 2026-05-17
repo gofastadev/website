@@ -1,12 +1,17 @@
 ---
-title: Storage
-description: File storage abstraction with local and S3 drivers, upload/download, and signed URL generation.
+title: pkg/storage — Local + S3-compatible file storage
+description: File storage abstraction with two drivers: local filesystem (for dev) and S3-compatible (AWS S3, MinIO, R2, B2). Upload, Download, Delete, presigned URL generation, and content-type detection — same API across drivers.
 keywords:
   - "storage API"
   - "file storage"
-  - "uploads"
-  - "S3"
-  - "file system"
+  - "S3 storage"
+  - "MinIO"
+  - "Cloudflare R2"
+  - "presigned URL"
+  - "file upload"
+  - "object storage"
+  - "local storage"
+  - "storage abstraction"
 ---
 
 # Storage

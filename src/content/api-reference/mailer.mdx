@@ -1,11 +1,17 @@
 ---
-title: Mailer
-description: Email sending with SMTP, SendGrid, and Brevo drivers, template rendering, and attachments.
+title: pkg/mailer — SMTP, SendGrid, and Brevo email
+description: Pluggable outbound email with three drivers (SMTP, SendGrid, Brevo), HTML template rendering via Go html/template, attachment support, and a queue-aware Send so transactional email composes naturally with pkg/queue.
 keywords:
   - "mailer API"
   - "email sending"
   - "SMTP"
+  - "SendGrid"
+  - "Brevo"
+  - "transactional email"
+  - "HTML email"
   - "email templates"
+  - "attachments"
+  - "outbound email"
 ---
 
 # Mailer

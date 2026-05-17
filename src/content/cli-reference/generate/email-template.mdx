@@ -1,11 +1,17 @@
 ---
 title: gofasta g email-template
-description: Generate an HTML email template for transactional emails.
+description: Generate an HTML email template with a matching Go template file under app/emails/templates/ and a registration entry so the pkg/mailer renderer can find it by name. Wire-friendly: the template renders inside a transaction so you can mail-and-commit cleanly.
 keywords:
   - "generate email template"
-  - "email"
   - "HTML email"
+  - "email template"
   - "mail template"
+  - "pkg/mailer"
+  - "transactional email"
+  - "template rendering"
+  - "html/template"
+  - "email scaffold"
+  - "gofasta generate"
 ---
 
 # gofasta g email-template

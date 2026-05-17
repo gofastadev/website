@@ -1,10 +1,17 @@
 ---
 title: gofasta g resolver
-description: Patch the GraphQL resolver to add a service dependency for a resource.
+description: Patch the GraphQL resolver root to add a service dependency for an existing resource — appends the service field, regenerates Wire bindings, and re-runs `gqlgen generate` so the new resolver methods land cleanly.
 keywords:
   - "generate resolver"
   - "GraphQL resolver"
+  - "gqlgen"
+  - "resolver wiring"
   - "query resolver"
+  - "mutation resolver"
+  - "service injection"
+  - "GraphQL root"
+  - "resolver pattern"
+  - "gofasta generate"
 ---
 
 # gofasta g resolver
