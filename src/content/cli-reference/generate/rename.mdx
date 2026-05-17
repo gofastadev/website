@@ -1,0 +1,134 @@
+---
+title: gofasta g rename
+description: Cross-file rename of a field on a resource — model, DTOs, service, tests, repository, plus a rename migration. Preview-by-default; --apply writes.
+keywords:
+  - "rename"
+  - "refactor"
+  - "field"
+  - "generate"
+  - "migration"
+  - "gofasta generate"
+---
+
+# gofasta g rename
+
+Cross-file rename of a single field on a resource. Patches:
+
+- `app/models/<snake>.model.go` — struct field + GORM column tag
+- `app/dtos/<snake>.dtos.go` — every DTO that uses the field
+- `app/services/<snake>.service.go` — receiver-method field references
+- `app/services/<snake>.service_test.go` — same
+- `app/repositories/<snake>.repository.go` — same
+- `db/migrations/NNNNNN_rename_<old>_to_<new>_on_<plural>.up.sql` / `.down.sql`
+
+**Runs in preview mode by default.** Every changed file is recorded as a planned patch and nothing is written to disk — pass `--apply` to commit. This is on purpose: cross-file string surgery is inherently riskier than a single-file patch, and the user should see exactly what's about to land before it does.
+
+## Usage
+
+```bash
+gofasta g rename <Resource>.<OldField> <NewField> [--apply]
+```
+
+The first argument carries the resource + old field separated by `.`. The second is the new field name (PascalCase).
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--apply` | `false` | Actually write the rename to disk. Without this flag the command runs in preview mode and emits a `{actions: [...]}` plan via stdout (or the planner's JSON envelope under `--json`). |
+
+## Examples
+
+### Preview (default)
+
+```bash
+gofasta g rename Order.Total AmountCents
+```
+
+Output:
+
+```
+plan:
+  patch  app/models/order.model.go               — rename Order.Total → AmountCents
+  patch  app/dtos/order.dtos.go                  — rename Order.Total → AmountCents
+  patch  app/services/order.service.go           — rename Order.Total → AmountCents
+  patch  app/services/order.service_test.go      — rename Order.Total → AmountCents
+  patch  app/repositories/order.repository.go    — rename Order.Total → AmountCents
+  create db/migrations/000007_rename_total_to_amount_cents_on_orders.up.sql
+  create db/migrations/000007_rename_total_to_amount_cents_on_orders.down.sql
+
+No files written. Re-run with --apply to commit.
+```
+
+### Apply
+
+```bash
+gofasta g rename Order.Total AmountCents --apply
+```
+
+Same actions, this time the patches and creates land on disk.
+
+### JSON plan
+
+```bash
+gofasta g rename Order.Total AmountCents --json
+```
+
+Emits the planner's structured envelope:
+
+```json
+{
+  "actions": [
+    {"kind": "patch", "path": "app/models/order.model.go", "detail": "rename Order.Total → AmountCents"},
+    {"kind": "create", "path": "db/migrations/000007_rename_total_to_amount_cents_on_orders.up.sql"}
+  ]
+}
+```
+
+## Substitution rules
+
+The rewrite is **token-aware** (regex with word boundaries) so `Total` inside `TotalCount` won't be accidentally rewritten. Per file, four substitutions run in order:
+
+| Pattern | Replacement | Example |
+|---|---|---|
+| `\bOldField\b` | `NewField` | `order.Total` → `order.AmountCents` |
+| `column:OldSnake\b` (GORM tag) | `column:NewSnake` | `column:total` → `column:amount_cents` |
+| `json:"OldCamel"` | `json:"NewCamel"` | `json:"total"` → `json:"amountCents"` |
+| `json:"OldSnake"` | `json:"NewSnake"` | `json:"total"` → `json:"amount_cents"` |
+
+The two `json:` rules are independent — whichever case style your DTOs use (snake or camel), the rename catches it. Other phrasings (`Total` inside a comment, in a SQL string, in an unrelated identifier like `Subtotal`) are left alone.
+
+## Migration emitted
+
+For both modes:
+
+```sql
+-- db/migrations/NNNNNN_rename_total_to_amount_cents_on_orders.up.sql
+ALTER TABLE orders RENAME COLUMN total TO amount_cents;
+```
+
+```sql
+-- db/migrations/NNNNNN_rename_total_to_amount_cents_on_orders.down.sql
+ALTER TABLE orders RENAME COLUMN amount_cents TO total;
+```
+
+`NNNNNN` is the next available 6-digit version.
+
+## Caveats
+
+- **The substitution is text-based, not type-aware.** A reference to `Total` in a different package's struct of the same name would also be matched if that file lived under the resource's expected paths — unlikely, but worth knowing. The token-boundary rule keeps false positives low.
+- **No revert built in.** If you apply a rename and then want to undo it, run the rename in reverse (`gofasta g rename Order.AmountCents Total --apply`) or `git checkout` the changed files.
+- **Tests adjust automatically.** The `_test.go` file is in the targets list, so any `order.Total` in tests is rewritten alongside the impl.
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `INVALID_NAME` | First arg doesn't match `Resource.OldField`, or old + new are the same, or any of the three is empty. |
+| `FILE_IO` | A write failed in `--apply` mode (e.g. the file is read-only). |
+
+## Related
+
+- [`gofasta g field`](/docs/cli-reference/generate/field) — sibling: add a field (this is the inverse — rename an existing field)
+- [`gofasta g migration`](/docs/cli-reference/generate/migration) — standalone migration pair (no model changes)
+- [`gofasta xrefs`](/docs/cli-reference/xrefs) — find every reference to a symbol before deciding to rename it

@@ -1,0 +1,130 @@
+---
+title: gofasta test
+description: Run go test against the project with gofasta defaults — race detector on, every package, live output, plus shortcuts for short/integration/coverage/run-pattern.
+keywords:
+  - "CLI"
+  - "test"
+  - "go test"
+  - "race detector"
+  - "coverage"
+  - "integration tests"
+  - "gofasta test"
+---
+
+# gofasta test
+
+Wraps `go test` with the gofasta defaults: race detector on, every package under `./...`, output streamed straight to the terminal. Equivalent to `go test -race ./...` but shorter and consistent with the rest of the gofasta CLI (banner, `--json` mode, etc.).
+
+```bash
+gofasta test                          # all packages, race detector on
+gofasta test ./app/services           # one package
+gofasta test ./app/...                # everything under app/
+gofasta test ./app/... -- -count=1    # forward extra flags to go test
+```
+
+## Usage
+
+```bash
+gofasta test [path...] [flags] [-- go-test-flags]
+```
+
+Positional args are package paths passed through to `go test`. Anything after a literal `--` is forwarded verbatim to `go test` so you can use flags gofasta doesn't shortcut.
+
+## Flags
+
+| Flag | Short | Default | Description |
+|---|---|---|---|
+| `--short` | `-s` | `false` | Skip long-running tests (passes `-short` to `go test`). |
+| `--integration` | `-i` | `false` | Run only `Integration`-named tests (passes `-run Integration`). |
+| `--coverage` | `-c` | `false` | Write coverage profile to `coverage.out` and print total %. |
+| `--run` | `-r` | *(none)* | Run only tests matching the regex pattern (`-run <pattern>`). |
+| `--no-race` | | `false` | Skip the race detector (faster, less safe). |
+| `--verbose` | `-v` | `false` | Verbose output (passes `-v` to `go test`). |
+
+Global flags:
+
+- `--json` — forwards `-json` to `go test`, producing NDJSON events suitable for `gotestsum`, GitHub Actions test reporters, or your own pipeline. Suppresses the banner and progress line so stdout is a strict JSON stream.
+
+## Examples
+
+Run everything, race detector on (the default):
+
+```bash
+gofasta test
+```
+
+Skip long tests:
+
+```bash
+gofasta test --short
+```
+
+Run only `Integration`-prefixed tests:
+
+```bash
+gofasta test --integration
+```
+
+Coverage profile + total %:
+
+```bash
+gofasta test --coverage
+# → writes coverage.out, prints "coverage: 87.4% of statements"
+```
+
+Filter to one test:
+
+```bash
+gofasta test --run TestUserCreate
+gofasta test --run "TestUser.*"     # regex
+```
+
+Skip the race detector for a faster run:
+
+```bash
+gofasta test --no-race
+```
+
+Scope to one package:
+
+```bash
+gofasta test ./app/services
+```
+
+Forward extra `go test` flags after `--`:
+
+```bash
+gofasta test ./app/... -- -count=1 -tags=integration -timeout=5m
+```
+
+CI: NDJSON output for a test reporter:
+
+```bash
+gofasta test --json | tee test-output.jsonl
+```
+
+## How it works
+
+`gofasta test` builds a single `go test` command line:
+
+```
+go test -race ./... [-short] [-integration -run Integration] [-coverprofile=coverage.out] [-run=<pattern>] [-v] [-json] [paths...] [-- extra-go-test-flags]
+```
+
+Then runs it with stdout/stderr inherited (so live progress shows up immediately) and exits with the same code `go test` did.
+
+Two things gofasta adds on top:
+
+1. **Coverage summary.** When `--coverage` is set, after `go test` finishes gofasta reads `coverage.out` and prints `coverage: X.X% of statements` so you see the total without running `go tool cover -func` separately.
+2. **JSON noise suppression.** Under `--json`, the banner + the `▶ go test ...` progress line + the coverage summary are suppressed so stdout stays a strict NDJSON stream.
+
+## When to use
+
+- **In a project.** Always — it's shorter than `go test -race ./...` and the gofasta CLI already knows your project conventions.
+- **In CI.** Pair with `--json` and pipe to `gotestsum` (or GitHub Actions' `--json-input` reporter) for structured test output.
+- **For coverage.** `gofasta test --coverage` is the one-shot way; `gofasta verify` runs the full preflight suite (lint + race + build + ...) when you want a stricter gate.
+
+## Related
+
+- [`gofasta verify`](/docs/cli-reference/verify) — full preflight: gofmt, vet, lint, test, build, wire drift, routes. Use `verify` before a PR; use `test` during inner-loop development.
+- [`gofasta dev`](/docs/cli-reference/dev) — dev server with hot reload (doesn't run tests)

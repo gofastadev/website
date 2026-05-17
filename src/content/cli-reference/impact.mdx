@@ -1,0 +1,146 @@
+---
+title: gofasta impact
+description: Reverse-dependency analysis — given a file or import path, list every package that depends on it (directly + transitively) and every Go source file in those packages.
+keywords:
+  - "CLI"
+  - "impact"
+  - "reverse dependency"
+  - "blast radius"
+  - "code review"
+  - "AI coding agent"
+  - "agent-friendly"
+  - "gofasta impact"
+---
+
+# gofasta impact
+
+Reports the blast radius of a target — every package that depends on it (directly or transitively) and every source file in those packages. Use it before a signature change to know what breaks, when scoping a code review, or when deciding which packages a CI run actually has to re-test.
+
+Loads the whole module with `go/packages` (full type info), then walks the import graph in reverse from the target. No filesystem scraping, no grep — type-aware so renames and aliases are followed correctly.
+
+## Usage
+
+```bash
+gofasta impact <file-or-package> [--json]
+```
+
+The target can be either a file path or an import path:
+
+- `app/services/order.service.go` — a Go file (resolved to its containing package)
+- `irodata/app/services` — a full import path
+
+Both forms produce the same answer if they resolve to the same package.
+
+## Flags
+
+`gofasta impact` takes no command-specific flags. It honors the global `--json` flag for machine-parseable output.
+
+## Output
+
+### Text mode
+
+```
+$ gofasta impact app/services/order.service.go
+
+Target:  app/services/order.service.go
+Package: irodata/app/services
+
+Direct importers (2):
+  · irodata/app/di/providers
+  · irodata/app/rest/controllers
+
+Transitive importers (4):
+  · irodata/app/di
+  · irodata/app/di/providers
+  · irodata/app/rest/controllers
+  · irodata/cmd
+
+Impacted files (12) — pass to `gofasta verify --since=<ref>` for a scoped check.
+```
+
+### JSON mode
+
+```bash
+gofasta impact irodata/app/services --json
+```
+
+```json
+{
+  "target": "irodata/app/services",
+  "package": "irodata/app/services",
+  "direct_importers": [
+    "irodata/app/di/providers",
+    "irodata/app/rest/controllers"
+  ],
+  "transitive_importers": [
+    "irodata/app/di",
+    "irodata/app/di/providers",
+    "irodata/app/rest/controllers",
+    "irodata/cmd"
+  ],
+  "impacted_files": [
+    "app/di/container.go",
+    "app/di/wire.go",
+    "app/di/providers/order.go",
+    "app/rest/controllers/order.controller.go"
+  ]
+}
+```
+
+The JSON contract is stable for agent consumption — every field is always present (`null` when empty).
+
+## Examples
+
+Find every package that depends on the order service:
+
+```bash
+gofasta impact app/services/order.service.go
+```
+
+Same answer via import path:
+
+```bash
+gofasta impact irodata/app/services
+```
+
+Pipe direct importers to another tool:
+
+```bash
+gofasta impact irodata/app/services --json | jq -r '.direct_importers[]'
+```
+
+Confirm a DTO change is isolated (no transitive importers outside dtos/):
+
+```bash
+gofasta impact app/dtos/order.dtos.go --json | jq '.transitive_importers'
+```
+
+## How it works
+
+1. **Load the module.** `go/packages.Load("./...", NeedTypes | NeedImports | ...)` parses every package with full type info. This is the expensive step (a few seconds on a medium project).
+2. **Resolve the target.** If the input ends in `.go` and matches a file in `pkg.GoFiles` of some loaded package, the package's import path is used. Otherwise the input is treated as a direct import path. Returns `SYMBOL_NOT_FOUND` if neither resolution succeeds.
+3. **Build the reverse map.** Invert each loaded package's `Imports` so `rev[imp] = {p : imp ∈ p.Imports}`.
+4. **BFS from the target.** Walk `rev` to find direct + transitive importers.
+5. **Collect files.** For each impacted package, list its `GoFiles` (cwd-relative).
+
+The reverse walk is `O(N)` over module size. Loading the module dominates total runtime.
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `SYMBOL_NOT_FOUND` | The target didn't resolve to a loaded package. Check for typos or whether you're in the right module root. |
+| `PACKAGE_LOAD_FAILED` | `go/packages.Load` errored (missing go.mod, compile errors that prevent type-checking, or `./...` returning zero packages). |
+
+## When to use
+
+- **Before a signature change.** "If I change `OrderService.Create`'s return type, what breaks?" → `gofasta impact app/services/order.service.go`.
+- **PR scoping.** Feed `--json | jq '.impacted_files'` into `gofasta verify --since=…`-style tooling to test only the affected packages.
+- **Deletion safety.** "Is this helper still used?" → If `direct_importers` is empty, the package is dead code.
+- **Code review.** Reviewers can see at a glance whether a change in a leaf package is contained or rippling.
+
+## Related
+
+- [`gofasta xrefs`](/docs/cli-reference/xrefs) — same idea but at the symbol level (find every reference to one func / type / method, not just packages that import it)
+- [`gofasta verify --since`](/docs/cli-reference/verify) — pairs naturally with impact for scoped CI runs
+- [`gofasta inspect`](/docs/cli-reference/inspect) — drill into a single resource's shape (model, DTOs, methods)

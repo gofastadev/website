@@ -1,0 +1,144 @@
+---
+title: gofasta xrefs
+description: Type-aware reverse symbol lookup — find every reference to a Go func, type, method, var, or const across the current module. Survives renames, aliasing, and method-set resolution that pure grep can't.
+keywords:
+  - "CLI"
+  - "xrefs"
+  - "cross-reference"
+  - "symbol lookup"
+  - "find references"
+  - "type-aware"
+  - "AI coding agent"
+  - "gofasta xrefs"
+---
+
+# gofasta xrefs
+
+Find every reference to a Go symbol across the current module. Uses `go/packages` with full type info — so it follows aliases, struct embedding, and method-set resolution that a plain `grep` would miss or false-match on.
+
+Designed for the moment before a rename: see exactly what calls your function, references your type, or uses your constant, and decide whether the change is safe.
+
+## Usage
+
+```bash
+gofasta xrefs <symbol> [--json]
+```
+
+The symbol syntax is the most specific form that disambiguates:
+
+| Form | Example | Matches |
+|---|---|---|
+| `Pkg.Func` | `app/services.UserService` | Package-level func, var, const, or type |
+| `Pkg.Type.Method` | `app/services/interfaces.UserServiceInterface.Create` | A method on a specific type |
+| `Name` (unqualified) | `UserController` | The symbol regardless of package — errors with `AMBIGUOUS_SYMBOL` when more than one package defines it |
+
+Fully-qualified is always safest in scripts. Unqualified is convenient for interactive use.
+
+## Flags
+
+`gofasta xrefs` takes no command-specific flags. It honors the global `--json` flag.
+
+## Output
+
+### Text mode
+
+```
+$ gofasta xrefs UserController
+type UserController (irodata/app/rest/controllers)
+  defined at app/rest/controllers/user.controller.go:14:6
+  17 reference(s):
+    app/di/container.go:18:9 (ref)
+    app/di/providers/user.go:23:13 (ref)
+    app/rest/routes/user.routes.go:11:54 (ref) — in routes.RegisterUserRoutes
+    cmd/serve.go:42:9 (ref) — in cmd.startServer
+    ...
+```
+
+### JSON mode
+
+```bash
+gofasta xrefs irodata/app/services/interfaces.UserServiceInterface.Create --json
+```
+
+```json
+{
+  "symbol": "irodata/app/services/interfaces.UserServiceInterface.Create",
+  "package": "irodata/app/services/interfaces",
+  "kind": "method",
+  "definition": {
+    "file": "app/services/interfaces/user_service.go",
+    "line": 12,
+    "column": 2,
+    "kind": "decl"
+  },
+  "references": [
+    {
+      "file": "app/services/user.service.go",
+      "line": 47,
+      "column": 18,
+      "in_func": "(*userService).Create",
+      "kind": "decl"
+    },
+    {
+      "file": "app/rest/controllers/user.controller.go",
+      "line": 89,
+      "column": 23,
+      "in_func": "(*UserController).Create",
+      "kind": "call"
+    }
+  ],
+  "count": 17
+}
+```
+
+Each reference includes `kind: "call"` when the symbol sits in the function position of a `*ast.CallExpr`, otherwise `kind: "ref"`. `in_func` is the enclosing function or method (empty when the reference is at file scope).
+
+## Examples
+
+Find a method on an interface:
+
+```bash
+gofasta xrefs irodata/app/services/interfaces.UserServiceInterface.Create
+```
+
+Bare name (works when unique):
+
+```bash
+gofasta xrefs UserController
+```
+
+Pipe references to a filter:
+
+```bash
+gofasta xrefs UserService --json | jq -r '.references[] | "\(.file):\(.line)"'
+```
+
+Find every caller of a function:
+
+```bash
+gofasta xrefs irodata/app/services.GetUserByID --json | jq '.references[] | select(.kind == "call")'
+```
+
+## Why type-aware matters
+
+`grep "UserService"` returns string matches — including code comments, JSON keys, generated mocks, and unrelated identifiers that happen to share the name. `xrefs` resolves the symbol via the type system, so:
+
+- **Aliases follow.** `import svc "myapp/app/services"; svc.GetUser` is found.
+- **Method-set resolution is exact.** Multiple types with the same method name → only the matching one is returned.
+- **Embedded fields are followed.** A reference to an embedded interface's method is attributed correctly.
+- **Type identity is preserved.** A `User` from package A and a `User` from package B don't get confused.
+
+The tradeoff is a multi-second startup (loading the whole module with full type info). For a one-off check that's fine; for tight loops, the JSON output is friendly to caching.
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `SYMBOL_NOT_FOUND` | No package in the module exports a symbol matching the input. Check for typos or wrong package qualifier. |
+| `AMBIGUOUS_SYMBOL` | Unqualified name matches more than one package. Error message lists the candidates — re-run with a fully qualified form. |
+| `PACKAGE_LOAD_FAILED` | `go/packages.Load` failed (compile errors, no module root, etc.). |
+
+## Related
+
+- [`gofasta impact`](/docs/cli-reference/impact) — package-level blast radius (which *packages* depend on this code, not which *symbols* reference it)
+- [`gofasta inspect`](/docs/cli-reference/inspect) — full structural view of a resource (model + DTOs + service + controller + routes)

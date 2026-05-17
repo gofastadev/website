@@ -1,87 +1,170 @@
 ---
 title: gofasta migrate
-description: Run database migrations up or down for your Gofasta project.
+description: Run database migrations up or down for your Gofasta project, with static analysis (--explain), safe rollbacks (--steps, --all), and dirty-state repair (migrate repair).
 keywords:
   - "CLI"
   - "migrate"
   - "database migrations"
+  - "golang-migrate"
+  - "schema"
   - "gofasta migrate"
 ---
 
 # gofasta migrate
 
-Runs database migrations using the [golang-migrate](https://github.com/golang-migrate/migrate) tool with SQL files in the `db/migrations/` directory. Supports applying all pending migrations or rolling back.
+Runs database migrations using the [golang-migrate](https://github.com/golang-migrate/migrate) tool against the SQL files under `db/migrations/`. Three subcommands: `up` applies pending migrations (with optional static analysis via `--explain`), `down` rolls back (interactive menu by default; flags for scripted use), and `repair` clears a dirty migration state.
 
 ## Usage
 
 ```bash
-gofasta migrate <direction>
+gofasta migrate <subcommand> [flags]
 ```
-
-Where `<direction>` is either `up` or `down`.
-
-This command takes no flags.
 
 ## Subcommands
 
 | Subcommand | Description |
 |------------|-------------|
-| `up` | Run all pending migrations |
-| `down` | Roll back migrations |
+| [`up`](#gofasta-migrate-up) | Apply all pending migrations |
+| [`down`](#gofasta-migrate-down) | Roll back applied migrations (menu by default; `--all` or `--steps N` for scripts) |
+| [`repair`](#gofasta-migrate-repair) | Clear a dirty migration state after a manual fix |
 
-## Examples
+## `gofasta migrate up`
 
-Run all pending migrations:
+Applies every pending `.up.sql` migration under `db/migrations/`. Skips files that have already been recorded in `schema_migrations`.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--explain` | `false` | Static analysis of every pending `.up.sql` — flags risky DDL (`DROP COLUMN`, `ADD COLUMN NOT NULL` without `DEFAULT`, blocking `CREATE INDEX`, `RENAME COLUMN/TABLE`, `ALTER COLUMN TYPE`). **Never opens a DB connection.** Pairs with `--strict` in CI. |
+| `--strict` | `false` | With `--explain`: exit non-zero when any high-severity warning fires. CI gate to block risky migrations before they merge. |
+
+### Examples
 
 ```bash
+# Standard: apply every pending migration.
 gofasta migrate up
+
+# Preview what would be applied + lint for risky patterns (no DB needed).
+gofasta migrate up --explain
+
+# Same, but fail the run in CI on any high-severity warning.
+gofasta migrate up --explain --strict --json
 ```
 
-Roll back migrations:
+### Risk classification (`--explain`)
+
+| Pattern | Risk | Severity |
+|---|---|---|
+| `ALTER TABLE ... DROP COLUMN` | data-loss | high |
+| `ADD COLUMN ... NOT NULL` (no DEFAULT) | lock-and-fill (table rewrite) | high |
+| `CREATE INDEX` without `CONCURRENTLY` | lock-table | medium (Postgres) |
+| `RENAME COLUMN` / `RENAME TABLE` | app-incompatibility | medium |
+| `ALTER COLUMN ... TYPE` | lock-and-rewrite | high |
+| `DROP TABLE` | data-loss | high |
+| `TRUNCATE` | data-loss | high |
+| `ADD PRIMARY KEY` | lock-and-rewrite | high |
+
+## `gofasta migrate down`
+
+Rolls back applied migrations. With no flags and an interactive terminal, opens a menu offering single-step / all / specific-count rollback. Pass `--all` or `--steps N` to skip the menu for scripted use.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--all` | `false` | Roll back ALL applied migrations (destructive — prompts for confirmation unless `--yes`). |
+| `--steps` | `0` | Roll back exactly N migrations (skips the menu; default 1 in non-interactive mode). |
+| `--yes` | `false` | Skip the destructive-action confirmation prompt (use with `--all` in scripts/CI). |
+
+### Examples
 
 ```bash
+# Interactive: opens a menu.
 gofasta migrate down
+
+# Roll back one migration without prompt.
+gofasta migrate down --steps 1
+
+# Roll back everything in CI/scripts.
+gofasta migrate down --all --yes
+```
+
+## `gofasta migrate repair`
+
+Clears a dirty migration state. golang-migrate marks the migrations table as "dirty" when an `.up.sql` fails partway through — subsequent `migrate up` runs refuse to proceed until the dirty flag is cleared. Use this command **only after you've manually verified the database state**.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--revert` | `false` | You've manually undone the dirty migration; mark version N-1 as current. |
+| `--complete` | `false` | You've manually finished the dirty migration; mark version N as current. |
+| `--force` | `-1` | Mark `schema_migrations.version = N` directly (skips the dirty-state inspection). Use very carefully. |
+| `--yes` | `false` | Skip the destructive-action confirmation prompt (use in scripts). |
+
+`--revert`, `--complete`, and `--force` are mutually exclusive — pick exactly one.
+
+### Examples
+
+```bash
+# Inspect first — `migrate repair` with no flags prints the current state.
+gofasta migrate repair
+
+# You undid the dirty migration by hand in psql — mark N-1 as current.
+gofasta migrate repair --revert
+
+# You finished the dirty migration by hand — mark N as current.
+gofasta migrate repair --complete
+
+# Force a specific version. No dirty-state check — use carefully.
+gofasta migrate repair --force 7 --yes
 ```
 
 ## How It Works
 
-The `gofasta migrate` command delegates to the `golang-migrate` tool:
+`gofasta migrate up|down` shells out to the `golang-migrate` tool:
 
 ```bash
-migrate -path db/migrations -database <url> <direction>
+migrate -path db/migrations -database <url> up
 ```
 
-The database URL is built from your `config/config.yaml` settings, with `GOFASTA_` prefixed environment variable overrides applied.
+The database URL is built from `config.yaml`'s `database:` block (driver, host, port, name, user, password, sslmode), with `GOFASTA_DATABASE_*` env-var overrides applied.
+
+`migrate repair` writes to `schema_migrations` directly — no SQL replay, just metadata fixup.
 
 ## Supported Databases
 
-| Driver | Description |
-|--------|-------------|
-| `postgres` | PostgreSQL |
-| `mysql` | MySQL / MariaDB |
-| `sqlite` | SQLite |
-| `sqlserver` | Microsoft SQL Server |
-| `clickhouse` | ClickHouse |
+| Driver | Notes |
+|--------|-------|
+| `postgres` | Default |
+| `mysql` | MultiStatements auto-enabled by the migrate driver |
+| `sqlite` | File-based; no DSN host/port |
+| `sqlserver` | SQL Server (Linux container in dev) |
+| `clickhouse` | OLAP target; foundational migration ships only the users table (no triggers) |
+
+The driver is determined at `gofasta new --driver <name>` time and baked into `config.yaml`. See [`gofasta new --driver`](/docs/cli-reference/new/driver) for the full per-driver story.
 
 ## Database Configuration
 
-The migration command reads database connection settings from `config/config.yaml`:
+`config.yaml`:
 
 ```yaml
 database:
   driver: postgres
   host: localhost
-  port: 5432
+  port: "5432"
   name: myapp_dev
   user: postgres
   password: postgres
+  sslmode: disable
 ```
 
-Settings can be overridden using `GOFASTA_` prefixed environment variables.
+Override via env: `GOFASTA_DATABASE_HOST`, `GOFASTA_DATABASE_PORT`, etc.
 
 ## Migration File Format
 
-Up migrations contain SQL statements to apply changes:
+Up:
 
 ```sql
 -- db/migrations/000006_create_products.up.sql
@@ -93,19 +176,22 @@ CREATE TABLE products (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMP
 );
-
 CREATE INDEX idx_products_deleted_at ON products(deleted_at);
 ```
 
-Down migrations contain SQL statements to reverse changes:
+Down:
 
 ```sql
 -- db/migrations/000006_create_products.down.sql
 DROP TABLE IF EXISTS products;
 ```
 
+Generate new migration pairs via [`gofasta g migration`](/docs/cli-reference/generate/migration) or as part of [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold).
+
 ## Related
 
-- [gofasta seed](/docs/cli-reference/seed) -- run database seeders
-- [gofasta init](/docs/cli-reference/init) -- initialize a project including running migrations
-- [gofasta dev](/docs/cli-reference/dev) -- dev server runs migrations automatically if DB is available
+- [`gofasta new --driver`](/docs/cli-reference/new/driver) — picks the database engine the migrations are written for
+- [`gofasta g migration`](/docs/cli-reference/generate/migration) — generate a migration pair
+- [`gofasta seed`](/docs/cli-reference/seed) — run database seeders
+- [`gofasta init`](/docs/cli-reference/init) — initialize a cloned project (runs `migrate up`)
+- [`gofasta dev`](/docs/cli-reference/dev) — dev server runs `migrate up` automatically if the DB is reachable

@@ -29,6 +29,9 @@ gofasta g scaffold <Name> [field:type ...] [flags]
 |------|---------|-------------|
 | `--graphql` | `false` | Also generate GraphQL schema and wire up the resolver for this resource. This is separate from the `--graphql` flag on `gofasta new`, which enables GraphQL for the entire project. Your project must have been created with `gofasta new --graphql` for this flag to work. |
 | `--gql` | `false` | Alias for `--graphql` |
+| `--swagger` | `false` | Add Swagger/OpenAPI annotations to the generated controller (`@Summary`, `@Tags`, `@Router`, etc. — drives `gofasta swagger`'s spec generation). |
+| `--dry-run` | `false` | Show the files that would be created and patched without writing to disk. Honors the global `--json` flag for structured output (a `{create: [...], patch: [...]}` plan). |
+| `--no-verify` | `false` | Skip the post-generation `go build ./...` check. The default `go build` catches template-render issues before the user sees them; pass this flag when you're scripting many scaffolds back-to-back and want to defer the build. |
 
 ## Field Types
 

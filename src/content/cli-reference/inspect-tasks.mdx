@@ -1,0 +1,139 @@
+---
+title: gofasta inspect-tasks
+description: Static AST scan of app/tasks/ that lists every async task with its wire name, payload shape, and handler/enqueuer presence. No running app required.
+keywords:
+  - "CLI"
+  - "inspect-tasks"
+  - "asynq"
+  - "queue"
+  - "background jobs"
+  - "AST"
+  - "AI coding agent"
+  - "gofasta inspect-tasks"
+---
+
+# gofasta inspect-tasks
+
+Lists every async task registered under `app/tasks/` along with its wire name, payload struct, and which parts of the four-part task contract are present. Static AST scan — no running app, no Redis, no devtools required. Sibling of [`gofasta inspect-jobs`](/docs/cli-reference/inspect-jobs) for the cron side.
+
+The command walks `app/tasks/*.task.go`, parses each file, and reports every task that follows gofasta's `g task` convention:
+
+```go
+const TaskSendWelcomeEmail = "task.send.welcome.email"
+type SendWelcomeEmailPayload struct { UserID uuid.UUID; Email string }
+func HandleSendWelcomeEmail(ctx context.Context, t *asynq.Task) error { ... }
+func EnqueueSendWelcomeEmail(ctx context.Context, q *asynq.Client, p SendWelcomeEmailPayload) (*asynq.TaskInfo, error) { ... }
+```
+
+A task is discovered by its `Task<Name>` constant; the matching `<Name>Payload` struct, `Handle<Name>` handler, and `Enqueue<Name>` helper are paired by name. Each is reported as present or missing — so you can see at a glance whether a task is fully wired or only half-done.
+
+## Usage
+
+```bash
+gofasta inspect-tasks [<name>] [--json]
+```
+
+The positional arg filters to one task by either the short name (`SendWelcomeEmail`) or the Go constant name (`TaskSendWelcomeEmail`).
+
+## Flags
+
+No command-specific flags. Honors the global `--json`.
+
+## Output
+
+### Text mode
+
+```
+$ gofasta inspect-tasks
+
+2 task(s) under app/tasks:
+
+  SendWelcomeEmail  (TaskSendWelcomeEmail)
+    file:      app/tasks/send_welcome_email.task.go
+    wire_name: task.send.welcome.email
+    handlers:  HandleSendWelcomeEmail + EnqueueSendWelcomeEmail
+    payload:   2 field(s)
+      - UserID uuid.UUID
+      - Email string
+
+  CleanupOrphanedFiles  (TaskCleanupOrphanedFiles)
+    file:      app/tasks/cleanup_orphaned_files.task.go
+    wire_name: task.cleanup.orphaned.files
+    handlers:  HandleCleanupOrphanedFiles (missing EnqueueCleanupOrphanedFiles)
+```
+
+### JSON mode
+
+```bash
+gofasta inspect-tasks --json
+```
+
+```json
+{
+  "tasks_dir": "app/tasks",
+  "tasks": [
+    {
+      "name": "SendWelcomeEmail",
+      "type_name": "TaskSendWelcomeEmail",
+      "wire_name": "task.send.welcome.email",
+      "file": "app/tasks/send_welcome_email.task.go",
+      "payload": [
+        {"name": "UserID", "type": "uuid.UUID"},
+        {"name": "Email", "type": "string"}
+      ],
+      "has_handler": true,
+      "has_enqueue": true
+    }
+  ],
+  "count": 1
+}
+```
+
+## Examples
+
+List every task:
+
+```bash
+gofasta inspect-tasks
+```
+
+Filter to one task:
+
+```bash
+gofasta inspect-tasks SendWelcomeEmail
+```
+
+Find tasks that have a handler but no enqueuer (half-wired):
+
+```bash
+gofasta inspect-tasks --json | jq '.tasks[] | select(.has_handler and (.has_enqueue | not))'
+```
+
+Find tasks with a specific payload field:
+
+```bash
+gofasta inspect-tasks --json | jq '.tasks[] | select(.payload[]? | .name == "UserID")'
+```
+
+## How it works
+
+For each `app/tasks/*.task.go` (excluding `_test.go`):
+
+1. **Parse** the file with `go/parser`.
+2. **Collect `Task<Name>` constants.** For each `const TaskFoo = "wire.name"` declaration, capture the short name (`Foo`), the Go identifier (`TaskFoo`), and the wire-name string literal.
+3. **Match payload structs.** Look for `<Short>Payload` struct declarations; record each field's name + type.
+4. **Match handler funcs.** Look for `Handle<Short>` package-level functions (methods are skipped).
+5. **Match enqueue funcs.** Look for `Enqueue<Short>` package-level functions.
+6. **Emit one entry per task** with `has_handler` / `has_enqueue` flags so you can spot incomplete tasks.
+
+Methods (functions with a receiver) named `HandleFoo` don't count — only package-level functions satisfy the contract. This mirrors `gofasta g task`'s generator output.
+
+## Future: live mode
+
+When the app is reachable and built with `devtools`, the JSON will additionally include per-task queue depth + recent runs from `/debug/tasks`. That endpoint isn't shipped yet.
+
+## Related
+
+- [`gofasta inspect-jobs`](/docs/cli-reference/inspect-jobs) — sibling for the cron-scheduled jobs layer
+- [`gofasta inspect`](/docs/cli-reference/inspect) — full resource view (model/DTOs/service/controller/routes), not tasks
+- [`gofasta g task`](/docs/cli-reference/generate/task) — generate a new task stub matching the contract this command scans for

@@ -1,0 +1,115 @@
+---
+title: gofasta g middleware
+description: Wrap an existing chi route's handler with a middleware. Idempotent — re-running on a route that already includes the middleware is a no-op.
+keywords:
+  - "middleware"
+  - "chi"
+  - "route"
+  - "auth"
+  - "generate"
+  - "gofasta generate"
+---
+
+# gofasta g middleware
+
+Wraps an existing route's handler with a chi middleware. Finds the route file that registers `<METHOD> <path>` and rewrites the route chain so the middleware is applied. Idempotent — re-running with a middleware that's already in the `.With(...)` chain is a no-op.
+
+```
+r.Post("/orders/{id}/archive", httputil.Handle(c.ArchiveOrder))
+  →
+r.With(auth.RequireRole("admin")).Post("/orders/{id}/archive", httputil.Handle(c.ArchiveOrder))
+```
+
+If the route already has a `.With(...)` chain, the new middleware is appended to the existing list rather than nested:
+
+```
+r.With(audit.Log).Post(...)
+  →  (with --middleware auth.RequireRole("admin"))
+r.With(audit.Log, auth.RequireRole("admin")).Post(...)
+```
+
+## Usage
+
+```bash
+gofasta g middleware <METHOD> <path> <middleware-ref> [flags]
+```
+
+The `<middleware-ref>` is the literal Go expression that gets spliced into the chi `.With(...)` call — anything that compiles as an `http.Handler` middleware:
+
+- `middleware.Logger` — package-level middleware var
+- `auth.RequireRole("admin")` — middleware-returning function call
+- `mw.Rate(20, "1m")` — same pattern
+
+Wrap the expression in shell quotes if it contains special characters.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dry-run` | `false` | Preview the route file patch without writing. Honors `--json`. |
+
+## Examples
+
+Wrap an archive endpoint with an admin-only middleware:
+
+```bash
+gofasta g middleware POST /orders/{id}/archive 'auth.RequireRole("admin")'
+```
+
+Throttle a public endpoint:
+
+```bash
+gofasta g middleware GET /orders 'middleware.Throttle(20)'
+```
+
+Add the gofasta logger middleware:
+
+```bash
+gofasta g middleware POST /orders middleware.Logger
+```
+
+Preview without writing:
+
+```bash
+gofasta g middleware POST /orders/{id}/archive 'auth.RequireRole("admin")' --dry-run
+```
+
+## Where it looks
+
+`g middleware` scans `app/rest/routes/*.routes.go` for a registered route matching `<METHOD> <path>`. The match accepts both bare and `.With(...)`-wrapped forms:
+
+```go
+r.Post("/orders/{id}/archive", h)        // ← matches
+r.With(audit.Log).Post("/orders/{id}/archive", h)  // ← also matches
+```
+
+If the route isn't found in any file under `app/rest/routes/`, the command errors with `ROUTE_ALREADY_EXISTS` (yes — the error name is shared between "not registered" and "already-has-middleware" outcomes; the message disambiguates).
+
+## Idempotency
+
+Re-running with a middleware that's already in the chain is a soft no-op — no error, no patch recorded, just a clean exit. This lets you safely codify "this endpoint should have these middlewares" in a generator script without duplicating wraps.
+
+## How the splicing works
+
+The rewrite is regex-based, not AST-based — routes files are deliberately simple (one chi call per line) and regex surgery preserves formatting cleanly. The two patterns:
+
+```
+\br\.<Verb>\("<path>",       →   r.With(<mw>).<Verb>("<path>",
+\br\.With\(([^)]+)\)\.<Verb>\("<path>",  →   r.With($1, <mw>).<Verb>("<path>",
+```
+
+`$` characters in the middleware expression are escaped so regex.ReplaceAll doesn't interpret them as backreferences.
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `INVALID_NAME` | One of `<METHOD>`, `<path>`, `<middleware-ref>` is empty or invalid. |
+| `ROUTES_DIR_MISSING` | `app/rest/routes/` doesn't exist. |
+| `ROUTE_ALREADY_EXISTS` | No route in `app/rest/routes/*.routes.go` matches `<METHOD> <path>`. (Reused code — the message clarifies.) |
+| `FILE_IO` | The matched routes file couldn't be read or written. |
+
+## Related
+
+- [`gofasta g endpoint`](/docs/cli-reference/generate/endpoint) — generate the route this command wraps
+- [`gofasta routes`](/docs/cli-reference/routes) — list every registered route across the project
