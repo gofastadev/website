@@ -17,7 +17,7 @@ import {
   type BlogPost,
 } from "@/lib/blog";
 import { SITE_URL, withBaseKeywords } from "@/lib/seo";
-import { buildBlogPostingJsonLd } from "@/lib/structured-data";
+import { buildBlogPostingJsonLd, humanize } from "@/lib/structured-data";
 
 // `force-static` + `generateStaticParams` + `dynamicParams = false`
 // guarantees each post is prerendered to flat HTML at build time —
@@ -35,6 +35,24 @@ export async function generateStaticParams() {
 
 function postUrl(slug: string): string {
   return `${SITE_URL}/blog/${slug}`;
+}
+
+// Absolutize a cover URL the same way the JSON-LD builder does so that
+// social-card consumers (Facebook / LinkedIn / Slack / Twitter) get an
+// origin-qualified URL regardless of whether the author uploaded the
+// cover through Keystatic (relative `/blog/covers/...`) or pointed at a
+// remote CDN (`https://...`). Falls back to the generated /api/og card
+// only when no cover exists — Keystatic enforces `cover` as required,
+// so the fallback is defensive (e.g. legacy posts authored before the
+// requirement was added, or a malformed frontmatter that still managed
+// to parse).
+function postOgImage(post: BlogPost): string {
+  if (post.coverUrl) {
+    return post.coverUrl.startsWith("http")
+      ? post.coverUrl
+      : `${SITE_URL}${post.coverUrl}`;
+  }
+  return `${SITE_URL}/api/og?title=${encodeURIComponent(post.title)}&section=Blog`;
 }
 
 // Medium and Hashnode both render the post title exactly once — in the
@@ -59,7 +77,7 @@ export async function generateMetadata({
   if (!post) return { title: "Post not found — Gofasta Blog" };
 
   const url = postUrl(slug);
-  const ogImage = `/api/og?title=${encodeURIComponent(post.title)}&section=Blog`;
+  const ogImage = postOgImage(post);
 
   return {
     title: `${post.title} — Gofasta Blog`,
@@ -108,7 +126,11 @@ function buildPostJsonLd(post: BlogPost) {
     ? post.coverUrl
     : `${SITE_URL}${post.coverUrl}`;
   // The builder already emits a `@graph` containing BlogPosting +
-  // BreadcrumbList, so this thin wrapper just forwards.
+  // BreadcrumbList, so this thin wrapper just forwards. `wordCount` /
+  // `timeRequired` / `articleSection` come from data we already compute
+  // for the page (reading-time + first slugged tag) so they cost nothing
+  // extra to surface as Article-eligibility signals.
+  const minutes = Math.max(1, Math.round(post.readingTime.minutes));
   return buildBlogPostingJsonLd({
     slug: post.slug,
     title: post.title,
@@ -119,6 +141,9 @@ function buildPostJsonLd(post: BlogPost) {
     updatedAt: post.updatedAt,
     coverImageUrl: coverImage,
     keywords: withBaseKeywords("blog", ...post.tags),
+    wordCount: post.readingTime.words,
+    timeRequired: `PT${minutes}M`,
+    articleSection: post.tags[0] ? humanize(post.tags[0]) : "Blog",
   });
 }
 

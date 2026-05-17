@@ -5,6 +5,12 @@ import { BlogPostCard } from "@/components/molecules/blog-post-card";
 import { BlogPagination } from "@/components/molecules/blog-pagination";
 import { getAllPosts, getAllTags } from "@/lib/blog";
 import { withBaseKeywords } from "@/lib/seo";
+import { buildBlogIndexJsonLd } from "@/lib/structured-data";
+
+// Cap the BlogPosting summaries embedded in the index JSON-LD. Google
+// recommends keeping structured-data payloads compact; the most recent
+// posts are the highest-signal items for the hub-page schema.
+const BLOG_INDEX_JSONLD_MAX = 50;
 
 // /blog — paginated index of every published post. `force-static`
 // pre-renders the page to flat HTML at build time so Pagefind can
@@ -86,8 +92,25 @@ export default async function BlogIndexPage({
   const gridPosts = showHero ? pagePosts.slice(1) : pagePosts;
   const featured = showHero ? pagePosts[0] : null;
 
+  // Blog + Breadcrumb JSON-LD for the index page. Cap the embedded post
+  // summaries — the per-post page has its own full BlogPosting graph,
+  // so the index only needs enough to establish this URL as a blog hub.
+  const jsonLd = buildBlogIndexJsonLd({
+    posts: allPosts.slice(0, BLOG_INDEX_JSONLD_MAX).map((post) => ({
+      slug: post.slug,
+      title: post.title,
+      description: post.description,
+      publishedAt: post.publishedAt,
+      updatedAt: post.updatedAt,
+    })),
+  });
+
   return (
     <LandingTemplate>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main
         className="mx-auto max-w-6xl px-6 pt-32 pb-24"
         data-pagefind-body

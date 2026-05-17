@@ -308,6 +308,73 @@ describe("createBlogService", () => {
     expect(service.getPost("tags-mixed")).toBeNull();
   });
 
+  it("filters posts flagged draft: true regardless of publishedAt", () => {
+    writePost(
+      "live",
+      validFrontmatter(),
+    );
+    writePost(
+      "drafted",
+      validFrontmatter(["draft: true"]),
+    );
+    expect(service.getAllPosts().map((p) => p.slug)).toEqual(["live"]);
+    expect(service.getPost("drafted")).toBeNull();
+  });
+
+  it("includes posts where draft is false or omitted", () => {
+    writePost(
+      "explicit-false",
+      validFrontmatter(["draft: false"]),
+    );
+    writePost(
+      "missing-field",
+      validFrontmatter(),
+    );
+    const slugs = service.getAllPosts().map((p) => p.slug).sort();
+    expect(slugs).toEqual(["explicit-false", "missing-field"]);
+  });
+
+  it("treats non-boolean draft values as not-a-draft (defaults to published)", () => {
+    // Strict `=== true` parser semantics: only the literal boolean
+    // true filters. yaml v2 parses "yes" as a boolean true (legacy
+    // YAML 1.1 truthy), so test the strings that DON'T round-trip to
+    // boolean true — quoted "true" stays a string and must not hide
+    // the post.
+    writePost(
+      "string-true",
+      validFrontmatter(['draft: "true"']),
+    );
+    writePost(
+      "number-one",
+      validFrontmatter(["draft: 1"]),
+    );
+    const slugs = service.getAllPosts().map((p) => p.slug).sort();
+    expect(slugs).toEqual(["number-one", "string-true"]);
+  });
+
+  it("composes draft + future-date — either gate hides the post", () => {
+    writePost(
+      "draft-and-future",
+      validFrontmatter([
+        "draft: true",
+        "publishedAt: 2099-01-01T10:00:00.000Z",
+      ]).replace("publishedAt: 2026-04-01T10:00:00.000Z\n", ""),
+    );
+    writePost(
+      "draft-only",
+      validFrontmatter(["draft: true"]),
+    );
+    writePost(
+      "future-only",
+      validFrontmatter(["publishedAt: 2099-01-01T10:00:00.000Z"]).replace(
+        "publishedAt: 2026-04-01T10:00:00.000Z\n",
+        "",
+      ),
+    );
+    writePost("published", validFrontmatter());
+    expect(service.getAllPosts().map((p) => p.slug)).toEqual(["published"]);
+  });
+
   it("rejects posts with missing or invalid publishedAt", () => {
     // publishedAt as a number
     writePost(

@@ -45,6 +45,12 @@ export default config({
       format: { contentField: "body" },
       entryLayout: "content",
       schema: {
+        draft: fields.checkbox({
+          label: "Draft",
+          description:
+            "Drafts are excluded from the public blog, sitemap, RSS, JSON Feed, tag pages, and on-site search. Pair with a future Published date to schedule — the post will stay hidden until both Draft is unchecked AND the scheduled date passes.",
+          defaultValue: false,
+        }),
         title: fields.slug({
           name: { label: "Title" },
           slug: {

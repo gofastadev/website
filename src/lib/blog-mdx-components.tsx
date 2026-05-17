@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { getLocalImageDim } from "./image-dim";
 
 // ─────────────────────────────────────────────────────────────────────
 // blog-mdx-components.tsx
@@ -63,9 +64,20 @@ export interface BlogImageProps {
 // replace it with a captioned `<figure>` and a lazy-loaded `<img>` so
 // blog images don't block first paint and so the alt text doubles as
 // a caption when present.
+//
+// `width` / `height` come from `getLocalImageDim`, which probes the
+// file at build time (the consuming route is `force-static`). When the
+// dimensions are known we also set an inline `aspect-ratio` so the
+// browser reserves vertical space immediately on first paint — that's
+// the Core Web Vitals (CLS) fix. Remote URLs or missing files keep the
+// current attribute-less behavior.
 export function BlogImage({ src, alt, title }: BlogImageProps) {
   if (!src) return null;
   const caption = title ?? alt;
+  const dim = getLocalImageDim(src);
+  const style: CSSProperties | undefined = dim
+    ? { aspectRatio: `${dim.width} / ${dim.height}` }
+    : undefined;
   return (
     <figure className="my-8">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -74,6 +86,9 @@ export function BlogImage({ src, alt, title }: BlogImageProps) {
         alt={alt ?? ""}
         loading="lazy"
         decoding="async"
+        width={dim?.width}
+        height={dim?.height}
+        style={style}
         className="w-full rounded-lg border border-gray-200 dark:border-white/10"
       />
       {caption ? (

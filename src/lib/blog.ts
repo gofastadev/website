@@ -36,6 +36,14 @@ export interface BlogPostFrontmatter {
   authorUrl?: string;
   tags: string[];
   cover: string;
+  /**
+   * Editorial draft flag from Keystatic. When `true`, the post is
+   * filtered out of every public surface (index, sitemap, RSS, JSON
+   * Feed, tag pages, on-site search). Defaults to `false` when
+   * missing so legacy posts authored before the field existed stay
+   * published without re-edit.
+   */
+  draft?: boolean;
 }
 
 export interface BlogPost extends BlogPostFrontmatter {
@@ -119,6 +127,14 @@ function parsePost(
   const publishDate = new Date(publishedAt);
   if (Number.isNaN(publishDate.getTime())) return null;
   if (publishDate.getTime() > now.getTime()) return null;
+
+  // Drafts are filtered after the publishedAt check so the two
+  // mechanisms compose: a future-dated draft stays hidden even if one
+  // of the two gates is removed. Strict `=== true` so a non-boolean
+  // (or missing) value falls through to "published" — matches Keystatic
+  // checkbox semantics and keeps existing posts that lack the field
+  // visible without a re-edit.
+  if (fm.draft === true) return null;
 
   const updatedAt =
     typeof fm.updatedAt === "string" ? fm.updatedAt : undefined;

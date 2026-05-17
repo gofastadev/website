@@ -3,6 +3,8 @@ import {
   buildBreadcrumbJsonLd,
   buildTechArticleJsonLd,
   buildBlogPostingJsonLd,
+  buildBlogIndexJsonLd,
+  humanize,
 } from "./structured-data";
 
 describe("buildBreadcrumbJsonLd", () => {
@@ -205,5 +207,110 @@ describe("buildBlogPostingJsonLd", () => {
       "@type": "WebPage",
       "@id": "https://gofasta.dev/blog/x",
     });
+  });
+
+  it("includes wordCount / timeRequired / articleSection when provided", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "rich",
+      title: "Rich",
+      description: "All optionals set.",
+      authorName: "Gofasta Team",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=Rich&section=Blog",
+      wordCount: 1200,
+      timeRequired: "PT6M",
+      articleSection: "Golang",
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.wordCount).toBe(1200);
+    expect(post.timeRequired).toBe("PT6M");
+    expect(post.articleSection).toBe("Golang");
+  });
+
+  it("omits wordCount / timeRequired / articleSection when undefined", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "lean",
+      title: "Lean",
+      description: "Defaults only.",
+      authorName: "Gofasta Team",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=Lean&section=Blog",
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.wordCount).toBeUndefined();
+    expect(post.timeRequired).toBeUndefined();
+    expect(post.articleSection).toBeUndefined();
+  });
+});
+
+describe("buildBlogIndexJsonLd", () => {
+  it("emits a Blog node with breadcrumb and summary BlogPosting items", () => {
+    const out = buildBlogIndexJsonLd({
+      posts: [
+        {
+          slug: "a",
+          title: "A",
+          description: "First.",
+          publishedAt: "2026-05-01T00:00:00.000Z",
+          updatedAt: "2026-05-02T00:00:00.000Z",
+        },
+        {
+          slug: "b",
+          title: "B",
+          description: "Second.",
+          publishedAt: "2026-04-01T00:00:00.000Z",
+        },
+      ],
+    });
+    expect(out["@graph"]).toHaveLength(2);
+
+    const breadcrumb = out["@graph"][0] as Record<string, unknown>;
+    expect(breadcrumb["@type"]).toBe("BreadcrumbList");
+    expect((breadcrumb.itemListElement as unknown[])).toHaveLength(2);
+
+    const blog = out["@graph"][1] as Record<string, unknown>;
+    expect(blog["@type"]).toBe("Blog");
+    expect(blog["@id"]).toBe("https://gofasta.dev/blog");
+    expect(blog.url).toBe("https://gofasta.dev/blog");
+    expect(blog.inLanguage).toBe("en");
+    expect(blog.publisher).toMatchObject({
+      "@type": "Organization",
+      name: "Gofasta",
+      url: "https://gofasta.dev",
+      logo: "https://gofasta.dev/logo.png",
+    });
+
+    const items = blog.blogPost as Array<Record<string, unknown>>;
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      "@type": "BlogPosting",
+      headline: "A",
+      description: "First.",
+      url: "https://gofasta.dev/blog/a",
+      datePublished: "2026-05-01T00:00:00.000Z",
+      dateModified: "2026-05-02T00:00:00.000Z",
+    });
+    // updatedAt falls back to publishedAt when missing.
+    expect(items[1]).toMatchObject({
+      "@type": "BlogPosting",
+      headline: "B",
+      url: "https://gofasta.dev/blog/b",
+      datePublished: "2026-04-01T00:00:00.000Z",
+      dateModified: "2026-04-01T00:00:00.000Z",
+    });
+  });
+
+  it("works with an empty post list", () => {
+    const out = buildBlogIndexJsonLd({ posts: [] });
+    const blog = out["@graph"][1] as Record<string, unknown>;
+    expect(blog.blogPost).toEqual([]);
+  });
+});
+
+describe("humanize export", () => {
+  it("title-cases a kebab-case slug", () => {
+    expect(humanize("cli-reference")).toBe("Cli Reference");
+    expect(humanize("go")).toBe("Go");
+    expect(humanize("multi-word-tag")).toBe("Multi Word Tag");
   });
 });
