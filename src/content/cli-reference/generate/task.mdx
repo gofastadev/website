@@ -1,6 +1,17 @@
 ---
 title: gofasta g task
-description: Generate an async task handler using hibiken/asynq.
+description: Generate an asynq-backed async task — emits a `Task<Name>` constant, a `<Name>Payload` struct, a `Handle<Name>` handler, and an `Enqueue<Name>` helper. Wired into the queue worker so `EnqueueX(ctx, q, p)` and the worker pickup just work.
+keywords:
+  - "generate task"
+  - "async task"
+  - "asynq"
+  - "background task"
+  - "hibiken/asynq"
+  - "task handler"
+  - "task payload"
+  - "enqueue helper"
+  - "queue worker"
+  - "gofasta generate"
 ---
 
 # gofasta g task

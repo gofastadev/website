@@ -1,6 +1,12 @@
 ---
 title: gofasta dev
 description: Bring the full local environment up with one command — compose services + migrations + Air hot reload, with interactive restart.
+keywords:
+  - "CLI"
+  - "dev server"
+  - "development"
+  - "hot reload"
+  - "gofasta dev"
 ---
 
 # `gofasta dev`
@@ -15,7 +21,7 @@ gofasta dev [flags]
 
 ## What runs by default
 
-`gofasta dev` activates the **`cache` and `queue` compose profiles automatically** so your scaffolded project's redis + asynqmon services come up alongside the database. Pass `--no-cache` / `--no-queue` to opt out.
+`gofasta dev` activates the **`cache` and `queue` compose profiles automatically** so your scaffolded project's redis + asynqmon services come up alongside the database. Use `--services=<list>` to pick an explicit subset (e.g. `--services=postgres` to skip cache + queue), or the [interactive preflight menu](#preflight-menu) to opt out of specific services without typing the list.
 
 A second mode, [`--all-in-docker`](#all-in-docker-mode), runs Air *inside* the app container and streams its hot-reload output to the foreground — useful when you want full Docker isolation but still want to see live logs.
 
@@ -41,18 +47,13 @@ On projects without a `compose.yaml`, steps 1–4 are short-circuited and the pi
 | Flag | Default | Behavior |
 | --- | --- | --- |
 | `--all-in-docker` | `false` | Run the entire stack (including Air) inside Docker. Supporting services run detached; the app container's stdout streams to the foreground for live hot-reload logs. See [the dedicated section](#all-in-docker-mode). |
-| `--no-services` | `false` | Skip all compose orchestration; just run Air (for an externally-managed database). |
-| `--no-db` | `false` | Skip DB-like services (postgres, mysql, clickhouse, mariadb, or anything suffixed `-db`). |
-| `--no-cache` | `false` | Skip the `cache` compose profile (which is auto-activated by default). |
-| `--no-queue` | `false` | Skip the `queue` compose profile (which is auto-activated by default). |
+| `--services=<list>` | *(all non-app services in compose.yaml)* | Comma-separated explicit list of compose services to start. Use this to opt out of specific services (e.g. `--services=cache,queue` to skip the DB when you're running it elsewhere). When set, the [interactive preflight menu](#preflight-menu) is bypassed. |
+| `--profile=<name>` | *(none)* | Additional compose profile to activate. `cache` and `queue` profiles are auto-activated when present. |
 | `--no-migrate` | `false` | Skip `migrate up` after services become healthy. |
 | `--no-keyboard` | `false` | Disable the [interactive keyboard layer](#interactive-keyboard-controls). Use this when stdin is piped or for non-interactive sessions. Auto-disabled when stdin is not a TTY. |
 | `--no-teardown` | `false` | Leave compose services running on exit (default: stop them). |
 | `--keep-volumes` | `true` | Preserve named volumes on teardown. Pass `--keep-volumes=false` to run `docker compose down -v` instead of `docker compose stop`. |
 | `--fresh` | `false` | Drop every compose volume before starting — forces a clean database state. |
-| `--services=<list>` | *(derived)* | Comma-separated explicit list. Overrides `--no-*` flags. |
-| `--profile=<name>` | *(none)* | Additional compose profile to activate. Cache and queue are auto-on unless `--no-cache` / `--no-queue`. |
-| `--wait-timeout=<duration>` | `30s` | How long to wait for compose services to report healthy. |
 | `--env-file=<path>` | `.env` | Alternate env file to load before Air. |
 | `--port=<n>` | *(from config)* | Override the `PORT` env var passed to Air / the app binary. |
 | `--rebuild` | `false` | Clear Air's `tmp/` build directory before starting so the next build is fresh. Host-Air-only; no-op under `--all-in-docker`. |
@@ -63,19 +64,38 @@ On projects without a `compose.yaml`, steps 1–4 are short-circuited and the pi
 | `--dashboard-port=<n>` | `9090` | Port for the dev dashboard HTTP server. |
 | `--json` | `false` *(persistent)* | Emit structured NDJSON events instead of human log lines. |
 
-## Flag resolution priority
+### Service selection
 
-1. `--no-services` wins unconditionally — start nothing.
-2. `--services=a,b,c` overrides `--no-*` filters — start exactly those.
-3. Default: every non-app service in `compose.yaml`, minus any matched by `--no-*` name heuristics. The `app` service is included only under `--all-in-docker`.
+Three ways to control which compose services come up, in priority order:
 
-**Compose profile resolution.** The profile list passed to `docker compose --profile` is built from:
+1. **`--services=a,b,c`** — explicit list. Starts exactly those services and skips the preflight menu. Best for scripts.
+2. **Interactive preflight menu** — when stdin is a TTY and `--services` isn't set, gofasta prints the resolved service list with options to (1) launch as-is, (2) deselect specific services, (3) run without DB (degraded mode with a SQLite stub), or (q) quit. See [preflight menu](#preflight-menu) below.
+3. **Default** — every non-app service in `compose.yaml` plus the `cache` and `queue` profiles if defined. The `app` service is included only under `--all-in-docker`.
 
-1. Any value of `--profile=<name>`.
-2. `cache` — unless `--no-cache` is set.
-3. `queue` — unless `--no-queue` is set.
+## Preflight menu
 
-Duplicates are removed; order is stable. So the default activates `[cache queue]`; `gofasta dev --no-cache` activates `[queue]`; `gofasta dev --no-cache --no-queue` activates `[]`.
+When you run `gofasta dev` on an interactive terminal without `--services=<list>` (and without `--no-keyboard`), gofasta resolves the compose service list and prints a menu before launching anything:
+
+```
+gofasta dev — preflight
+
+Services to start: postgres, redis, asynqmon
+
+  [1] Launch as-is
+  [2] Deselect specific services (then launch)
+  [3] Run without DB (degraded mode — uses a SQLite stub)
+  [q] Quit
+
+Choice [1]:
+```
+
+Pressing `Enter` (or `1`) launches with the default set. `[2]` opens a per-service toggle so you can drop e.g. `asynqmon` without retyping the full list. `[3]` enters **degraded mode** — gofasta starts the cache + queue services (if any) but skips the database, then injects a per-process SQLite stub so the app boots and Air can hot-reload without a database connection. Useful for UI / routing work where you don't need real data.
+
+The menu auto-skips when:
+
+- `--services=<list>` is set — the explicit list wins, no menu shown
+- stdin is not a TTY (CI, piped input) — default service list is used
+- `--no-keyboard` is set — no menu, no in-loop keystroke handling
 
 ## Interactive keyboard controls
 
@@ -119,7 +139,7 @@ What changes vs. the default mode:
 | **Air** | `go tool air` on the host | Air runs inside the `app` container; gofasta tails its logs to the foreground. |
 | **JSON event** | `{"event":"air","status":"running"}` | `{"event":"air","status":"running-in-docker"}` |
 
-**Mutual exclusions.** `--all-in-docker` is incompatible with `--no-services` and `--no-db` (the in-container app needs the database). Both produce a `DEV_FLAG_CONFLICT` error before any side effect runs. The flag also requires an `app` service in `compose.yaml` — gofasta scaffolds one by default; if your project's compose file is hand-authored without one, the same error fires.
+**Mutual exclusions.** `--all-in-docker` requires the database service in `--services=<list>` (the in-container app needs the database) and requires an `app` service in `compose.yaml` — gofasta scaffolds one by default; if your project's compose file is hand-authored without one, a `DEV_FLAG_CONFLICT` error fires.
 
 **Multiplexing other service logs.** By default only the app's logs reach the foreground. Pass `--attach-logs` alongside `--all-in-docker` to also stream db / cache / queue logs (compose prefixes each line with the service name).
 
@@ -149,11 +169,11 @@ Under `--all-in-docker` the `air` event carries `"status":"running-in-docker"` i
 | --- | --- |
 | `DEV_DOCKER_UNAVAILABLE` | `docker` not on `$PATH` or daemon unreachable |
 | `DEV_COMPOSE_NOT_FOUND` | No `compose.yaml` but `--services` or `--all-in-docker` was set |
-| `DEV_SERVICE_UNHEALTHY` | A service didn't become healthy within `--wait-timeout` |
+| `DEV_SERVICE_UNHEALTHY` | A service didn't become healthy within the compose healthcheck deadline |
 | `DEV_MIGRATION_FAILED` | `migrate up` returned non-zero |
 | `DEV_AIR_NOT_INSTALLED` | `go tool air` not registered in `go.mod` |
 | `DEV_PORT_IN_USE` | The configured PORT is already bound |
-| `DEV_FLAG_CONFLICT` | Two flags asked for incompatible behavior — e.g. `--all-in-docker --no-services`, `--all-in-docker --no-db`, or `--all-in-docker` against a `compose.yaml` with no `app` service. |
+| `DEV_FLAG_CONFLICT` | Two flags asked for incompatible behavior — e.g. `--all-in-docker` against a `compose.yaml` with no `app` service. |
 
 Each carries a `hint` and `docs` field in the JSON error payload — agents can branch on the code and surface the hint verbatim.
 
@@ -248,8 +268,8 @@ These live on the app itself (mounted under `/debug/` by `devtools.Handler()`), 
 # Everything up — db, cache (redis), queue (asynqmon), Air on the host. Ctrl+C to stop.
 gofasta dev
 
-# Just the database — drop cache + queue.
-gofasta dev --no-cache --no-queue
+# Just the database — drop cache + queue via the explicit services list.
+gofasta dev --services postgres
 
 # Run the entire stack inside Docker. Air runs in the app container; its
 # logs stream to your terminal so the experience matches host-Air.
@@ -261,11 +281,11 @@ gofasta dev --all-in-docker --attach-logs
 # Bring up services but run Air pointing at a different port.
 gofasta dev --port 8090
 
-# Host-run app with your own Postgres — bypass compose entirely.
-gofasta dev --no-services
+# Host-run app with your own Postgres — bypass compose entirely (empty services list).
+gofasta dev --services ''
 
-# Debug Air itself — no database, no migrations, just the rebuild loop.
-gofasta dev --no-services --no-migrate
+# Debug Air itself — no compose services, no migrations, just the rebuild loop.
+gofasta dev --services '' --no-migrate
 
 # Start with a fresh, seeded database every time.
 gofasta dev --fresh --seed

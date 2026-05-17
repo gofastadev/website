@@ -1,6 +1,17 @@
 ---
-title: Models
-description: Base model with UUID primary keys, automatic timestamps, soft delete, optimistic locking via record_version, and is_active/is_deletable flags.
+title: pkg/models — BaseModel with UUID, soft delete, optimistic lock
+description: Drop-in BaseModelImpl struct that gives every domain model UUID v7 primary keys, auto-managed CreatedAt/UpdatedAt/DeletedAt, optimistic locking via RecordVersion, plus IsActive and IsDeletable flags — all enforced by GORM hooks and DB-level triggers.
+keywords:
+  - "models API"
+  - "GORM"
+  - "BaseModel"
+  - "UUID primary key"
+  - "soft delete"
+  - "optimistic locking"
+  - "record_version"
+  - "auto timestamps"
+  - "is_active"
+  - "is_deletable"
 ---
 
 # Models

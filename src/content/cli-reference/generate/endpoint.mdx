@@ -1,0 +1,167 @@
+---
+title: gofasta g endpoint
+description: Add a single REST endpoint to an existing resource — patches the controller (handler stub), routes file (chi registration), and optionally the service interface in one shot.
+keywords:
+  - "endpoint"
+  - "route"
+  - "controller"
+  - "chi"
+  - "generate"
+  - "AST patch"
+  - "gofasta generate"
+---
+
+# gofasta g endpoint
+
+Adds a single REST endpoint to an existing resource. Patches three files in one shot:
+
+- `app/rest/controllers/<snake>.controller.go` — appends a handler method on the controller struct (with `@Summary` / `@Tags` / `@Router` Swagger annotations).
+- `app/rest/routes/<snake>.routes.go` — registers the chi route inside `<Resource>Routes(...)`.
+- `app/services/interfaces/<snake>_service.go` — *(unless `--no-service`)* appends a matching method to the service interface.
+
+The handler name is auto-derived from `<METHOD> /path` so `POST /orders/{id}/archive` becomes `ArchiveOrder` — pass `--handler` to override.
+
+## Usage
+
+```bash
+gofasta g endpoint <Resource> <METHOD> <path> [flags]
+```
+
+`<METHOD>` is one of `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`. `<path>` is a chi-style path with optional `{placeholder}` segments.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--handler` | *(auto-derived)* | Override the handler name. Useful when the auto-derived name doesn't fit (e.g. `--handler=ProcessRefund` instead of the default `RefundOrder`). |
+| `--no-service` | `false` | Skip the service-interface patch — controller + routes only. Use for endpoints that don't need a service method (e.g. a passthrough or controller-only health check). |
+| `--dry-run` | `false` | Preview the patches without writing. Honors `--json` for a structured plan. |
+
+## Auto-derived handler names
+
+`g endpoint` picks the action verb from the last non-placeholder path segment, then suffixes with the resource:
+
+| Method + Path | Auto-derived name |
+|---|---|
+| `POST /orders/{id}/archive` | `ArchiveOrder` |
+| `POST /orders/{id}/refund` | `RefundOrder` |
+| `POST /orders/{id}/items` | `ItemsOrder` |
+| `GET /orders/{id}` | `GetOrder` *(no trailing action → verb fallback)* |
+| `PUT /orders/{id}` | `UpdateOrder` *(PUT verb fallback)* |
+| `PATCH /orders/{id}` | `UpdateOrder` *(PATCH treated as PUT)* |
+| `DELETE /orders/{id}` | `DeleteOrder` *(DELETE verb fallback)* |
+| `GET /orders` | `ListOrder` *(GET collection)* |
+| `POST /orders` | `OrdersOrder` *(POST + single segment → segment as verb)* |
+
+When auto-derivation produces a name you don't want (e.g. `OrdersOrder` for `POST /orders`), pass `--handler`:
+
+```bash
+gofasta g endpoint Order POST /orders --handler CreateOrder
+```
+
+## Examples
+
+Add an archive endpoint:
+
+```bash
+gofasta g endpoint Order POST /orders/{id}/archive
+# →  ArchiveOrder handler + chi route + ArchiveOrder method on OrderServiceInterface
+```
+
+Override the handler name:
+
+```bash
+gofasta g endpoint Order POST /orders/{id}/refund --handler ProcessRefund
+# →  ProcessRefund handler + route, ProcessRefund method on the interface
+```
+
+Skip the service interface (controller + routes only):
+
+```bash
+gofasta g endpoint Order GET /orders/{id}/preview --no-service
+```
+
+Preview without writing:
+
+```bash
+gofasta g endpoint Order POST /orders/{id}/archive --dry-run
+```
+
+## What it patches
+
+### Controller — `app/rest/controllers/<snake>.controller.go`
+
+A new method on the controller struct:
+
+```go
+// ArchiveOrder handles POST /orders/{id}/archive.
+//
+// @Summary  ArchiveOrder
+// @Tags     order
+// @Accept   json
+// @Produce  json
+// @Router   /orders/{id}/archive [post]
+func (c *OrderController) ArchiveOrder(w http.ResponseWriter, r *http.Request) error {
+    // TODO: implement
+    return nil
+}
+```
+
+Adds the `net/http` import if not already present.
+
+### Routes — `app/rest/routes/<snake>.routes.go`
+
+Inserts a chi route line inside the `<Resource>Routes(...)` function, just before the closing brace:
+
+```go
+func OrderRoutes(r chi.Router) {
+    // ... existing routes preserved ...
+    r.Post("/orders/{id}/archive", httputil.Handle(c.ArchiveOrder))
+}
+```
+
+Wraps the handler in `httputil.Handle` so error returns flow through the gofasta error-presenter chain.
+
+### Service interface — `app/services/interfaces/<snake>_service.go` *(unless `--no-service`)*
+
+Appends a matching method declaration:
+
+```go
+type OrderServiceInterface interface {
+    // ... existing methods preserved ...
+    ArchiveOrder(ctx context.Context) error
+}
+```
+
+Adds the `context` import if not already present.
+
+## Idempotency
+
+| Trigger | Behavior |
+|---|---|
+| Controller already has the handler | Errors with `METHOD_ALREADY_EXISTS` |
+| Route already registered for the same method + path | Errors with `ROUTE_ALREADY_EXISTS` |
+| Service interface already has the method | Silently skipped — no error |
+
+The first two are hard errors to prevent accidental overwrites. The service-interface one is silent because the same endpoint might intentionally reuse an existing service method.
+
+## SSRF + route-wrapping awareness
+
+The route-already-registered check matches both bare `r.Post("/path", ...)` and `r.With(middleware).Post("/path", ...)` — so wrapping a route with [`gofasta g middleware`](/docs/cli-reference/generate/middleware) doesn't break idempotency.
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `INVALID_NAME` | Resource / method / path missing or HTTP method isn't one of the supported set. |
+| `RESOURCE_NOT_FOUND` | The controller file or routes file doesn't exist. Run `g scaffold` first. |
+| `METHOD_ALREADY_EXISTS` | The controller already has the handler. |
+| `ROUTE_ALREADY_EXISTS` | The chi routes file already registers this `METHOD path` combination. |
+| `AST_PATCH_FAILED` | The routes file's `<Resource>Routes(...)` function couldn't be located — file may have been restructured by hand. |
+
+## Related
+
+- [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) — full CRUD generator (creates the controller this command patches)
+- [`gofasta g middleware`](/docs/cli-reference/generate/middleware) — wrap an existing route with a chi middleware
+- [`gofasta g method`](/docs/cli-reference/generate/method) — add a service method without a REST endpoint
+- [`gofasta swagger`](/docs/cli-reference/swagger) — regenerate the OpenAPI spec from the Swagger annotations this command emits

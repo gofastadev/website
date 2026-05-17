@@ -51,12 +51,14 @@ export type EventName =
   | "cta_view_github"
   | "cta_read_white_paper"
   | "nav_to_docs"
+  | "nav_to_blog"
   | "nav_to_github_library"
   | "footer_link_click"
   | "copy_install_command"
   | "section_view"
   | "scroll_depth"
-  | "read_debugging_guide";
+  | "read_debugging_guide"
+  | "share_click";
 
 /**
  * Parameters attached to a single event. GA4 accepts any

@@ -1,6 +1,26 @@
 ---
 title: gofasta ai
 description: Install per-agent configuration for Claude Code, Cursor, OpenAI Codex, Aider, and Windsurf — permission allowlists, hooks, project rules, and slash commands. Opt-in, idempotent, and extends to any MCP-aware successor.
+keywords:
+  - "CLI"
+  - "AI coding agent"
+  - "agent-native"
+  - "AI installer"
+  - "Claude Code"
+  - "Cursor"
+  - "OpenAI Codex"
+  - "Aider"
+  - "Windsurf"
+  - "AGENTS.md"
+  - "agent configuration"
+  - "permission allowlist"
+  - "slash commands"
+  - "gofasta ai"
+  - "gofasta ai claude"
+  - "gofasta ai cursor"
+  - "gofasta ai codex"
+  - "gofasta ai aider"
+  - "gofasta ai windsurf"
 ---
 
 # gofasta ai
@@ -12,19 +32,29 @@ Every installer is **idempotent** — re-running after a gofasta update refreshe
 ## Usage
 
 ```bash
-gofasta ai <agent> [--dry-run] [--force]
+gofasta ai <agent> [--dry-run] [--force] [--switch]
 gofasta ai list
 gofasta ai status
+gofasta ai uninstall <agent> [--dry-run]
 ```
 
 Inherits the global `--json` flag for machine-parseable output.
 
 ## Flags
 
+`gofasta ai <agent>` (the installer):
+
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--dry-run` | bool | `false` | Preview what would be written without touching disk |
 | `--force` | bool | `false` | Overwrite existing files whose contents differ from the template |
+| `--switch` | bool | `false` | Replace the currently-installed agent with this one (uninstalls the previous agent first). Useful when you want to try a different agent without manually running `uninstall` then `install`. |
+
+`gofasta ai uninstall <agent>`:
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--dry-run` | bool | `false` | Preview what would be removed without touching disk |
 
 ## Supported agents
 
@@ -63,6 +93,25 @@ claude   Claude Code   2026-04-18 15:04 UTC   v0.2.0
 cursor   Cursor        2026-04-18 15:06 UTC   v0.2.0
 ```
 
+### `gofasta ai uninstall <agent>`
+
+Removes everything the installer added — every file in the manifest's `created` list, plus reverses any documentation-file rename (e.g. `CLAUDE.md` → `AGENTS.md`). Files you've modified since install are **preserved**, not silently overwritten — they're reported in the output so you can review them.
+
+```bash
+$ gofasta ai uninstall claude
+  renamed: CLAUDE.md → AGENTS.md
+  removed: .claude/settings.json
+  removed: .claude/hooks/pre-commit.sh
+  removed: .claude/commands/verify.md
+  preserved (locally modified): .claude/commands/scaffold.md
+```
+
+Pass `--dry-run` to preview what would be removed without touching disk:
+
+```bash
+gofasta ai uninstall claude --dry-run
+```
+
 ## Examples
 
 Install Claude Code config:
@@ -87,6 +136,18 @@ List supported agents in JSON:
 
 ```bash
 gofasta ai list --json
+```
+
+Switch from Claude to Aider (uninstalls Claude, installs Aider, in one step):
+
+```bash
+gofasta ai aider --switch
+```
+
+Remove all Cursor configuration:
+
+```bash
+gofasta ai uninstall cursor
 ```
 
 ## Idempotency + upgrade path

@@ -1,6 +1,17 @@
 ---
-title: Cache
-description: In-memory and Redis caching with TTL support, cache strategies, and key management.
+title: pkg/cache — In-memory + Redis caching with TTL
+description: Pluggable caching interface backed by an in-memory store (for dev/tests) or Redis (for production). Get / Set / Delete / Flush / Ping API, per-key TTL, automatic eviction, and a shared client suitable for cache-aside, write-through, and rate-limit patterns.
+keywords:
+  - "cache API"
+  - "caching"
+  - "Redis cache"
+  - "in-memory cache"
+  - "TTL"
+  - "cache-aside"
+  - "go-redis"
+  - "eviction"
+  - "cache strategy"
+  - "distributed cache"
 ---
 
 # Cache

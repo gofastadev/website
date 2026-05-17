@@ -1,0 +1,125 @@
+---
+title: gofasta g method
+description: Add a new method to an existing service interface + impl. AST-based patching, idempotent, preserves comments and blank lines.
+keywords:
+  - "method"
+  - "generate"
+  - "service"
+  - "interface"
+  - "AST patch"
+  - "gofasta generate"
+---
+
+# gofasta g method
+
+Adds a method to an existing service — patches both the interface at `app/services/interfaces/<snake>_service.go` (adding the signature) and the impl at `app/services/<snake>.service.go` (adding a stub body). Idempotent: re-running with the same method name returns `METHOD_ALREADY_EXISTS` rather than silently duplicating.
+
+Uses [dst](https://github.com/dave/dst) for AST patching, so doc comments, blank lines, and import grouping are preserved through the parse → modify → print round-trip.
+
+## Usage
+
+```bash
+gofasta g method <Resource> <Method> [param:type ...] [flags]
+```
+
+The resource must already exist (see [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold)). Additional positional args are parameters in `name:type` form — the same shorthand `g scaffold` uses for fields.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dry-run` | `false` | Preview the patches without writing. Honors `--json` for a structured `{patch: [...]}` plan. |
+
+## Examples
+
+Add an `Archive` method with no parameters:
+
+```bash
+gofasta g method Order Archive
+```
+
+Result — `app/services/interfaces/order_service.go` gains:
+
+```go
+type OrderServiceInterface interface {
+    // ... existing methods preserved ...
+    Archive(ctx context.Context) error
+}
+```
+
+And `app/services/order.service.go` gains:
+
+```go
+// Archive is a generated stub. Replace with the real implementation.
+func (s *orderService) Archive(ctx context.Context) error {
+    return fmt.Errorf("OrderServiceInterface.Archive: not implemented")
+}
+```
+
+Add a method with parameters:
+
+```bash
+gofasta g method Order Cancel reason:string force:bool
+# →  Cancel(ctx context.Context, reason string, force bool) error
+```
+
+Preview without writing:
+
+```bash
+gofasta g method Order Archive --dry-run
+```
+
+Plan output (JSON):
+
+```bash
+gofasta g method Order Archive --dry-run --json
+```
+
+```json
+{
+  "actions": [
+    {"kind": "patch", "path": "app/services/interfaces/order_service.go", "detail": "add Archive to OrderServiceInterface"},
+    {"kind": "patch", "path": "app/services/order.service.go", "detail": "add Archive impl stub to orderService"}
+  ]
+}
+```
+
+## What it patches
+
+| File | Change |
+|---|---|
+| `app/services/interfaces/<snake>_service.go` | Appends the method signature to `<Resource>ServiceInterface`. Adds `context` import if not present. |
+| `app/services/<snake>.service.go` | Appends a stub method to the impl struct. The stub returns a `fmt.Errorf("...: not implemented")` so the build stays green and existing tests don't break. |
+
+Naming conventions (overridable via `MethodData` fields if invoking the API directly):
+
+- Interface name: `<Resource>ServiceInterface` (matches scaffold)
+- Impl struct: `<lowerResource>Service` (matches scaffold)
+- Receiver name: `s`
+
+## Argument convention
+
+Every generated method takes `ctx context.Context` as the first parameter and returns `error`. User-supplied args follow `ctx`:
+
+```bash
+gofasta g method Order Cancel reason:string force:bool
+# →  Cancel(ctx context.Context, reason string, force bool) error
+```
+
+This matches the gofasta scaffold convention so all methods on a service have the same shape — predictable for callers and consistent with the auth/timeout middleware that hangs off the context.
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `RESOURCE_NOT_FOUND` | The interface or impl file is missing. Run [`gofasta g scaffold <Resource>`](/docs/cli-reference/generate/scaffold) first. |
+| `METHOD_ALREADY_EXISTS` | The interface already declares a method by that name. Idempotency hit. |
+| `AST_PARSE_FAILED` | One of the target files has a syntax error. Fix the file and re-run. |
+| `AST_PATCH_FAILED` | dst couldn't render the modified AST (rare — usually a malformed parameter type that doesn't parse). |
+
+## Related
+
+- [`gofasta g repo-method`](/docs/cli-reference/generate/repo-method) — same pattern for repository methods
+- [`gofasta g endpoint`](/docs/cli-reference/generate/endpoint) — add a method *and* wire it through a REST endpoint
+- [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) — full CRUD generator (creates the service this command patches)
+- [`gofasta g field`](/docs/cli-reference/generate/field) — sibling: add a field instead of a method

@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
+import { buildOgFooterUrl } from "@/lib/og-footer";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const title = searchParams.get("title") ?? "Documentation";
   const section = searchParams.get("section") ?? "Docs";
+  const footerUrl = buildOgFooterUrl(section);
 
   return new ImageResponse(
     (
@@ -88,7 +90,7 @@ export async function GET(request: NextRequest) {
           }}
         >
           <span style={{ fontSize: "18px", color: "#64748b" }}>
-            gofasta.dev/docs
+            {footerUrl}
           </span>
           <span style={{ fontSize: "16px", color: "#475569" }}>
             Go Backend Toolkit

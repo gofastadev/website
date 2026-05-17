@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useConsent } from "@/contexts/consent-context";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -24,9 +25,15 @@ import { useConsent } from "@/contexts/consent-context";
 
 export function CookieBanner() {
   const { consent, hydrated, setAnalyticsConsent } = useConsent();
+  const pathname = usePathname();
 
   if (!hydrated) return null;
   if (consent.analytics !== null) return null;
+  // Suppress the banner inside the Keystatic admin UI. Editors who
+  // open /keystatic are operators with write access to the repo —
+  // they don't need a tracking-consent prompt on top of their CMS,
+  // and the banner overlaps the Keystatic sidebar layout.
+  if (pathname?.startsWith("/keystatic")) return null;
 
   return (
     <div

@@ -8,8 +8,13 @@ const meta = {
   // differentiators (verify / status / inspect / do / config schema).
   // Placed after dev/debug/ai so they read as one cohesive block.
   verify: "gofasta verify",
+  test: "gofasta test",
   status: "gofasta status",
   inspect: "gofasta inspect",
+  "inspect-jobs": "gofasta inspect-jobs",
+  "inspect-tasks": "gofasta inspect-tasks",
+  impact: "gofasta impact",
+  xrefs: "gofasta xrefs",
   do: "gofasta do",
   config: "gofasta config",
   serve: "gofasta serve",

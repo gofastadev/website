@@ -1,0 +1,120 @@
+---
+title: gofasta g field
+description: Add a column to an existing resource. Patches the model, the DTOs (Create/Update/Response), and writes a paired migration in one shot. Per-DTO opt-out via --no-create / --no-update / --no-response.
+keywords:
+  - "field"
+  - "column"
+  - "generate"
+  - "model"
+  - "DTO"
+  - "migration"
+  - "AST patch"
+  - "gofasta generate"
+---
+
+# gofasta g field
+
+Adds a single column to an existing resource — patches the model struct, the DTOs (Create / Update / Response), and emits a paired `.up.sql` / `.down.sql` migration in one command. The DTO patches are opt-out via flags so you can keep a column out of `CreateRequest` (server-set) or out of the `Response` (write-only).
+
+Uses [dst](https://github.com/dave/dst) for AST patching, so comments, tag ordering, and import grouping are preserved.
+
+## Usage
+
+```bash
+gofasta g field <Resource> <name>:<type> [flags]
+```
+
+The resource must already exist (see [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold)). The field is given in the same `name:type` shorthand the scaffold accepts.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--no-dto` | `false` | Skip every DTO patch — only the model + migration are updated. |
+| `--no-create` | `false` | Skip the `CreateRequest` DTO patch (use for server-set fields like `archived_at`). |
+| `--no-update` | `false` | Skip the `UpdateRequest` DTO patch (use for immutable fields like `created_by`). |
+| `--no-response` | `false` | Skip the `Response` DTO patch (use for write-only fields like `password_hash`). |
+| `--dry-run` | `false` | Preview the patches + migration without writing. Honors `--json` for a structured plan. |
+
+## Supported types
+
+Same set as `g scaffold` — see [Field Types](/docs/cli-reference/generate/scaffold#field-types). The SQL type is driver-aware: `string` → `VARCHAR(255)` on Postgres / `VARCHAR(255)` on MySQL / `TEXT` on SQLite / `NVARCHAR(255)` on SQL Server / `String` on ClickHouse. Picked from `database.driver` in `config.yaml`.
+
+## Examples
+
+Add an `archive_reason` text column with full DTO coverage:
+
+```bash
+gofasta g field Order archive_reason:string
+```
+
+Result:
+
+- `app/models/order.model.go` — appends `ArchiveReason string \`gorm:"not null"\``
+- `app/dtos/order.dtos.go` — appends `ArchiveReason string \`json:"archive_reason"\`` to `OrderCreateRequest`, `OrderUpdateRequest`, `OrderResponse`
+- `db/migrations/NNNNNN_add_archive_reason_to_orders.up.sql` — `ALTER TABLE orders ADD COLUMN archive_reason VARCHAR(255);`
+- `db/migrations/NNNNNN_add_archive_reason_to_orders.down.sql` — `ALTER TABLE orders DROP COLUMN archive_reason;`
+
+Add a write-only `password_hash` field (omit from responses):
+
+```bash
+gofasta g field User password_hash:string --no-response
+```
+
+Add a server-set `archived_at` timestamp (omit from Create + Update):
+
+```bash
+gofasta g field Order archived_at:time --no-create --no-update
+```
+
+Model-only column (no DTO changes at all):
+
+```bash
+gofasta g field Order internal_notes:text --no-dto
+```
+
+Preview without writing:
+
+```bash
+gofasta g field Order shipped_at:time --dry-run
+```
+
+## What it patches
+
+| File | Change |
+|---|---|
+| `app/models/<snake>.model.go` | Appends the field to the `<Resource>` struct with the appropriate GORM tag. Adds `time` / `github.com/google/uuid` imports when the field type needs them. |
+| `app/dtos/<snake>.dtos.go` | Appends the field (with `json:"..."` tag, no GORM tag) to `<Resource>CreateRequest`, `<Resource>UpdateRequest`, and `<Resource>Response` — minus any opt-outs. Missing variants (e.g. you don't have an `UpdateRequest`) are silently skipped. |
+| `db/migrations/NNNNNN_add_<field>_to_<plural>.up.sql` | `ALTER TABLE <plural> ADD COLUMN <field> <sql-type>;` |
+| `db/migrations/NNNNNN_add_<field>_to_<plural>.down.sql` | `ALTER TABLE <plural> DROP COLUMN <field>;` |
+
+`NNNNNN` is the next available 6-digit migration version.
+
+## Naming conventions
+
+| Field input | Go field name | JSON tag | SQL column |
+|---|---|---|---|
+| `archive_reason:string` | `ArchiveReason` | `archive_reason` | `archive_reason` |
+| `userID:uuid` | `UserID` | `userID` | `user_id` |
+| `is_active:bool` | `IsActive` | `is_active` | `is_active` |
+
+The PascalCase / camelCase / snake_case conversions are deterministic — same rules as the scaffold.
+
+## Idempotency
+
+If the model struct already has the field, the command returns `FIELD_ALREADY_EXISTS` without touching anything. The DTOs and migrations are not checked the same way — but the migration filename includes a fresh version prefix, so re-running creates a duplicate migration rather than overwriting.
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `RESOURCE_NOT_FOUND` | The model file is missing. Run [`gofasta g scaffold <Resource>`](/docs/cli-reference/generate/scaffold) first. |
+| `FIELD_ALREADY_EXISTS` | The model struct already has a field by that name. Pick a different name or remove the existing field first. |
+| `AST_PARSE_FAILED` | The model or DTO file has a syntax error. |
+
+## Related
+
+- [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) — generates the resource this command patches
+- [`gofasta g migration`](/docs/cli-reference/generate/migration) — generate a standalone migration pair (no model patch)
+- [`gofasta g relation`](/docs/cli-reference/generate/relation) — add an association (belongs_to / has_many / has_one) instead of a flat field
+- [`gofasta migrate up`](/docs/cli-reference/migrate#gofasta-migrate-up) — apply the generated migration

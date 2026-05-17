@@ -1,0 +1,88 @@
+---
+title: gofasta g repo-method
+description: Add a method to an existing repository — the repository-layer twin of `g method`. Same AST-based patching, different default paths.
+keywords:
+  - "repo-method"
+  - "repository"
+  - "generate"
+  - "AST patch"
+  - "gofasta generate"
+---
+
+# gofasta g repo-method
+
+The repository-layer twin of [`g method`](/docs/cli-reference/generate/method). Identical semantics — patches an existing interface and impl, AST-based, idempotent — with repository-specific default paths:
+
+- Interface: `app/repositories/interfaces/<snake>_repository.go`
+- Impl: `app/repositories/<snake>.repository.go`
+- Naming: `<Resource>RepositoryInterface` + `<lowerResource>Repository`
+
+Use this for data-access methods (FK lookups, custom queries, batch operations). Use [`g method`](/docs/cli-reference/generate/method) for business-logic methods on the service layer.
+
+## Usage
+
+```bash
+gofasta g repo-method <Resource> <Method> [param:type ...] [flags]
+```
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dry-run` | `false` | Preview the patches without writing. Honors `--json` for a structured plan. |
+
+## Examples
+
+Add a `FindByCustomer` query:
+
+```bash
+gofasta g repo-method Order FindByCustomer customerID:uuid
+```
+
+Result — `app/repositories/interfaces/order_repository.go`:
+
+```go
+type OrderRepositoryInterface interface {
+    // ... existing methods preserved ...
+    FindByCustomer(ctx context.Context, customerID uuid.UUID) error
+}
+```
+
+And `app/repositories/order.repository.go`:
+
+```go
+// FindByCustomer is a generated stub. Replace with the real implementation.
+func (s *orderRepository) FindByCustomer(ctx context.Context, customerID uuid.UUID) error {
+    return fmt.Errorf("OrderRepositoryInterface.FindByCustomer: not implemented")
+}
+```
+
+Add a method with no params:
+
+```bash
+gofasta g repo-method Order ArchiveAll
+```
+
+Preview without writing:
+
+```bash
+gofasta g repo-method Order BulkInsert --dry-run --json
+```
+
+## Argument convention
+
+Same as [`g method`](/docs/cli-reference/generate/method#argument-convention) — every generated method takes `ctx context.Context` first, returns `error` last, with user-supplied args between.
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `RESOURCE_NOT_FOUND` | The interface or impl file is missing. Run [`gofasta g scaffold <Resource>`](/docs/cli-reference/generate/scaffold) first. |
+| `METHOD_ALREADY_EXISTS` | The interface already declares a method by that name. |
+| `AST_PARSE_FAILED` | One of the target files has a syntax error. |
+
+## Related
+
+- [`gofasta g method`](/docs/cli-reference/generate/method) — same idea, service layer
+- [`gofasta g repository`](/docs/cli-reference/generate/repository) — generate the repository this command patches
+- [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) — full CRUD (includes the repository)

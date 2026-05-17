@@ -1,6 +1,72 @@
 ---
 title: "Technical White Paper"
 description: "Gofasta technical white paper — design principles, architecture, code generation strategy, dependency injection with Google Wire, database layer with GORM, HTTP routing with chi, authentication, background processing, real-time communication, email and notifications, file storage, internationalization, feature flags, observability, resilience patterns, security defaults, testing, deployment, and adoption path for Go web services."
+keywords:
+  - "white paper"
+  - "technical paper"
+  - "architecture"
+  - "design principles"
+  - "code generation"
+  - "dependency injection"
+  - "Google Wire"
+  - "GORM"
+  - "chi router"
+  - "compile-time DI"
+  - "scaffolding"
+  - "REST API"
+  - "GraphQL"
+  - "authentication"
+  - "JWT"
+  - "RBAC"
+  - "background jobs"
+  - "task queue"
+  - "asynq"
+  - "observability"
+  - "Prometheus"
+  - "OpenTelemetry"
+  - "circuit breaker"
+  - "resilience"
+  - "retry"
+  - "database migrations"
+  - "PostgreSQL"
+  - "MySQL"
+  - "SQLite"
+  - "deployment"
+  - "Docker"
+  - "CI/CD"
+  - "health checks"
+  - "middleware"
+  - "CORS"
+  - "rate limiting"
+  - "email"
+  - "notifications"
+  - "WebSocket"
+  - "caching"
+  - "Redis"
+  - "feature flags"
+  - "i18n"
+  - "encryption"
+  - "sessions"
+  - "file storage"
+  - "S3"
+  - "validation"
+  - "open source"
+  - "MIT license"
+  - "production-ready"
+  - "batteries-included"
+  - "AI coding agent"
+  - "agent-native"
+  - "Claude Code"
+  - "Cursor"
+  - "OpenAI Codex"
+  - "Aider"
+  - "Windsurf"
+  - "AGENTS.md"
+  - "llms.txt"
+  - "llms-full.txt"
+  - "structured errors"
+  - "stable error codes"
+  - "--json flag"
 ---
 
 # Gofasta: Code Generation and Composable Packages for Go Backend Services
@@ -15,7 +81,7 @@ description: "Gofasta technical white paper — design principles, architecture,
 
 ## Abstract
 
-Go is an excellent language for building backend services, but starting a new production project still involves significant repetitive setup: wiring routers, configuring databases, setting up authentication, writing CRUD boilerplate, organizing project structure, and preparing deployment manifests. Each team reinvents these patterns independently, leading to inconsistency and wasted effort.
+Go is an excellent language for building backend services, but starting a new production project still involves significant repetitive setup: wiring routers, configuring databases, setting up authentication, writing CRUD boilerplate, organizing project structure, and preparing deployment manifests. Go's explicitness — every behavior visible in source, no hidden control flow — is precisely why engineers choose it; the setup cost is the price of that property, but it does not require each team to pay it independently. Each team reinvents these patterns anyway, producing inconsistent architectures and wasted effort across the ecosystem.
 
 Gofasta is an open-source toolkit that eliminates this setup overhead. It consists of two components: a **CLI tool** (`gofastadev/cli`) that scaffolds projects and generates idiomatic Go code, and a **library** (`gofastadev/gofasta`) of production-ready packages covering common backend concerns. Generated code is plain Go — no custom syntax, no transpilation, no runtime magic. Developers own every line of output and can modify or replace any component independently.
 
@@ -51,7 +117,8 @@ This paper describes the technical architecture, design principles, agent-ergono
 22. [Adoption and Migration Path](#22-adoption-and-migration-path)
 23. [Comparison with Existing Tools](#23-comparison-with-existing-tools)
 24. [Roadmap](#24-roadmap)
-25. [Contributing](#25-contributing)
+25. [Conclusion](#25-conclusion)
+26. [Contributing](#26-contributing)
 
 ---
 
@@ -1686,7 +1753,29 @@ The roadmap is driven by community feedback. Feature requests and contributions 
 
 ---
 
-## 25. Contributing
+## 25. Conclusion
+
+Gofasta is a deliberate trade-off, not a maximalist tool. The trade-off is: accept a curated set of Go libraries — chi, GORM, Wire, slog, OpenTelemetry, and the rest of the `pkg/*` defaults — as the starting point, in exchange for hours-to-minutes setup time and a generated project structure that compiles, tests, and deploys with standard Go tooling. The defaults are swappable in isolation. The toolkit shapes the start of a project, not the end.
+
+**Use Gofasta when:**
+
+- You are starting a new Go backend service — REST, GraphQL, or both — and want to write the first business endpoint within an hour rather than the first week.
+- Your project will grow into a modular monolith or a small set of services, and you want the option to split later without committing to a microservice runtime today.
+- You want toolkit-level acceleration (scaffolding, code generation, deployment manifests) without surrendering toolchain control: `go build`, `go test`, standard `net/http` middleware, and individually replaceable packages.
+- You expect AI coding agents to contribute meaningfully to the project, and you want a toolchain those agents can drive through structured commands rather than scrape from prose.
+
+**Use something else when:**
+
+- You are building a pure-microservices system with first-class gRPC, Protocol Buffers, and service discovery — [Kratos](https://github.com/go-kratos/kratos) or [go-zero](https://github.com/zeromicro/go-zero) are purpose-built for that workload.
+- Your organization is API-design-first and needs OpenAPI plus gRPC generated from a single source of truth — use [Goa](https://goa.design).
+- You want a fully managed cloud platform where infrastructure is provisioned from your code at deploy time — use [Encore](https://encore.dev), accepting its proprietary compiler and runtime.
+- You are writing a one-off script, CLI utility, or library that does not need a backend service at all — use the standard library directly.
+
+For the broad case in between — a production-ready Go backend that needs to ship quickly, remain readable to anyone familiar with standard Go, and stay portable across hosting environments — Gofasta compresses the setup step without becoming the system. After scaffolding, the project is plain Go. The developer owns it, modifies it, and ships it on their own terms.
+
+---
+
+## 26. Contributing
 
 Gofasta is open source under the [MIT License](https://opensource.org/licenses/MIT).
 

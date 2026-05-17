@@ -1,6 +1,17 @@
 ---
-title: Config
-description: Configuration loading, database setup, and environment variable overrides for Gofasta applications.
+title: pkg/config — Koanf-backed YAML + env-var configuration
+description: Typed configuration loader powered by Koanf — reads config.yaml, applies GOFASTA_-prefixed environment overrides, and exposes a typed AppConfig struct. Includes SetupDB for the five supported drivers (postgres, mysql, sqlite, sqlserver, clickhouse).
+keywords:
+  - "config API"
+  - "configuration"
+  - "Koanf"
+  - "YAML config"
+  - "environment variables"
+  - "env overrides"
+  - "AppConfig"
+  - "database setup"
+  - "GOFASTA_ env"
+  - "twelve-factor"
 ---
 
 # Config

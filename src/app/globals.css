@@ -1,4 +1,13 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Class-based dark mode. Without this, Tailwind v4's `dark:` variant
+   falls back to @media (prefers-color-scheme: dark), which means
+   readers with a dark OS see dark-mode utility classes even after
+   they've toggled the site to light via next-themes. Pin `dark:` to
+   the `.dark` class that next-themes manages so the toggle is the
+   single source of truth. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   /* ═════════════════════════════════════════════════════════════════

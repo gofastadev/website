@@ -1,6 +1,19 @@
 ---
 title: gofasta verify
 description: Run the full preflight gauntlet — gofmt, vet, golangci-lint, tests, build, Wire drift, routes — in one command.
+keywords:
+  - "CLI"
+  - "verify"
+  - "preflight"
+  - "quality gate"
+  - "gofmt"
+  - "go vet"
+  - "golangci-lint"
+  - "race detector"
+  - "Wire drift"
+  - "structured output"
+  - "agent-friendly"
+  - "gofasta verify"
 ---
 
 # gofasta verify
@@ -19,11 +32,27 @@ Run this command from the root directory of your Gofasta project.
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--no-lint` | bool | `false` | Skip golangci-lint (useful on a machine without it installed) |
+| `--no-lint` | bool | `false` | Skip golangci-lint (use if not installed or to speed up) |
 | `--no-race` | bool | `false` | Skip the race detector in `go test` |
 | `--keep-going` | bool | `false` | Continue after the first failure and report every result |
+| `--since` | string | *(none)* | Scope `gofmt`, `go vet`, `golangci-lint`, `go test`, and `go build` to only the packages affected by files changed since `<git-ref>` (e.g. `HEAD~1`, `main`, a SHA). Wire drift + routes always run full-project — they're whole-project invariants. |
+| `--changed` | bool | `false` | Shortcut for "scope to working-tree + staged + untracked changes" (no committed comparison). Same scoping as `--since` but no ref needed. |
 
 Inherits the global `--json` flag to emit one JSON object per check, suitable for agent consumption and CI automation.
+
+### Scoped verify (`--since` / `--changed`)
+
+By default `gofasta verify` runs every step against `./...`. Pass `--since=<ref>` or `--changed` to scope the per-package steps (`fmt`, `vet`, `lint`, `test`, `build`) to only the packages touched by your changeset — and the packages that transitively depend on them via the reverse-import graph. This is the per-PR fast path that drops a 90-second full preflight to ~10 seconds on a small change.
+
+How it picks the package set:
+
+1. `git diff --name-only <ref>` (or working-tree state for `--changed`) → changed files
+2. Filter to `.go` files → derive unique directories → `go list ./<dir>` → root package set
+3. `go list -deps ./...` → build the reverse-import graph → expand to every package that imports any of the roots
+
+The test set is the expanded reverse-dep set; the build/vet/lint set is just the root packages. Files outside Go (`.sql`, `.yaml`, etc.) make scope.NonGoOnly=true and the per-package Go steps short-circuit as `skip` — only wire drift and routes still run.
+
+Linter scope uses `golangci-lint --new-from-rev=<ref>` natively, so existing lint debt outside your change doesn't fail the run.
 
 ## Steps, in order
 

@@ -1,0 +1,154 @@
+---
+title: gofasta g relation
+description: Add a GORM association between two resources — belongs_to, has_many, or has_one. Patches the parent model; for belongs_to, also emits the FK migration.
+keywords:
+  - "relation"
+  - "association"
+  - "GORM"
+  - "belongs_to"
+  - "has_many"
+  - "has_one"
+  - "foreign key"
+  - "generate"
+  - "gofasta generate"
+---
+
+# gofasta g relation
+
+Wires a GORM association between two resources. Patches the parent model with the appropriate fields and tags, and for `belongs_to` additionally emits a paired migration that adds the FK column + constraint on the parent's table.
+
+Bidirectional navigation requires running `g relation` twice (once per side) — the generator intentionally never assumes both sides need patching, since that's a product decision (you may want one-way navigation only).
+
+## Usage
+
+```bash
+gofasta g relation <Resource> <kind> <Other> [flags]
+```
+
+`<kind>` is one of `belongs_to`, `has_many`, `has_one`.
+
+## Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dry-run` | `false` | Preview the model patch + migration without writing. Honors `--json`. |
+
+## Relation kinds
+
+| Kind | Fields added to `<Resource>` model | FK lives on | Migration emitted |
+|---|---|---|---|
+| `belongs_to <Other>` | `<Other>ID uuid.UUID` + `<Other> *<Other>` | This resource's table | Yes — adds the FK column + constraint |
+| `has_many <Other>` | `<Others> []<Other>` (pluralized) | The other table | No |
+| `has_one <Other>` | `<Other> *<Other>` | The other table | No |
+
+The FK direction is what determines whether a migration is emitted. `belongs_to` puts the FK column on *this* resource's table, so this resource owns the schema change. `has_many` / `has_one` mean the FK lives on the *other* resource's table — run `g relation belongs_to <This>` on the other side to actually create that column.
+
+## Examples
+
+### Belongs-to (with migration)
+
+```bash
+gofasta g relation Order belongs_to Customer
+```
+
+Patches `app/models/order.model.go`:
+
+```go
+type Order struct {
+    // ... existing fields ...
+    CustomerID uuid.UUID `gorm:"type:uuid;not null"`
+    Customer   *Customer `gorm:"foreignKey:CustomerID"`
+}
+```
+
+Adds `github.com/google/uuid` import if not already present. Emits the migration:
+
+```sql
+-- db/migrations/NNNNNN_add_customer_id_to_orders.up.sql
+ALTER TABLE orders ADD COLUMN customer_id uuid NOT NULL;
+ALTER TABLE orders ADD CONSTRAINT fk_orders_customer_id FOREIGN KEY (customer_id) REFERENCES customers (id);
+```
+
+```sql
+-- db/migrations/NNNNNN_add_customer_id_to_orders.down.sql
+ALTER TABLE orders DROP CONSTRAINT fk_orders_customer_id;
+ALTER TABLE orders DROP COLUMN customer_id;
+```
+
+### Has-many (no migration)
+
+```bash
+gofasta g relation Customer has_many Order
+```
+
+Patches `app/models/customer.model.go`:
+
+```go
+type Customer struct {
+    // ... existing fields ...
+    Orders []Order
+}
+```
+
+No migration — the FK already lives on `orders.customer_id`. To complete the relation, run the matching `belongs_to` on the other side first.
+
+### Has-one (no migration)
+
+```bash
+gofasta g relation User has_one Profile
+```
+
+Patches `app/models/user.model.go`:
+
+```go
+type User struct {
+    // ... existing fields ...
+    Profile *Profile
+}
+```
+
+### Bidirectional navigation
+
+To make both sides able to traverse the relationship, run two commands:
+
+```bash
+gofasta g relation Order belongs_to Customer    # FK on orders, ord.Customer / ord.CustomerID
+gofasta g relation Customer has_many Order      # cust.Orders
+```
+
+The two runs produce a coherent GORM mapping with no extra wiring needed.
+
+### Preview without writing
+
+```bash
+gofasta g relation Order belongs_to Customer --dry-run
+```
+
+## Naming conventions
+
+| Input | Generated |
+|---|---|
+| `Order belongs_to Customer` | `CustomerID uuid.UUID` + `Customer *Customer`, FK column `customer_id` |
+| `Customer has_many Order` | `Orders []Order` (plural via the same pluralizer the scaffold uses) |
+| `User has_one Profile` | `Profile *Profile` |
+
+The FK migration always uses `<table>_id` as the column name and `fk_<parent_table>_<column>` as the constraint name.
+
+## Idempotency
+
+The model patch checks each field individually — if the model already has `CustomerID`, that one field is skipped (no error). The migration filename includes a fresh version prefix, so re-running emits a duplicate migration (delete the old one if you don't want to apply it twice).
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `INVALID_NAME` | Resource or other name missing, or `<kind>` not one of `belongs_to` / `has_many` / `has_one`. |
+| `RESOURCE_NOT_FOUND` | The parent resource's model file is missing. |
+| `AST_PARSE_FAILED` | The model file has a syntax error. |
+
+## Related
+
+- [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) — generate the resources this command relates
+- [`gofasta g field`](/docs/cli-reference/generate/field) — sibling: add a flat field instead of an association
+- [`gofasta g migration`](/docs/cli-reference/generate/migration) — generate a standalone migration pair
+- [`gofasta migrate up`](/docs/cli-reference/migrate#gofasta-migrate-up) — apply the generated FK migration

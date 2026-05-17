@@ -1,0 +1,128 @@
+---
+title: gofasta inspect-jobs
+description: Static AST scan of app/jobs/ that lists every registered cron job with its schedule from config.yaml. No running app required.
+keywords:
+  - "CLI"
+  - "inspect-jobs"
+  - "cron"
+  - "jobs"
+  - "scheduler"
+  - "AST"
+  - "AI coding agent"
+  - "gofasta inspect-jobs"
+---
+
+# gofasta inspect-jobs
+
+Lists every cron job registered under `app/jobs/` along with its schedule from `config.yaml`. Static AST scan — no DB connection, no running app, no devtools required. Pairs neatly with [`gofasta inspect-tasks`](/docs/cli-reference/inspect-tasks) for the async-queue side.
+
+The command walks `app/jobs/*.go` (skipping `_test.go`), parses each file, and reports every type that satisfies the gofasta job contract — `Name() string` + `Run(ctx context.Context) error`. The `Name()` value is paired with its schedule from `config.yaml` under `jobs.<name>.schedule`.
+
+## Usage
+
+```bash
+gofasta inspect-jobs [<name>] [--json]
+```
+
+Pass a job name (the value returned by `Name()` or the Go type name) as the positional arg to filter to a single entry.
+
+## Flags
+
+No command-specific flags. Honors the global `--json`.
+
+## Output
+
+### Text mode
+
+```
+$ gofasta inspect-jobs
+
+2 job(s) under app/jobs:
+
+  cleanup-tokens  (CleanupTokensJob)
+    file:     app/jobs/cleanup_tokens.go
+    schedule: 0 0 * * *
+
+  sync-stripe  (SyncStripeJob)
+    file:     app/jobs/sync_stripe.go
+    schedule: (not set in config.yaml)
+```
+
+### JSON mode
+
+```bash
+gofasta inspect-jobs --json
+```
+
+```json
+{
+  "jobs_dir": "app/jobs",
+  "jobs": [
+    {
+      "name": "cleanup-tokens",
+      "type": "CleanupTokensJob",
+      "file": "app/jobs/cleanup_tokens.go",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "name": "sync-stripe",
+      "type": "SyncStripeJob",
+      "file": "app/jobs/sync_stripe.go"
+    }
+  ],
+  "count": 2,
+  "devtools_enabled": false
+}
+```
+
+`schedule` is omitted from the JSON when not set in `config.yaml`.
+
+## Examples
+
+List every job:
+
+```bash
+gofasta inspect-jobs
+```
+
+Filter to one job by its registered name:
+
+```bash
+gofasta inspect-jobs cleanup-tokens
+```
+
+Filter by the Go type name:
+
+```bash
+gofasta inspect-jobs CleanupTokensJob
+```
+
+Extract jobs that don't have a schedule (likely missing from config):
+
+```bash
+gofasta inspect-jobs --json | jq '.jobs[] | select(.schedule == null)'
+```
+
+## How it works
+
+For each `app/jobs/*.go` (excluding `_test.go`):
+
+1. **Parse** the file with `go/parser`.
+2. **Collect struct types** declared at file scope.
+3. **Walk method declarations.** For each method whose receiver is one of the collected structs:
+   - `Name() string` → record the receiver as a potential job; if the body is exactly `return "literal"`, extract the literal as the job's wire name.
+   - `Run(ctx context.Context) error` → record the receiver satisfies the run-side of the contract.
+4. **Emit one entry per type** that satisfies both methods. If `Name()`'s body is non-trivial (computed, not a literal), the job name falls back to the lowercased type name.
+5. **Cross-reference `config.yaml`** — load every key matching `jobs.<name>.schedule` and pair it with the matching job. Missing schedules are reported as such — the job exists in source even when it's not registered.
+
+A file with a syntax error is silently skipped — one bad file doesn't kill the whole scan.
+
+## Future: live mode
+
+When the app is reachable and built with the `devtools` build tag, the JSON output will additionally include per-job recent-run telemetry from `/debug/jobs`. That endpoint isn't shipped yet; for now `devtools_enabled` is always `false`.
+
+## Related
+
+- [`gofasta inspect-tasks`](/docs/cli-reference/inspect-tasks) — same idea for the async (asynq) task layer
+- [`gofasta inspect`](/docs/cli-reference/inspect) — full structural view of a resource (not jobs/tasks)
+- [`gofasta g job`](/docs/cli-reference/generate/job) — generate a new job stub

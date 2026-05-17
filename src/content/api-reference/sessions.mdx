@@ -1,6 +1,17 @@
 ---
-title: Sessions
-description: Server-side HTTP session management with cookie and filesystem stores, backed by gorilla/sessions.
+title: pkg/session — Server-side sessions via gorilla/sessions
+description: Thin wrapper over gorilla/sessions with both cookie stores (signed + optionally encrypted) and filesystem stores. Designed for traditional cookie-session web apps; pairs with pkg/auth for JWT-based stateless auth on the same project.
+keywords:
+  - "sessions API"
+  - "session management"
+  - "gorilla/sessions"
+  - "session store"
+  - "cookie store"
+  - "filesystem store"
+  - "signed cookies"
+  - "session middleware"
+  - "CSRF"
+  - "stateful auth"
 ---
 
 # Sessions
