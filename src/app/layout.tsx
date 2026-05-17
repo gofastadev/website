@@ -85,16 +85,6 @@ export const metadata: Metadata = {
       "application/feed+json": "/blog/feed.json",
     },
   },
-  // Webmaster-tool verification tokens are env-driven so the meta tag
-  // disappears when the env var is unset (Next.js omits `verification`
-  // fields whose value is `undefined`). Set the var in Vercel after
-  // claiming the property in Google Search Console / Bing Webmaster.
-  verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
-    other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
-      ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
-      : undefined,
-  },
   other: {
     "theme-color": "#00ADD8",
   },
