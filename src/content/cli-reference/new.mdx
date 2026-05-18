@@ -251,16 +251,23 @@ myapp/
 
 ## Architecture
 
-The generated project follows a layered architecture:
+The generated project's **request flow** is identical regardless of `--layout` — every request travels the same chain of objects:
 
 ```
 Controller --> Service --> Repository --> Database
 ```
 
-- **Controllers** handle HTTP requests and delegate to services
-- **Services** contain business logic and call repositories
-- **Repositories** handle database queries via GORM
-- **DI Container** wires everything together using Google Wire
+- **Controllers** parse the HTTP request, validate input, delegate to services, and shape the response.
+- **Services** hold business logic, translate between wire DTOs and domain inputs, and call repositories.
+- **Repositories** handle data access via GORM with optimistic locking baked into update operations.
+- **DI Container** wires the dependencies at compile time via Google Wire — there are no runtime reflection-based DI lookups.
+
+The two `--layout` values differ in how the per-resource Go files are organized on disk, not in the request flow:
+
+- **`--layout=layered`** (default) — files grouped by technical role. `app/models/`, `app/services/`, `app/repositories/`, `app/rest/controllers/`, `app/rest/routes/`, etc. One file per resource in each directory.
+- **`--layout=feature`** — files grouped by business domain. `app/user/` contains the user feature's service, repository, controller, routes, DTOs, and Wire provider. Per [Project structure → What stays put in feature-package layout](/docs/getting-started/project-structure#what-stays-put-in-feature-package-layout-and-why), four categories stay in their layered locations even in feature mode (models, per-resource validators, validator infrastructure, the `Validator` interface) — see that section for the full rationale.
+
+Both layouts ship the same Wire dependency graph, the same HTTP middleware stack, the same migration model, and the same generated tests. You can switch between them at any time with [`gofasta refactor feature`](/docs/cli-reference/refactor#feature) or [`gofasta refactor layered`](/docs/cli-reference/refactor#layered).
 
 ## Related
 

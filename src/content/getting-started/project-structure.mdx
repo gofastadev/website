@@ -16,224 +16,285 @@ keywords:
 
 # Project Structure
 
-When you run `gofasta new myapp`, the CLI creates the following structure:
+Gofasta supports **two project layouts** and lets you pick at scaffold time or switch later without rewriting code by hand. Both produce a working REST/GraphQL backend with the same Wire dependency graph, the same HTTP routes, and the same runtime behavior — they differ only in how files are organized on disk.
+
+| Layout | Flag | Files organized by | Best for |
+|--------|------|--------------------|----------|
+| **Layered** (default) | `gofasta new myapp` *or* `--layout=layered` | technical role — `app/models/`, `app/services/`, `app/controllers/`, etc. | Teams from MVC backgrounds, projects with &lt;10 resources, the Go stdlib aesthetic of small focused packages |
+| **Feature-package** | `gofasta new myapp --layout=feature` | business domain — `app/user/`, `app/product/`, `app/order/` (each contains its own model, service, repository, controller, routes) | Projects with 15+ resources, multiple teams contributing to the same codebase, plans to extract microservices later |
+
+You can switch at any time with [`gofasta refactor feature`](/docs/cli-reference/refactor#feature) (layered → feature) or [`gofasta refactor layered`](/docs/cli-reference/refactor#layered) (feature → layered). Run [`gofasta refactor status`](/docs/cli-reference/refactor#status) to see which layout the current project is in.
+
+This page covers both layouts in detail. The first half walks through every directory; the second half ([Choosing a layout](#choosing-a-layout)) is the deep reference for picking, switching, and avoiding common mistakes.
+
+## What gets scaffolded — both layouts side by side
+
+The two layouts share roughly 80% of the project tree. Everything outside `app/` is identical in both, plus some `app/` directories that stay shared regardless of layout. The difference is concentrated in how per-resource files (service, repository, controller, routes, dtos, etc. for one business domain) are grouped.
+
+### Shared between layouts (~80% of files)
 
 ```
 myapp/
-├── app/                    # Your application code
-│   ├── main/main.go       # Entry point
-│   ├── models/             # Database models (User starter included)
-│   ├── dtos/               # Request/response types
-│   ├── repositories/       # Data access layer
-│   │   └── interfaces/     # Repository contracts
-│   ├── services/           # Business logic
-│   │   └── interfaces/     # Service contracts
-│   ├── rest/
-│   │   ├── controllers/    # HTTP handlers
-│   │   └── routes/         # Route definitions
-│   ├── graphql/            # Only present with --graphql
-│   │   ├── schema/         # GraphQL schema files (.gql)
-│   │   └── resolvers/      # GraphQL resolvers
-│   ├── validators/         # Input validation rules
-│   ├── di/                 # Dependency injection (Google Wire)
-│   │   ├── container.go    # Service container struct
-│   │   ├── wire.go         # Wire build configuration
-│   │   ├── wire_gen.go     # Generated Wire output
-│   │   ├── setters.go      # Wire setters
-│   │   └── providers/      # Wire provider sets
-│   ├── jobs/               # Cron jobs
-│   └── tasks/              # Async task handlers (asynq)
-├── cmd/                    # CLI commands for your app
-│   ├── root.go             # Cobra root command
-│   ├── serve.go            # Starts the HTTP server
-│   ├── migrate.go          # Runs database migrations
-│   └── seed.go             # Runs database seeders
+├── cmd/                    # Cobra CLI commands for your app
+│   ├── root.go             # Root command
+│   ├── serve.go            # HTTP server (initializes DI, registers routes)
+│   ├── migrate.go          # Database migrations
+│   └── seed.go             # Database seeders
 ├── db/
-│   ├── migrations/         # SQL migration files (up + down)
-│   └── seeds/              # Database seed functions
-├── configs/                # RBAC policies, feature flags
-├── deployments/            # Docker, CI/CD workflows, nginx, systemd
+│   ├── migrations/         # SQL migration pairs (.up.sql / .down.sql)
+│   └── seeds/              # Go seed functions
+├── configs/                # RBAC policies, feature flag definitions
+├── deployments/            # Docker, CI/CD, nginx, systemd
 ├── templates/emails/       # HTML email templates
-│   └── layouts/            # Email layout templates
-├── locales/                # Translation files (i18n YAML)
-├── testutil/mocks/         # Test mocks
-├── config.yaml             # Application configuration
-├── compose.yaml            # Docker Compose (app + PostgreSQL)
+│   └── layouts/            # Email base templates
+├── locales/                # i18n YAML files
+├── testutil/mocks/         # testify/mock implementations
+├── app/jobs/               # Cron jobs — never per-resource
+├── app/tasks/              # Async asynq handlers — never per-resource
+├── app/di/                 # Google Wire DI (container, wire.go, providers/)
+├── app/graphql/            # Only present with --graphql
+│   ├── schema/             # .gql schema files
+│   └── resolvers/          # GraphQL resolvers
+├── app/main/main.go        # Process entry point
+├── app/devtools/           # Dev dashboard plugins (gated by build tag)
+├── config.yaml             # Application configuration (incl. project.layout)
+├── compose.yaml            # Docker Compose for dev (app + db)
 ├── Dockerfile              # Production container image
 ├── Makefile                # Development shortcuts
-├── gqlgen.yml              # GraphQL code generation config (only present with --graphql)
+├── gqlgen.yml              # GraphQL codegen (--graphql only)
 ├── .air.toml               # Air hot reload configuration
-└── .env.example            # Example environment variables
+└── .env.example            # Environment variable template
 ```
 
-## Key Directories
+### Where layered and feature differ — the `app/` per-resource files
 
-### `app/` — Your Application Code
-
-This is where you spend most of your time. It follows a layered architecture — one directory per technical concern (models, DTOs, repositories, services, controllers, routes), with each resource contributing one file to each directory:
+**Layered** organizes per-resource files by technical role:
 
 ```
-Request → Controller → Service → Repository → Database
+# myapp/app/ — gofasta new myapp  (or --layout=layered)
+app/
+├── models/
+│   └── user.model.go            # GORM struct + embedded BaseModelImpl
+├── dtos/
+│   ├── aliases.go                # Shared envelopes (TPaginationObjectDto, ...)
+│   ├── user.dtos.go              # Per-resource request/response DTOs + mappers
+│   └── user.dtos_test.go
+├── repositories/
+│   ├── interfaces/
+│   │   └── user_repository.go    # UserRepositoryInterface
+│   ├── user.repository.go        # GORM-backed impl
+│   └── user.repository_test.go
+├── services/
+│   ├── interfaces/
+│   │   └── user_service.go       # UserServiceInterface
+│   ├── user.service.go           # Business logic
+│   ├── user.service_test.go
+│   ├── user_errors.go            # Sentinel errors (ErrUserNotFound, ...)
+│   ├── user_inputs.go            # Domain inputs (CreateUserInput, ...)
+│   ├── user_inputs_test.go
+│   └── password_generator.go     # Shared infra (used by services)
+├── rest/
+│   ├── controllers/
+│   │   ├── validator.go          # Validator interface (shared infra)
+│   │   ├── user.controller.go    # HTTP handlers
+│   │   └── user.controller_test.go
+│   └── routes/
+│       ├── index.routes.go       # /api/v1 mount point
+│       └── user.routes.go        # func UserRoutes(r chi.Router, c *UserController)
+├── validators/
+│   ├── app_validator.go          # AppValidator wrapper
+│   ├── register.go               # Validator registration (calls private helpers)
+│   ├── custom-messages.validators.go
+│   ├── validator.utils.go
+│   └── user.validators.go        # Per-resource validators (private helpers)
+└── di/providers/
+    ├── core.go                   # CoreSet (infra: DB, cache, queue, mailer, ...)
+    ├── user.go                   # UserSet (Wire provider for user resource)
+    └── graphql.go                # GraphQLSet (--graphql only)
 ```
 
-#### Why layered, not feature-module
+Adding a `Subscription` resource in layered touches one file in each of `models/`, `dtos/`, `repositories/`, `repositories/interfaces/`, `services/`, `services/interfaces/`, `rest/controllers/`, `rest/routes/`, `validators/`, `di/providers/` — plus patches to `container.go`, `wire.go`, `index.routes.go`, `cmd/serve.go`.
 
-This layout is a deliberate choice, not an oversight. The main alternative — **feature modules** (also called vertical slice architecture, package by feature, or DDD modules), where each business domain lives in its own directory containing its controller, service, repository, and model together — has real merits for large applications. Gofasta ships with a layered layout because:
+**Feature-package** organizes the same files by business domain:
 
-- **It matches the mental model most backend engineers already have.** The "controller → service → repository" pipeline is the dominant pattern in mainstream MVC-style backends, and developers coming from that background find a layered layout immediately familiar.
-- **It keeps small projects small.** For an app with 3–8 resources, flat layer directories are simpler to navigate than nested feature modules.
-- **It aligns with Go's stdlib aesthetic** of small, focused packages (`net/http`, `encoding/json`, `database/sql`) rather than large multi-concern packages.
-- **Cross-cutting concerns have a natural home.** Shared DTOs, middleware, and validators don't have to be forced into a `shared/` or `common/` grab-bag.
+```
+# myapp/app/ — gofasta new myapp --layout=feature
+app/
+├── models/                       # ← stays layered (see "What stays" below)
+│   └── user.model.go
+├── shared/
+│   └── dtos/
+│       └── aliases.go            # ← shared envelopes relocate here
+├── user/                         # ← every user-feature file in one directory
+│   ├── dtos.go                   # Per-resource DTOs (collapsed in from app/dtos/)
+│   ├── dtos_test.go
+│   ├── repository.go             # GORM impl
+│   ├── repository_iface.go       # UserRepositoryInterface
+│   ├── repository_test.go
+│   ├── service.go                # Business logic
+│   ├── service_iface.go          # UserServiceInterface
+│   ├── service_test.go
+│   ├── errors.go                 # Sentinel errors
+│   ├── inputs.go                 # Domain inputs
+│   ├── inputs_test.go
+│   ├── controller.go             # HTTP handlers
+│   ├── controller_test.go
+│   ├── routes.go                 # func RegisterRoutes(r chi.Router, c *UserController)
+│   ├── wire.go                   # UserSet (per-feature wire.NewSet)
+│   └── password_generator.go     # Follows the user feature (its only consumer)
+├── validators/                   # ← stays layered (shared infra; see "What stays")
+│   ├── app_validator.go
+│   ├── register.go
+│   ├── custom-messages.validators.go
+│   ├── validator.utils.go
+│   └── user.validators.go
+├── rest/
+│   ├── controllers/
+│   │   └── validator.go          # Validator interface stays — shared cross-feature
+│   └── routes/
+│       └── index.routes.go       # Now imports app/user; calls user.RegisterRoutes(...)
+└── di/
+    ├── container.go              # ServiceContainer with per-feature alias imports
+    ├── wire.go                   # Imports app/user; references userpkg.UserSet
+    └── providers/
+        ├── core.go               # CoreSet (imports app/user for password generator)
+        └── graphql.go            # --graphql only
+```
 
-For projects that grow past ~15 resources or multiple teams, feature-module structure scales better. The [Restructuring to feature modules](#restructuring-to-feature-modules) section below explains how to migrate — the change is localized and the `pkg/*` library imposes zero assumptions about which layout you use.
+Adding a `Subscription` resource in feature-package creates **one directory** with all the files inside. The cross-cutting wiring files (`container.go`, `wire.go`, `index.routes.go`, `cmd/serve.go`) are patched the same way as layered, just with per-feature alias imports.
 
-- **`models/`** — GORM database models. Each model embeds `models.BaseModelImpl` from the gofasta library to get standard fields (ID, timestamps, soft delete, versioning).
-- **`dtos/`** — Data Transfer Objects for request parsing and response formatting. Keeps your API contract separate from your database models.
-- **`repositories/`** — Data access layer. Each repository has an interface in `interfaces/` and an implementation that uses GORM.
-- **`services/`** — Business logic layer. Receives DTOs, calls repositories, applies rules. This is where your domain logic goes.
-- **`rest/controllers/`** — HTTP handlers. Parse requests, call services, return responses. No business logic here.
-- **`rest/routes/`** — Route definitions. Maps HTTP methods and paths to controller methods.
-- **`graphql/`** — Schema files (`.gql`) and resolvers. gqlgen generates resolver stubs from your schema. This directory is only present when the project was created with `gofasta new --graphql`.
-- **`validators/`** — Custom validation rules using `go-playground/validator/v10` struct tags.
-- **`di/`** — Google Wire dependency injection. `wire.go` defines how to build the container; `wire_gen.go` is the generated output. Tools are registered via `go mod edit -tool` (Go 1.24+ tool dependencies) and invoked via `go tool wire`, `go tool gqlgen`, etc.
-- **`jobs/`** — Cron jobs for scheduled background work.
-- **`tasks/`** — Async task handlers using `hibiken/asynq`.
+### What stays put in feature-package layout (and why)
 
-### `cmd/` — Project CLI Commands
+The feature-package layout is a **hybrid**: most per-resource files collapse into `app/<resource>/`, but four categories stay in their layered locations for technical reasons. Don't try to "fix" these — moving them creates broken builds.
 
-Your project has its own CLI built with Cobra:
+| Category | Layered | Feature | Why it doesn't move |
+|----------|---------|---------|---------------------|
+| **Model** | `app/models/<r>.model.go` | `app/models/<r>.model.go` *(same)* | DTO mappers (`UserFromModel(m *models.User) *User`) take the model as input. If the model moved into `app/<r>/`, the per-resource dtos.go (which is also in `app/<r>/`) would reference an in-package type, and `app/<r>/controller.go` would need DTOs from the same package — creating a `dtos → feature → dtos` cycle through the controller's `dtos.TPaginationObjectDto` import. Keeping models layered breaks the cycle. |
+| **Per-resource validators** | `app/validators/<r>.validators.go` | `app/validators/<r>.validators.go` *(same)* | `app/validators/register.go` calls package-private helpers (`isRecordExistByEmailForConflict`, `doesRecordExistByEmailForVerification`, `isValidPhoneNumber`, etc.) defined in the per-resource validator file. Scattering them across feature packages breaks the registration wiring. |
+| **Shared validator infrastructure** | `app/validators/{app_validator,register,custom-messages,validator.utils}.go` | same path | Cross-cutting setup. |
+| **Validator interface** | `app/rest/controllers/validator.go` | same path | The `Validator` interface (`ValidateStruct(any) []*dtos.TCommonAPIErrorDto`) is consumed by every feature's controller and bound to `*validators.AppValidator` via `wire.Bind` in CoreSet. Cross-feature shared. |
 
-- **`serve.go`** — Starts the HTTP server. Initializes the DI container, registers routes, and listens on the configured port.
-- **`migrate.go`** — Runs database migrations up or down.
-- **`seed.go`** — Runs database seeders. Useful for populating test data.
+Two other things relocate (but don't disappear):
 
-### `db/` — Database Files
+| Category | Layered | Feature |
+|----------|---------|---------|
+| **Shared DTO aliases** | `app/dtos/aliases.go` (`package dtos`) | `app/shared/dtos/aliases.go` *(same package, new path)* — re-exports `TPaginationObjectDto`, `SortOrientation`, `TCommonResponseDto`, etc. from `pkg/types`. |
+| **`password_generator.go`** | `app/services/password_generator.go` | `app/user/password_generator.go` — follows the User feature because that's its only consumer in the bootstrap scaffold. |
 
-- **`migrations/`** — SQL migration files in pairs: `000001_create_users.up.sql` and `000001_create_users.down.sql`. Run with `gofasta migrate up` and `gofasta migrate down`.
-- **`seeds/`** — Go functions that insert test/default data into the database.
+This hybrid shape matches [Ben Johnson's "Standard Package Layout"](https://www.gobeyond.dev/standard-package-layout/): features own their behavior; cross-cutting types live where every feature can reach them.
+
+## Key directories explained
+
+The directories below behave the same way in both layouts; the per-resource files inside `app/` differ (see the side-by-side trees above).
+
+### `app/main/main.go` — Process entry
+
+Bootstraps the DI container, calls `cmd.Execute()`, exits with the right status code. Same in both layouts.
+
+### `app/di/` — Dependency injection (Google Wire)
+
+- **`container.go`** — `ServiceContainer` struct that holds all wired-up dependencies. In layered, its field types are `repoInterfaces.UserRepositoryInterface`, `svcInterfaces.UserServiceInterface`, `*controllers.UserController`. In feature, the same field names have types `userpkg.UserRepositoryInterface`, `userpkg.UserServiceInterface`, `*userpkg.UserController`.
+- **`wire.go`** — `wire.Build()` call (the `wireinject` build-tag file). In layered, `wire.Build(providers.CoreSet, providers.UserSet, ...)`. In feature, `wire.Build(providers.CoreSet, userpkg.UserSet, ...)`.
+- **`wire_gen.go`** — Generated by `go tool wire ./app/di/`. Don't edit by hand. Regenerated by `gofasta refactor` and by `gofasta wire`.
+- **`setters.go`** — Helpers that copy resolved configuration onto the container (e.g., `cfg.SetSomeConfig(c)`).
+- **`providers/`** — In layered, contains one file per resource (`user.go` exports `UserSet`). In feature, only contains shared providers (`core.go`, `graphql.go`) — per-resource wire sets are inside each feature directory at `app/<r>/wire.go`.
+
+### `app/jobs/` — Scheduled cron jobs
+
+Cron-scheduled background work. Each job is a struct with a `Run(ctx)` method registered in `cmd/serve.go`. Jobs are **never per-resource** — they cross domains, so they stay in `app/jobs/` in both layouts.
+
+### `app/tasks/` — Async queue handlers
+
+Tasks consumed by the asynq queue worker. Same pattern as jobs (struct + handler method), enqueued by services via `pkg/queue`. Same in both layouts.
+
+### `app/graphql/` — GraphQL surface (`--graphql` only)
+
+- **`schema/`** — `.gql` schema files. Each resource gets `<r>.gql`.
+- **`resolvers/`** — gqlgen-generated resolver stubs. Hand-edited code goes inside the resolver methods. In feature layout, the resolver still lives here (shared, not per-feature); only its imports differ (`userpkg "<mod>/app/user"` vs. layered's `svcInterfaces`).
+
+### `cmd/` — Project CLI commands
+
+Cobra root + subcommands. `serve.go` initializes the DI container and starts the HTTP server. `migrate.go` and `seed.go` wrap the gofasta CLI's migrate/seed functionality so users can invoke them through their own project's binary.
+
+Same in both layouts. The DI container init is identical because the container's public surface is the same shape regardless of layout.
+
+### `db/` — Database files
+
+- **`migrations/`** — Numbered `.up.sql`/`.down.sql` pairs. Generated by `gofasta g migration`, applied by `gofasta migrate up`, rolled back by `gofasta migrate down`. Driver-specific syntax is handled at scaffold time by `gofasta new --driver=<X>`.
+- **`seeds/`** — `seed.go` registers seed functions. `gofasta seed` runs them; `gofasta seed --fresh` drops the DB first.
+
+### `configs/` — Static configuration
+
+- **`rbac_model.conf`** + **`rbac_policy.csv`** — Casbin RBAC model + policies for `pkg/auth`'s RBACService.
+- **`features.yaml`** — Feature flag definitions for `pkg/featureflag` (when using the in-memory provider).
 
 ### `deployments/` — Infrastructure
 
-Configuration for the deployment target gofasta natively supports: a Linux VPS running Docker or systemd, reached over SSH via [`gofasta deploy`](/docs/cli-reference/deploy).
+Reference deployment configurations for `gofasta deploy` (Linux VPS over SSH). `ci/`, `docker/`, `nginx/`, `systemd/` subdirectories — see [Deployment](/docs/guides/deployment).
 
-- **`ci/`** — GitHub Actions workflow templates (test, release, deploy-vps). These ship as inert YAML; copy them into `.github/workflows/` to activate — see the [deployment guide](/docs/guides/deployment#github-actions-workflows) for details.
-- **`docker/`** — Production compose file used by `gofasta deploy`, plus a development Dockerfile with Air for hot reload.
-- **`nginx/`** — Reverse proxy configuration with TLS termination.
-- **`systemd/`** — Service unit and reference deploy script used by the `binary` deploy method.
+### `config.yaml` — Application configuration
 
-### `config.yaml` — Application Configuration
-
-Central configuration file for your app:
+The runtime config file. Read by `pkg/config.LoadConfigWithPrefix("<PROJECT>_")` at startup. Keys can be overridden by environment variables using the project-specific prefix (set in `.env`).
 
 ```yaml
-app:
-  name: myapp
-  port: 8080
-  env: development
+project:
+  layout: layered             # or "feature" — set by `gofasta new --layout=...`
+                              # and `gofasta refactor`; never edit by hand
+
+server:
+  host: "127.0.0.1"
+  port: "8080"
+  shutdown_timeout: 15s
 
 database:
   driver: postgres
   host: localhost
-  port: 5432
-  name: myapp_db
-  user: postgres
-  password: postgres
+  port: "5432"
+  name: myapp_dev
+  user: myapp
+  password: myapp
+  max_idle: 10
+  max_open: 100
+  max_life: 1h
 
-jwt:
-  secret: your-secret-key
-  expiration: 24h
-
-redis:
-  host: localhost
-  port: 6379
+# ... auth, cache, queue, storage, email, slack, whatsapp, i18n, sessions, encryption
 ```
 
-Settings can be overridden with environment variables using the prefix `GOFASTA_` with the pattern `GOFASTA_SECTION_KEY` (e.g., `GOFASTA_DATABASE_HOST=db`).
+The `project.layout` field is **load-bearing** for the CLI:
 
-## What You Write vs. What the Library Provides
+- `gofasta g *` reads it to know which file shape to emit for new resources.
+- `gofasta refactor status` reads it to report the current layout.
+- `gofasta refactor feature` / `refactor layered` reads it to refuse if you're already in the target layout, and writes the new value as the final step of a successful migration.
 
-| You write | The gofasta library provides |
-|-----------|------------------------------|
-| `app/models/product.model.go` | `pkg/models` — BaseModelImpl with UUID, timestamps, soft delete |
-| `app/services/product.service.go` | `pkg/validators` — Input validation, `pkg/utils` — Pagination |
-| `app/rest/controllers/product.controller.go` | `pkg/httputil` — Bind, Handle, JSON responses |
-| `app/rest/routes/product.routes.go` | `pkg/middleware` — CORS, logging, rate limiting |
-| `config.yaml` | `pkg/config` — LoadConfig(), SetupDB() |
-| `cmd/serve.go` | `pkg/health` — Health check endpoints |
+Hand-editing this field puts the project into an inconsistent state where the CLI thinks the layout is X but the filesystem is Y. Always use `gofasta refactor` to switch.
+
+Settings can also be overridden with environment variables using the project-specific prefix derived from your `go.mod` module name (e.g., a module `github.com/acme/myapp` produces the prefix `MYAPP_` so `MYAPP_DATABASE_HOST=db` overrides `database.host`). The generic `GOFASTA_` prefix also works as a fallback. See [Configuration](/docs/guides/configuration) for the full precedence rules.
+
+## What you write vs. what the library provides
+
+The split between your code and the gofasta library is the same in both layouts — the library packages are stable APIs you consume, your files are generated into the layout-appropriate paths.
+
+| You write (layered) | You write (feature) | The gofasta library provides |
+|---------------------|---------------------|------------------------------|
+| `app/models/product.model.go` | `app/models/product.model.go` | `pkg/models` — `BaseModelImpl` with UUID, timestamps, soft delete, optimistic locking |
+| `app/services/product.service.go` | `app/product/service.go` | `pkg/validators` — Input validation, `pkg/utils` — Pagination + sort helpers |
+| `app/services/product_errors.go` | `app/product/errors.go` | (sentinel errors are project-owned; the library only ships error envelope types via `pkg/errors`) |
+| `app/services/product_inputs.go` | `app/product/inputs.go` | (domain inputs are project-owned) |
+| `app/repositories/product.repository.go` | `app/product/repository.go` | `pkg/utils.BuildQueryForAnyModel` — Filter/sort SQL helpers |
+| `app/rest/controllers/product.controller.go` | `app/product/controller.go` | `pkg/httputil` — `Bind`, `Handle`, `OK`, `Created`, `ParseIfMatch` |
+| `app/rest/routes/product.routes.go` | `app/product/routes.go` | `pkg/middleware` — CORS, request logging, rate limiting, security headers |
+| `app/di/providers/product.go` | `app/product/wire.go` | `github.com/google/wire` — `wire.NewSet`, `wire.Bind` |
+| `app/dtos/product.dtos.go` | `app/product/dtos.go` | `pkg/types` re-exported via the project's `dtos.aliases.go` |
+| `config.yaml` | `config.yaml` *(same)* | `pkg/config` — `LoadConfigWithPrefix`, `SetupDB`, per-driver dialect |
+| `cmd/serve.go` | `cmd/serve.go` *(same)* | `pkg/health` — Health/liveness/readiness probes |
+
+`gofasta g scaffold Product` writes the left column (or middle column, depending on `config.yaml`'s `project.layout`). You never write the right column — those are library imports.
 
 ## Choosing a layout: layered or feature-package
 
-Gofasta supports two project layouts and lets you switch between them at any time without rewriting code by hand. This section covers everything: how to pick a layout when starting, how to scaffold each one, how each command behaves inside each layout, how to migrate in either direction, and the rules to follow so the project stays clean.
+You picked a layout the moment you ran `gofasta new`. The rest of this section is the **deep reference** for that choice: how to bootstrap each layout, how `gofasta refactor` switches between them, what stays put vs. what moves, the safety gates, the rules to avoid breaking the project, and when each layout is the right call.
 
-### The two layouts side by side
-
-**Layered** (the default) groups files by their architectural role. Every controller lives under `app/rest/controllers/`; every service under `app/services/`; every model under `app/models/`. Adding a `Subscription` resource touches one file in each of those directories.
-
-```
-# Layered — `gofasta new my-app` (default)
-app/
-├── models/
-│   └── user.model.go
-├── dtos/
-│   ├── aliases.go             # shared envelopes
-│   └── user.dtos.go
-├── repositories/
-│   ├── interfaces/
-│   │   └── user_repository.go
-│   └── user.repository.go
-├── services/
-│   ├── interfaces/
-│   │   └── user_service.go
-│   ├── user.service.go
-│   ├── user_errors.go
-│   ├── user_inputs.go
-│   └── password_generator.go
-├── rest/
-│   ├── controllers/user.controller.go
-│   └── routes/user.routes.go
-├── validators/
-│   ├── app_validator.go
-│   └── user.validators.go
-├── di/
-│   ├── container.go
-│   ├── wire.go
-│   └── providers/
-│       ├── core.go
-│       └── user.go
-├── jobs/                      # cron jobs
-└── tasks/                     # async queue handlers
-```
-
-**Feature-package** groups files by business domain. Every file the `user` feature needs lives in `app/user/`. Adding a `Subscription` resource creates one directory.
-
-```
-# Feature-package — `gofasta new my-app --layout=feature`
-app/
-├── models/                    # ← stays layered (see "What moves" below)
-│   └── user.model.go
-├── shared/dtos/
-│   └── aliases.go             # shared envelopes, relocated here
-├── user/                      # ← everything for the User feature
-│   ├── dtos.go                # per-resource DTOs (collapsed in)
-│   ├── repository.go
-│   ├── repository_iface.go
-│   ├── service.go
-│   ├── service_iface.go
-│   ├── errors.go
-│   ├── inputs.go
-│   ├── controller.go
-│   ├── routes.go              # exports RegisterRoutes(...)
-│   ├── wire.go                # per-feature wire.NewSet
-│   ├── password_generator.go  # only consumer is User → follows it
-│   └── *_test.go
-├── validators/                # ← stays layered (shared infra)
-├── di/                        # ← cross-cutting wiring stays here
-├── rest/routes/index.routes.go # ← still the single API entry point
-├── jobs/
-└── tasks/
-```
-
-The feature-package layout shipped by Gofasta is a **hybrid**: most per-resource files collapse into `app/<resource>/`, but a few categories stay in their layered locations for technical reasons. See [What moves and what doesn't](#what-moves-and-what-doesnt) below.
+For the side-by-side trees showing where every file lives, see [Where layered and feature differ](#where-layered-and-feature-differ--the-app-per-resource-files) above. For the table of what stays put under feature-package, see [What stays put in feature-package layout](#what-stays-put-in-feature-package-layout-and-why) above. The content below builds on those.
 
 ### Bootstrapping a new project with a chosen layout
 
@@ -258,27 +319,6 @@ project:
 ```
 
 **Don't edit this field by hand.** It's read by every `gofasta g` command and by `gofasta refactor` to decide what shape to emit. Flipping the value without moving the files puts the project into an inconsistent state where the CLI thinks the layout is X but the filesystem is Y. To change layout, always use `gofasta refactor` (see below).
-
-### What moves and what doesn't
-
-In the feature-package layout, Gofasta uses a **hybrid** shape ("Option B" in the implementation). The decision table:
-
-| Layer | Layered location | Feature location | Why |
-|-------|------------------|------------------|-----|
-| Model | `app/models/<r>.model.go` | **stays in `app/models/`** | DTO mappers (`UserFromModel`) need `*models.User`; if the model moved into the feature, you'd get a `dtos → feature → dtos` import cycle. |
-| Per-resource DTOs | `app/dtos/<r>.dtos.go` | `app/<r>/dtos.go` | Collapses in — DTOs are owned by the feature. |
-| Shared DTO aliases | `app/dtos/aliases.go` | **`app/shared/dtos/aliases.go`** | `TPaginationObjectDto`, `SortOrientation`, etc. are cross-feature — relocated to a shared package. |
-| Repository (impl + iface) | `app/repositories/*` | `app/<r>/repository.go` + `repository_iface.go` | Collapses in. |
-| Service (impl + iface + errors + inputs) | `app/services/*` | `app/<r>/service.go` + `service_iface.go` + `errors.go` + `inputs.go` | Collapses in. |
-| Controller | `app/rest/controllers/<r>.controller.go` | `app/<r>/controller.go` | Collapses in. |
-| Routes | `app/rest/routes/<r>.routes.go` | `app/<r>/routes.go` | Collapses in. Function renames from `<R>Routes(...)` to `RegisterRoutes(...)`. |
-| Wire provider | `app/di/providers/<r>.go` | `app/<r>/wire.go` | Collapses in. |
-| Per-resource validators | `app/validators/<r>.validators.go` | **stays in `app/validators/`** | `register.go` calls package-private helpers (`isRecordExistByEmailForConflict`, etc.) — scattering them breaks the wiring. |
-| Validator infrastructure | `app/validators/{app_validator,register,...}.go` | stays | Cross-cutting setup. |
-| Container / wire / index.routes | `app/di/container.go`, `app/di/wire.go`, `app/rest/routes/index.routes.go` | same paths, different import shape | Cross-cutting; the refactor rewrites their imports + field types per layout. |
-| Jobs / tasks / graphql | `app/jobs/`, `app/tasks/`, `app/graphql/` | stays | Not per-resource. |
-
-The hybrid matches [Ben Johnson's "Standard Package Layout"](https://www.gobeyond.dev/standard-package-layout/) — features own their behavior; cross-cutting types stay where every feature can reach them.
 
 ### Switching layouts: `gofasta refactor`
 
