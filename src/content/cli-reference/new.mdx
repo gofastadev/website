@@ -27,7 +27,107 @@ The `<name>` can be a simple name like `myapp` or a full Go module path like `gi
 | `--driver` | `postgres` | Database driver: `postgres` \| `mysql` \| `sqlite` \| `sqlserver` \| `clickhouse`. See [`--driver`](/docs/cli-reference/new/driver) for the full per-driver breakdown. |
 | `--graphql` | `false` | Include GraphQL support (gqlgen schema, resolvers, `/graphql` endpoint, playground). See [`--graphql / --gql`](/docs/cli-reference/new/graphql). |
 | `--gql` | `false` | Alias for `--graphql` |
-| `--layout` | `layered` | Project layout: `layered` \| `feature`. `layered` (default) puts each layer in its own directory (`app/models/`, `app/services/`, `app/repositories/`, …). `feature` collapses per-resource files into `app/<resource>/` (Option B hybrid — see [Restructuring to feature modules](/docs/getting-started/project-structure#restructuring-to-feature-modules)). |
+| `--layout` | `layered` | Project layout: `layered` \| `feature`. Persisted to `config.yaml`'s `project.layout`; read by every subsequent `gofasta g *` and `gofasta refactor` command. See [`--layout`](#--layout) below. |
+
+### `--layout`
+
+Picks the project layout the scaffold writes — `layered` (the historical default) or `feature` (the feature-package layout). The choice is persisted to `config.yaml`'s `project.layout` field so every subsequent generator emits files in the right shape automatically.
+
+```bash
+gofasta new my-app                   # layered (default)
+gofasta new my-app --layout=layered  # same as above, explicit
+gofasta new my-app --layout=feature  # feature-package
+```
+
+Both produce a project that compiles, runs, and passes its tests out of the box. The two ship the same packages, the same wire bindings, the same HTTP routes — they differ only in how files are organized on disk.
+
+**Layered** (`--layout=layered`) puts each layer in its own directory. All controllers under `app/rest/controllers/`, all services under `app/services/`, all models under `app/models/`. Adding a `Subscription` resource touches one file in each of those directories.
+
+```
+app/
+├── models/user.model.go
+├── dtos/{aliases.go, user.dtos.go}
+├── repositories/{interfaces/, user.repository.go}
+├── services/{interfaces/, user.service.go, user_errors.go, user_inputs.go, password_generator.go}
+├── rest/{controllers/user.controller.go, routes/user.routes.go, routes/index.routes.go}
+├── validators/{app_validator.go, user.validators.go, register.go, ...}
+├── di/{container.go, wire.go, providers/{core.go, user.go}}
+├── jobs/
+└── tasks/
+```
+
+**Feature-package** (`--layout=feature`) groups files by business domain. Everything the User feature needs is in `app/user/`. Adding a `Subscription` resource creates one directory.
+
+```
+app/
+├── models/user.model.go              # ← stays layered (model never moves)
+├── shared/dtos/aliases.go            # ← shared envelopes relocated here
+├── user/                             # ← per-feature directory
+│   ├── dtos.go
+│   ├── repository.go + repository_iface.go
+│   ├── service.go + service_iface.go
+│   ├── errors.go
+│   ├── inputs.go
+│   ├── controller.go
+│   ├── routes.go                     # exports RegisterRoutes(...)
+│   ├── wire.go                       # exports UserSet
+│   └── password_generator.go         # only consumer is User
+├── validators/                       # ← per-resource validators stay (shared infra)
+├── di/{container.go, wire.go, providers/core.go}
+├── rest/routes/index.routes.go
+├── jobs/
+└── tasks/
+```
+
+The feature-package layout is a **hybrid** — most per-resource files collapse into the feature directory, but a few categories stay in their layered locations for technical reasons (models, shared validator infrastructure, cross-cutting wiring). See [Project structure → What moves and what doesn't](/docs/getting-started/project-structure#what-moves-and-what-doesnt) for the full breakdown.
+
+#### Picking a layout
+
+| Use **layered** if… | Use **feature** if… |
+|---------------------|---------------------|
+| Your project has &lt;10 resources | Your project has 15+ resources |
+| Team comes from layered MVC backgrounds | You're planning to extract microservices later |
+| You haven't felt pain from the current shape | Multiple teams step on each other in shared layer dirs |
+| You prefer dense, flat directory listings | You want `ls app/` to read like a domain model |
+
+Both layouts are legitimate. You can switch later with [`gofasta refactor`](/docs/cli-reference/refactor) — it works bidirectionally.
+
+#### What the scaffold persists
+
+Both `--layout` values write a `project` section to the generated `config.yaml`:
+
+```yaml
+project:
+  layout: layered    # or: feature
+```
+
+**Don't edit this field by hand after creation.** It must agree with the filesystem shape. The CLI reads it on every `gofasta g *` invocation to know how to emit new resources, and [`gofasta refactor`](/docs/cli-reference/refactor) is the only command that should write to it (the refactor changes both the value *and* the on-disk shape together).
+
+#### After scaffolding
+
+Every generator is layout-aware — you never specify `--layout` again:
+
+```bash
+# In a layered project
+gofasta g scaffold Product name:string price:float
+#  → app/models/product.model.go
+#  → app/services/product.service.go
+#  → app/repositories/product.repository.go
+#  → app/rest/controllers/product.controller.go
+#  → ... etc.
+
+# In a feature project — same command, different output shape
+gofasta g scaffold Product name:string price:float
+#  → app/models/product.model.go     (model stays layered)
+#  → app/product/service.go
+#  → app/product/repository.go
+#  → app/product/controller.go
+#  → app/product/routes.go
+#  → app/product/wire.go
+#  → ... etc.
+```
+
+See [Code Generation](/docs/guides/code-generation) for the per-generator path matrix.
 
 ### Flag references
 

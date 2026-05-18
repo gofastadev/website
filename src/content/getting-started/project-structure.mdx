@@ -161,114 +161,308 @@ Settings can be overridden with environment variables using the prefix `GOFASTA_
 | `config.yaml` | `pkg/config` — LoadConfig(), SetupDB() |
 | `cmd/serve.go` | `pkg/health` — Health check endpoints |
 
-## Restructuring to feature modules
+## Choosing a layout: layered or feature-package
 
-The layered default fits most projects, but for larger codebases — many resources, multiple teams, or plans to extract microservices later — **feature modules** (also called vertical slice architecture or package by feature) scale better. The idea: each business domain gets its own directory containing everything that feature needs.
+Gofasta supports two project layouts and lets you switch between them at any time without rewriting code by hand. This section covers everything: how to pick a layout when starting, how to scaffold each one, how each command behaves inside each layout, how to migrate in either direction, and the rules to follow so the project stays clean.
 
-### What the target layout looks like
+### The two layouts side by side
+
+**Layered** (the default) groups files by their architectural role. Every controller lives under `app/rest/controllers/`; every service under `app/services/`; every model under `app/models/`. Adding a `Subscription` resource touches one file in each of those directories.
 
 ```
+# Layered — `gofasta new my-app` (default)
 app/
-├── user/
-│   ├── model.go              # GORM model
-│   ├── repository.go         # Repository impl
-│   ├── repository_iface.go   # Repository interface
-│   ├── service.go            # Business logic
-│   ├── service_iface.go      # Service interface
-│   ├── controller.go         # REST handlers
-│   ├── routes.go             # chi.Router registration
-│   ├── dtos.go               # Request/response types
-│   ├── validators.go         # Feature-specific validators (optional)
-│   └── service_test.go
-├── product/                  # Same shape, different domain
-│   ├── model.go
-│   ├── repository.go
-│   ├── service.go
-│   ├── controller.go
-│   ├── routes.go
-│   └── dtos.go
-├── invoice/                  # Same shape, different domain
-├── shared/                   # Cross-cutting types: common DTOs, shared validators
-├── di/                       # Stays as a top-level concern
-├── jobs/                     # Stays layered — cron jobs don't belong to one domain
-└── tasks/                    # Stays layered — async tasks typically cross domains
+├── models/
+│   └── user.model.go
+├── dtos/
+│   ├── aliases.go             # shared envelopes
+│   └── user.dtos.go
+├── repositories/
+│   ├── interfaces/
+│   │   └── user_repository.go
+│   └── user.repository.go
+├── services/
+│   ├── interfaces/
+│   │   └── user_service.go
+│   ├── user.service.go
+│   ├── user_errors.go
+│   ├── user_inputs.go
+│   └── password_generator.go
+├── rest/
+│   ├── controllers/user.controller.go
+│   └── routes/user.routes.go
+├── validators/
+│   ├── app_validator.go
+│   └── user.validators.go
+├── di/
+│   ├── container.go
+│   ├── wire.go
+│   └── providers/
+│       ├── core.go
+│       └── user.go
+├── jobs/                      # cron jobs
+└── tasks/                     # async queue handlers
 ```
 
-### Benefits you get
+**Feature-package** groups files by business domain. Every file the `user` feature needs lives in `app/user/`. Adding a `Subscription` resource creates one directory.
 
-- **Change locality.** Add a `Subscription` resource → create one directory. Under layered, that same addition edits `models/`, `dtos/`, `repositories/`, `services/`, `controllers/`, `routes/`, `validators/`, and tests — eight places for one feature.
-- **Package-private encapsulation.** Because Go hides lowercase identifiers at the package boundary, a `user/` package can expose `user.Service` and `user.Controller` while keeping `repository`, `mapper`, and internal types unexported. Layered structure forces most types public because layers reference each other across package boundaries.
-- **Readable `ls app/`.** `user/ product/ invoice/ subscription/ notification/` tells you what the app does. Layered `controllers/ services/ repositories/` tells you only how it's built.
-- **Easier extraction.** One feature = one candidate microservice later. No multi-directory hunt.
+```
+# Feature-package — `gofasta new my-app --layout=feature`
+app/
+├── models/                    # ← stays layered (see "What moves" below)
+│   └── user.model.go
+├── shared/dtos/
+│   └── aliases.go             # shared envelopes, relocated here
+├── user/                      # ← everything for the User feature
+│   ├── dtos.go                # per-resource DTOs (collapsed in)
+│   ├── repository.go
+│   ├── repository_iface.go
+│   ├── service.go
+│   ├── service_iface.go
+│   ├── errors.go
+│   ├── inputs.go
+│   ├── controller.go
+│   ├── routes.go              # exports RegisterRoutes(...)
+│   ├── wire.go                # per-feature wire.NewSet
+│   ├── password_generator.go  # only consumer is User → follows it
+│   └── *_test.go
+├── validators/                # ← stays layered (shared infra)
+├── di/                        # ← cross-cutting wiring stays here
+├── rest/routes/index.routes.go # ← still the single API entry point
+├── jobs/
+└── tasks/
+```
 
-### Drawbacks to weigh
+The feature-package layout shipped by Gofasta is a **hybrid**: most per-resource files collapse into `app/<resource>/`, but a few categories stay in their layered locations for technical reasons. See [What moves and what doesn't](#what-moves-and-what-doesnt) below.
 
-- **More ceremony for small apps.** Three resources in three folders with six files each is heavier than six flat folders with three files each.
-- **Cross-feature references need discipline.** `user` referencing `invoice` can create import cycles if not careful. DDD's rule is that only aggregate roots cross module boundaries, and usually through an interface defined in the consumer side.
-- **Unfamiliar to engineers coming from layered MVC backends.** Feature modules feel like package-by-feature / vertical-slice codebases; flat layers feel like the layered MVC backends most engineers learn first. Team background matters.
+### Bootstrapping a new project with a chosen layout
 
-### Migration recipe
+`gofasta new` takes a `--layout` flag. The value is persisted to `config.yaml`'s `project.layout` field so every subsequent command (generators, refactor, status) knows what shape the project is in:
 
-Starting from a layered Gofasta scaffold, moving one resource at a time keeps the app compilable throughout:
+```bash
+# Layered (default — `--layout=layered` is implicit)
+gofasta new my-app
+gofasta new my-app --layout=layered
 
-1. **Create the feature directory** — e.g., `mkdir app/user`.
+# Feature-package
+gofasta new my-app --layout=feature
+```
 
-2. **Move and rename files** — `git mv` each layer's user file into the new directory, and rename to drop the redundant prefix:
+Both produce a project that compiles, runs, and passes its included tests out of the box. There is **no functional difference** between the two — they ship the same packages, the same wire bindings, the same HTTP routes. Only the file shape differs.
 
-   ```bash
-   git mv app/models/user.model.go                  app/user/model.go
-   git mv app/dtos/user.dtos.go                     app/user/dtos.go
-   git mv app/repositories/user.repository.go       app/user/repository.go
-   git mv app/repositories/interfaces/user_repository.go  app/user/repository_iface.go
-   git mv app/services/user.service.go              app/user/service.go
-   git mv app/services/interfaces/user_service.go   app/user/service_iface.go
-   git mv app/rest/controllers/user.controller.go   app/user/controller.go
-   git mv app/rest/routes/user.routes.go            app/user/routes.go
-   git mv app/validators/user.validators.go         app/user/validators.go
-   ```
+#### What gets written into config.yaml
 
-3. **Change each moved file's package declaration** from `package models`, `package services`, `package controllers`, etc. to `package user`.
+```yaml
+project:
+  layout: layered    # or: feature
+```
 
-4. **Update imports in the moved files.** Internal references that used to cross packages (e.g., `controllers.UserController` calling `services.UserService`) collapse to in-package references (`Service` instead of `services.UserService`). Types like `models.User` become just `User`.
+**Don't edit this field by hand.** It's read by every `gofasta g` command and by `gofasta refactor` to decide what shape to emit. Flipping the value without moving the files puts the project into an inconsistent state where the CLI thinks the layout is X but the filesystem is Y. To change layout, always use `gofasta refactor` (see below).
 
-5. **Update external callers** — `app/di/providers/user.go.tmpl`, `cmd/serve.go`, and `app/rest/routes/index.routes.go` need their imports changed from `app/rest/controllers`, `app/services`, etc. to `app/user`.
+### What moves and what doesn't
 
-6. **Regenerate Wire** — `gofasta wire`. The dependency graph didn't change, only the import paths, so generated output stays correct after imports are updated.
+In the feature-package layout, Gofasta uses a **hybrid** shape ("Option B" in the implementation). The decision table:
 
-7. **Compile + test** — `go build ./...` catches any missed import, then `go test ./...`.
+| Layer | Layered location | Feature location | Why |
+|-------|------------------|------------------|-----|
+| Model | `app/models/<r>.model.go` | **stays in `app/models/`** | DTO mappers (`UserFromModel`) need `*models.User`; if the model moved into the feature, you'd get a `dtos → feature → dtos` import cycle. |
+| Per-resource DTOs | `app/dtos/<r>.dtos.go` | `app/<r>/dtos.go` | Collapses in — DTOs are owned by the feature. |
+| Shared DTO aliases | `app/dtos/aliases.go` | **`app/shared/dtos/aliases.go`** | `TPaginationObjectDto`, `SortOrientation`, etc. are cross-feature — relocated to a shared package. |
+| Repository (impl + iface) | `app/repositories/*` | `app/<r>/repository.go` + `repository_iface.go` | Collapses in. |
+| Service (impl + iface + errors + inputs) | `app/services/*` | `app/<r>/service.go` + `service_iface.go` + `errors.go` + `inputs.go` | Collapses in. |
+| Controller | `app/rest/controllers/<r>.controller.go` | `app/<r>/controller.go` | Collapses in. |
+| Routes | `app/rest/routes/<r>.routes.go` | `app/<r>/routes.go` | Collapses in. Function renames from `<R>Routes(...)` to `RegisterRoutes(...)`. |
+| Wire provider | `app/di/providers/<r>.go` | `app/<r>/wire.go` | Collapses in. |
+| Per-resource validators | `app/validators/<r>.validators.go` | **stays in `app/validators/`** | `register.go` calls package-private helpers (`isRecordExistByEmailForConflict`, etc.) — scattering them breaks the wiring. |
+| Validator infrastructure | `app/validators/{app_validator,register,...}.go` | stays | Cross-cutting setup. |
+| Container / wire / index.routes | `app/di/container.go`, `app/di/wire.go`, `app/rest/routes/index.routes.go` | same paths, different import shape | Cross-cutting; the refactor rewrites their imports + field types per layout. |
+| Jobs / tasks / graphql | `app/jobs/`, `app/tasks/`, `app/graphql/` | stays | Not per-resource. |
 
-8. **Delete the now-empty `app/models/`, `app/dtos/`, etc.** directories for the migrated resource.
+The hybrid matches [Ben Johnson's "Standard Package Layout"](https://www.gobeyond.dev/standard-package-layout/) — features own their behavior; cross-cutting types stay where every feature can reach them.
 
-9. **Repeat** for each resource.
+### Switching layouts: `gofasta refactor`
 
-### What the CLI does
+Two subcommands, one in each direction. Both run AST-based rewrites (using `github.com/dave/dst`) so aliased imports, external test packages, and complex selector expressions are handled correctly. Both are idempotent: running them twice does nothing the second time.
 
-You don't have to follow the manual recipe — gofasta ships both a scaffold flag and an automated migration command:
+```bash
+# Migrate layered → feature
+gofasta refactor feature User              # one resource
+gofasta refactor feature --all             # every resource detected in app/models/
+gofasta refactor feature --all --dry-run   # preview the plan, write nothing
 
-- **`gofasta new my-app --layout=feature`** scaffolds a new project directly in the feature-package layout. Per-resource files (service, repository, controller, routes, dtos, errors, inputs, wire provider) live in `app/<feature>/`; the shared aliases (`TPaginationObjectDto`, `SortOrientation`) live in `app/shared/dtos/`. Models stay in `app/models/` and validator infrastructure stays in `app/validators/` — this is the Option B hybrid documented in [`internal/featurize/featurize.go`](https://github.com/gofastadev/cli/blob/main/internal/featurize/featurize.go), chosen to avoid the `dtos → feature → dtos` import cycle that would otherwise arise from collapsing every layer.
+# Migrate feature → layered (the inverse)
+gofasta refactor layered User
+gofasta refactor layered --all
+gofasta refactor layered --all --dry-run
 
-- **`gofasta refactor feature-package <Resource>`** migrates one resource at a time. **`gofasta refactor feature-package --all`** migrates every resource in `app/models/`. After each resource the engine regenerates Wire and runs `go build ./...`; on failure it aborts with the partial state in place so you can `git restore`. The refactor command refuses to run on a dirty working tree unless you pass `--force`, and `--dry-run` previews the plan without writing.
+# Inspect — read-only, never writes anywhere
+gofasta refactor status
 
-- **`gofasta g scaffold Product …`** detects the project's layout from `config.yaml`'s `project.layout` field and emits the right shape. New resources scaffolded into a feature-layout project land in `app/<resource>/` automatically.
+# Back-compat alias for users / scripts that used the old name
+gofasta refactor feature-package --all   # equivalent to `refactor feature --all`
+```
 
-The full reference lives at [`gofasta refactor feature-package`](/docs/cli-reference/refactor).
+#### What `gofasta refactor` actually does
+
+For each resource it migrates (or every resource with `--all`):
+
+1. **Moves the per-resource files** to their destination locations (per the table above).
+2. **Rewrites each moved file's source** — package declaration, imports, selector expressions, and (for external test packages) qualifier prefixes.
+3. **Patches the cross-cutting files** — `app/di/container.go`, `app/di/wire.go`, `app/rest/routes/index.routes.go`, `app/di/providers/core.go` — to import the right packages and reference symbols with the right qualifier.
+4. **Updates `testutil/mocks/<r>_*_mock.go`** so mock imports point at the new package.
+5. **Patches shared infra files** that import the dtos package (`app_validator.go`, `validator.go`, `resolver.go`) — flips the import path between `<mod>/app/dtos` and `<mod>/app/shared/dtos`.
+6. **Relocates shared files** — `aliases.go` between `app/dtos/` and `app/shared/dtos/`, `password_generator.go` between `app/services/` and `app/user/`.
+7. **Prunes empty directories** left behind by the moves.
+8. **Updates `config.yaml`** — flips `project.layout` to the new layout.
+9. **Regenerates Wire** — deletes the stale `app/di/wire_gen.go` and runs `go tool wire ./app/di/` to rebuild it against the new layout.
+10. **Verifies** — runs `go build ./...` as a final gate. **On failure the migration aborts** with `REFACTOR_ABORTED` and leaves the partial state in place. Run `git restore .` to revert and inspect what failed.
+
+The compile gate means a successful refactor produces a project that builds. It does NOT run `go test ./...` (that takes too long for an interactive migration) — run the tests yourself afterward.
+
+### Safety: what `gofasta refactor` checks before writing
+
+| Check | Behavior | Override |
+|-------|----------|----------|
+| Project is in the source layout | `REFACTOR_INELIGIBLE` if you're already in the target layout (e.g. running `refactor feature` on a feature project) | — |
+| `app/models/` exists (for `refactor feature`) | `REFACTOR_INELIGIBLE` if not in a gofasta project root | — |
+| Resource exists at the expected layered path (for single-resource mode) | `REFACTOR_RESOURCE_NOT_FOUND` | — |
+| Git working tree is clean | `REFACTOR_DIRTY_TREE` — commit/stash first | `--force` |
+| Compile passes after migration | `REFACTOR_ABORTED` — partial state on disk | none; fix or `git restore` |
+
+#### Recommended workflow
+
+```bash
+# 1. See where you are
+gofasta refactor status
+# → Layout: layered  (from config.yaml)
+# → Resources: 3 (User, Product, Order)
+# → Migration target: feature
+# → Command: gofasta refactor feature --all
+
+# 2. Preview the migration
+gofasta refactor feature --all --dry-run
+
+# 3. Commit your current state so you can revert if needed
+git add -A && git commit -m "checkpoint before feature migration"
+
+# 4. Run the migration
+gofasta refactor feature --all
+
+# 5. Run tests against the migrated project
+go test ./...
+
+# 6. Commit the migrated state
+git add -A && git commit -m "migrate to feature-package layout"
+```
+
+If step 4 aborts:
+
+```bash
+git status                   # see what was moved/changed
+git restore .                # revert everything in one shot
+# (or git restore for specific files if you want to keep some moves)
+```
+
+### Generators are layout-aware
+
+You never specify the layout when generating code. Every `gofasta g` command reads `config.yaml`'s `project.layout` and emits the right shape automatically:
+
+```bash
+# In a layered project
+gofasta g scaffold Product name:string price:float
+#  → app/models/product.model.go
+#  → app/dtos/product.dtos.go
+#  → app/services/product.service.go
+#  → app/repositories/product.repository.go
+#  → app/rest/controllers/product.controller.go
+#  → app/rest/routes/product.routes.go
+#  → app/di/providers/product.go
+#  → patches: container.go, wire.go, index.routes.go, cmd/serve.go
+
+# In a feature-package project — same command, different output
+gofasta g scaffold Product name:string price:float
+#  → app/models/product.model.go        (stays layered)
+#  → app/product/dtos.go
+#  → app/product/service.go
+#  → app/product/service_iface.go
+#  → app/product/repository.go
+#  → app/product/repository_iface.go
+#  → app/product/controller.go
+#  → app/product/routes.go              (exports RegisterRoutes)
+#  → app/product/wire.go                (exports ProductSet)
+#  → patches: container.go, wire.go, index.routes.go, cmd/serve.go
+```
+
+The same goes for `gofasta g model`, `gofasta g service`, `gofasta g repository`, `gofasta g controller`, `gofasta g dto`, `gofasta g job`, `gofasta g task`, etc. See [Code Generation](/docs/guides/code-generation) for the per-generator details.
+
+### Rules that keep the project clean
+
+The CLI does a lot of bookkeeping for you, but a few habits prevent drift:
+
+1. **Always use `gofasta refactor` to switch layouts.** Never hand-`git mv` files. The refactor doesn't just move files — it rewrites imports, regenerates Wire, patches cross-cutting wiring files, and updates `config.yaml`. Hand-moving leaves the project in a state where the filesystem says one thing and `config.yaml` + Wire say another.
+
+2. **Don't edit `config.yaml`'s `project.layout` field by hand.** It must agree with the filesystem. The refactor command is the only thing that should write to it.
+
+3. **Commit before refactoring.** The refactor's safety gate refuses to run on a dirty tree (unless you pass `--force`) so you have a clean checkpoint to revert to. If a migration aborts mid-flight, `git restore .` instantly returns you to the pre-refactor state.
+
+4. **Don't run wire by hand right after a refactor.** The refactor already regenerates `wire_gen.go` against the new layout. If you run `go tool wire` again before the file moves complete, you'll regenerate against a half-state.
+
+5. **Don't refactor a project with heavy hand-edits.** The transformer recognizes scaffold-shaped code: standard type names (`UserService`, `UserRepository`, `UserController`), standard receiver methods, standard import aliases (`repoInterfaces`, `svcInterfaces`). If you've renamed those types or added unrelated symbols into the layered packages, the migration may still complete but emit results that need manual cleanup. Migrate per-resource (without `--all`) and inspect each step.
+
+6. **`models.X` stays as `models.X` even in feature mode.** The model is the one type that doesn't collapse. References to `models.User` in your service/controller/dtos files are intentional — don't be tempted to "fix" them.
+
+7. **Run `gofasta refactor status` whenever you're unsure.** It tells you the active layout, where it read it from (config.yaml or filesystem detection), how many resources are detected, and what migration target is available. Read-only — never writes.
+
+### JSON output (for agents and scripts)
+
+Every refactor subcommand supports `--json` and emits a structured envelope:
+
+```bash
+gofasta --json refactor feature --all
+```
+
+```json
+{
+  "action": "refactor.feature-package",
+  "resources": ["User", "Product"],
+  "files_moved": [
+    "app/services/user.service.go → app/user/service.go",
+    "app/repositories/user.repository.go → app/user/repository.go"
+  ],
+  "files_patched": [
+    "app/di/container.go",
+    "app/di/wire.go",
+    "app/rest/routes/index.routes.go"
+  ],
+  "dry_run": false,
+  "success": true
+}
+```
+
+`refactor status` emits a different shape with `layout`, `resources`, and `migration_command` fields — useful for agents that want to suggest the next step.
 
 ### When to migrate (and when not to)
 
-Migrate when:
+**Migrate layered → feature when:**
 
 - The app has ~15+ resources and growing.
-- Multiple teams are contributing and stepping on each other in shared layer directories.
+- Multiple teams are contributing and stepping on each other in the shared layer directories.
 - You're planning to extract specific domains into separate services later.
 - The layered structure is creating visible coupling problems (e.g., `user.service` knows about `invoice.dtos`).
 
-Stay layered when:
+**Stay layered (or migrate back) when:**
 
 - The app has fewer than ~10 resources.
 - The team is mostly coming from layered MVC backends and the flat layout matches their mental model.
 - You haven't felt real pain from the current structure — speculative refactoring is the most expensive kind.
+- You experimented with feature-package and found it adds more ceremony than your team needs.
 
-Both layouts are legitimate. The Go community is genuinely split on this — Ben Johnson's "Standard Package Layout", the package-by-feature / vertical-slice camp, and the traditional layered camp are all actively defended in production codebases. Pick the one that fits your team and your current scale; you can migrate later if the trade-offs shift.
+Both layouts are legitimate. The Go community is genuinely split on this — Ben Johnson's "Standard Package Layout", the package-by-feature / vertical-slice camp, and the traditional layered camp are all actively defended in production codebases. Pick the one that fits your team and your current scale; `gofasta refactor` lets you switch if the trade-offs shift.
+
+### Full command reference
+
+- [`gofasta new --layout=<layered|feature>`](/docs/cli-reference/new) — scaffold a fresh project in the chosen layout
+- [`gofasta refactor`](/docs/cli-reference/refactor) — switch layouts and inspect current state
 
 ## Next Steps
 

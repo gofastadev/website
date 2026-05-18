@@ -12,11 +12,131 @@ keywords:
 
 The Gofasta CLI includes a powerful code generation system that creates files following the project's architecture (controllers → services → repositories → models). Every generated file follows consistent conventions and integrates with the existing project structure.
 
-> **Layout awareness.** Every generator reads `config.yaml`'s `project.layout` field and emits files in the right shape:
-> - In **layered** projects (the default), `gofasta g scaffold Product` writes to `app/models/`, `app/services/`, `app/repositories/`, `app/rest/controllers/`, etc.
-> - In **feature-package** projects (created with `gofasta new --layout=feature`, or migrated with [`gofasta refactor feature-package`](/docs/cli-reference/refactor)), the same command writes to `app/product/` — service, repository, controller, routes, wire provider all collapse into the per-feature directory. Models stay in `app/models/` and per-resource validators stay in `app/validators/` (Option B hybrid documented in [project structure](/docs/getting-started/project-structure#restructuring-to-feature-modules)).
->
-> You don't pick layout per-command — the CLI reads the project's layout once from `config.yaml` and the rest follows.
+## Layout awareness
+
+Every `gofasta g *` command reads `config.yaml`'s `project.layout` field and emits files in the shape that matches your project. You never pick a layout on the generator command line — the CLI infers it once per invocation and writes the right paths.
+
+### What "layout-aware" means in practice
+
+Compare the same command in each layout:
+
+```bash
+# In a project created with `gofasta new my-app` (or `--layout=layered`)
+$ gofasta g scaffold Product name:string price:float
+  create: app/models/product.model.go
+  create: app/dtos/product.dtos.go
+  create: app/dtos/product.dtos_test.go
+  create: app/repositories/interfaces/product_repository.go
+  create: app/repositories/product.repository.go
+  create: app/services/interfaces/product_service.go
+  create: app/services/product.service.go
+  create: app/services/product_errors.go
+  create: app/services/product_inputs.go
+  create: app/rest/controllers/product.controller.go
+  create: app/rest/routes/product.routes.go
+  create: app/di/providers/product.go
+  patch:  app/di/container.go (add ProductRepo/ProductService fields)
+  patch:  app/di/wire.go (add providers.ProductSet to wire.Build)
+  patch:  app/rest/routes/index.routes.go (register ProductRoutes under /api/v1)
+```
+
+```bash
+# Same command in a project created with `gofasta new my-app --layout=feature`
+$ gofasta g scaffold Product name:string price:float
+  create: app/models/product.model.go            # ← model stays layered
+  create: app/product/dtos.go
+  create: app/product/dtos_test.go
+  create: app/product/repository.go
+  create: app/product/repository_iface.go
+  create: app/product/service.go
+  create: app/product/service_iface.go
+  create: app/product/errors.go
+  create: app/product/inputs.go
+  create: app/product/controller.go
+  create: app/product/routes.go                  # exports RegisterRoutes(...)
+  create: app/product/wire.go                    # exports ProductSet
+  patch:  app/di/container.go (add productpkg.ProductRepositoryInterface fields)
+  patch:  app/di/wire.go (add productpkg.ProductSet to wire.Build)
+  patch:  app/rest/routes/index.routes.go (register productpkg.RegisterRoutes)
+```
+
+Same source code, same wire bindings, same HTTP routes — only the on-disk file shape differs.
+
+### Per-generator output: where things land
+
+The exact path matrix per layout:
+
+| Generator | Layered | Feature |
+|-----------|---------|---------|
+| `gofasta g model Product` | `app/models/product.model.go` | `app/models/product.model.go` *(model never moves)* |
+| `gofasta g dto Product` | `app/dtos/product.dtos.go` | `app/product/dtos.go` |
+| `gofasta g repository Product` | `app/repositories/product.repository.go` + `interfaces/product_repository.go` | `app/product/repository.go` + `repository_iface.go` |
+| `gofasta g service Product` | `app/services/product.service.go` + `interfaces/product_service.go` + `product_errors.go` + `product_inputs.go` | `app/product/service.go` + `service_iface.go` + `errors.go` + `inputs.go` |
+| `gofasta g controller Product` | `app/rest/controllers/product.controller.go` | `app/product/controller.go` |
+| `gofasta g route Product` | `app/rest/routes/product.routes.go` (`func ProductRoutes(...)`) | `app/product/routes.go` (`func RegisterRoutes(...)`) |
+| `gofasta g provider Product` | `app/di/providers/product.go` | `app/product/wire.go` |
+| `gofasta g scaffold Product` | all of the above | all of the above |
+| `gofasta g migration AddTaxRate ...` | `db/migrations/NNNNNN_*.up.sql` + `.down.sql` | same |
+| `gofasta g job cleanup-tokens "..."` | `app/jobs/cleanup_tokens.go` | same — jobs aren't per-resource |
+| `gofasta g task send-welcome` | `app/tasks/send_welcome.task.go` | same — tasks aren't per-resource |
+| `gofasta g email-template welcome` | `templates/emails/welcome.html` | same |
+| `gofasta g resolver Product` | patches `app/graphql/resolvers/resolver.go` | same path, different import shape |
+| `gofasta g mock` / `--all` | scans `app/services/interfaces/` and `app/repositories/interfaces/` | scans `app/*/` for `*_iface.go` files |
+
+The patches to cross-cutting files (`app/di/container.go`, `app/di/wire.go`, `app/rest/routes/index.routes.go`, `cmd/serve.go`) happen in both layouts — only the import aliases and field/call qualifiers differ:
+
+| Patch target | Layered version | Feature version |
+|--------------|-----------------|-----------------|
+| `container.go` field types | `repoInterfaces.ProductRepositoryInterface`, `svcInterfaces.ProductServiceInterface`, `*controllers.ProductController` | `productpkg.ProductRepositoryInterface`, `productpkg.ProductServiceInterface`, `*productpkg.ProductController` |
+| `wire.go` provider set ref | `providers.ProductSet` | `productpkg.ProductSet` |
+| `index.routes.go` route call | `ProductRoutes(api, config.ProductController)` | `productpkg.RegisterRoutes(api, config.ProductController)` |
+
+### Modify-aware generators (`g method`, `g field`, `g endpoint`, etc.)
+
+The modify-aware generators (`gofasta g method`, `g field`, `g endpoint`, `g repo-method`, `g relation`, `g rename`, `g middleware`) infer their target paths from the project layout exactly the same way as the create-style generators:
+
+```bash
+gofasta g method Product Archive id:uuid.UUID
+# Layered:
+#   patches app/services/interfaces/product_service.go
+#   patches app/services/product.service.go
+# Feature:
+#   patches app/product/service_iface.go
+#   patches app/product/service.go
+```
+
+You can override paths explicitly with the `--interface-file` and `--impl-file` flags when the inference doesn't match (rare, but useful for non-standard project shapes).
+
+### How the CLI reads the layout
+
+When you run a generator, the lookup is:
+
+1. Read `config.yaml`'s `project.layout` field via the `configutil.ReadLayout()` helper.
+2. If unset (e.g. for projects scaffolded before this feature shipped), fall back to filesystem detection: presence of `app/models/` ⇒ layered.
+3. If neither signal is present, default to layered.
+
+The resolved layout flows into `ScaffoldData.Layout`, which every generator consults to build its destination path. The full implementation is in [`cli/internal/layout/`](https://github.com/gofastadev/cli/tree/main/internal/layout); the layout-aware emit pipeline (which runs each generated file through the AST featurize transformer when emitting under feature mode) is in [`cli/internal/featurize/`](https://github.com/gofastadev/cli/tree/main/internal/featurize).
+
+### Common pitfalls
+
+- **Editing `config.yaml`'s `project.layout` by hand.** Don't. The filesystem won't match what the CLI thinks the layout is, and the next `gofasta g` will emit files in the wrong shape. To switch layouts, run [`gofasta refactor`](/docs/cli-reference/refactor) — it changes both the config value and the filesystem together.
+- **Hand-`git mv`-ing files between layered and feature locations.** Same problem. The refactor command rewrites imports, regenerates Wire, and patches cross-cutting wiring files — moving files alone leaves the project broken in subtle ways.
+- **Assuming `gofasta g scaffold` does the same thing in both layouts.** It produces different file paths and different import shapes. The semantic result (same routes, same wire graph, same HTTP behavior) is identical, but the diff is large.
+
+### Inspecting the active layout
+
+Use [`gofasta refactor status`](/docs/cli-reference/refactor#status) to see which layout the current project is in and which migration target is available. It's read-only and runs in any state:
+
+```bash
+$ gofasta refactor status
+Layout:           feature  (from config.yaml)
+Resources:        3
+  • User
+  • Product
+  • Order
+Migration target: layered
+Command:          gofasta refactor layered --all
+```
 
 ## The Generate Command
 
