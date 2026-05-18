@@ -10,7 +10,13 @@ keywords:
 
 # Code Generation
 
-The Gofasta CLI includes a powerful code generation system that creates files following the project's layered architecture (controllers → services → repositories → models). Every generated file follows consistent conventions and integrates with the existing project structure.
+The Gofasta CLI includes a powerful code generation system that creates files following the project's architecture (controllers → services → repositories → models). Every generated file follows consistent conventions and integrates with the existing project structure.
+
+> **Layout awareness.** Every generator reads `config.yaml`'s `project.layout` field and emits files in the right shape:
+> - In **layered** projects (the default), `gofasta g scaffold Product` writes to `app/models/`, `app/services/`, `app/repositories/`, `app/rest/controllers/`, etc.
+> - In **feature-package** projects (created with `gofasta new --layout=feature`, or migrated with [`gofasta refactor feature-package`](/docs/cli-reference/refactor)), the same command writes to `app/product/` — service, repository, controller, routes, wire provider all collapse into the per-feature directory. Models stay in `app/models/` and per-resource validators stay in `app/validators/` (Option B hybrid documented in [project structure](/docs/getting-started/project-structure#restructuring-to-feature-modules)).
+>
+> You don't pick layout per-command — the CLI reads the project's layout once from `config.yaml` and the rest follows.
 
 ## The Generate Command
 

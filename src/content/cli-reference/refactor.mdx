@@ -1,0 +1,130 @@
+---
+title: gofasta refactor
+description: Refactor an existing Gofasta project's structure — migrate layouts and apply structural moves without changing behavior.
+keywords:
+  - "CLI"
+  - "refactor"
+  - "feature-package"
+  - "layout migration"
+  - "gofasta refactor"
+---
+
+# gofasta refactor
+
+`gofasta refactor` performs structural moves on an existing Gofasta project. Each subcommand migrates a specific shape — files relocate, imports rewrite, but the project's behavior is unchanged.
+
+## Usage
+
+```bash
+gofasta refactor <subcommand> [flags]
+```
+
+## Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| [`feature-package`](#feature-package) | Migrate from layered to feature-package layout |
+
+## feature-package
+
+Moves per-resource files from layered locations into per-feature directories. Rewrites imports and selectors so the result compiles. Reuses the same AST transformer (`internal/featurize/`) that powers `gofasta new --layout=feature` — the two callers differ only in input: scaffolding starts from the embedded skeleton; refactor starts from your on-disk project.
+
+### Usage
+
+```bash
+gofasta refactor feature-package <Resource>            # migrate one resource
+gofasta refactor feature-package --all                 # migrate every resource in app/models/
+gofasta refactor feature-package <Resource> --dry-run  # preview the plan, write nothing
+gofasta refactor feature-package <Resource> --force    # proceed even on a dirty git tree
+```
+
+### What it does
+
+For each resource (passed by name, or every one discovered in `app/models/`):
+
+1. **Move files into the feature directory.** `app/services/<r>.service.go` → `app/<r>/service.go`, `app/repositories/<r>.repository.go` → `app/<r>/repository.go`, plus the matching `_test.go` siblings. Full mapping in [`internal/featurize/featurize.go`](https://github.com/gofastadev/cli/blob/main/internal/featurize/featurize.go)'s `PerResourceMapping`.
+2. **Rewrite the moved files' content.** Package declaration flips from `services` / `repositories` / `interfaces` / etc. to the feature snake name (`user`, `product`, …). Cross-package selectors collapse to in-package references: `services.UserService` → `UserService`, `repoInterfaces.UserRepositoryInterface` → `UserRepositoryInterface`. External test packages (`controllers_test`) become `user_test` with `user.X` qualifiers added so the test can reach the moved symbols.
+3. **Update mocks.** `testutil/mocks/<r>_repository_mock.go` and `<r>_service_mock.go` have their imports flipped from `app/repositories/interfaces` + `app/services/interfaces` to the feature package `<r>pkg "<mod>/app/<r>"`.
+
+After all resources have moved, the engine also:
+
+4. **Relocates shared aliases.** `app/dtos/aliases.go` → `app/shared/dtos/aliases.go`. The package name stays `dtos`; only the import path callers use changes.
+5. **Moves `password_generator.go`.** Goes from `app/services/password_generator.go` into `app/user/password_generator.go` (the User feature is its only consumer in the bootstrap scaffold). Skipped if no User feature is being migrated.
+6. **Patches the cross-cutting wiring files** — `app/di/container.go`, `app/di/wire.go`, `app/rest/routes/index.routes.go`, `app/di/providers/core.go`. Imports flip to per-feature aliases (`userpkg "<mod>/app/user"`); field types and provider references rewrite (`repoInterfaces.UserRepositoryInterface` → `userpkg.UserRepositoryInterface`; `providers.UserSet` → `userpkg.UserSet`).
+7. **Fixes dtos import paths** in shared infra files that consume the relocated `aliases.go`: `app/validators/app_validator.go`, `app/rest/controllers/validator.go`, `app/graphql/resolvers/user.resolvers.go`. The `<mod>/app/dtos` import flips to `<mod>/app/shared/dtos`.
+8. **Prunes empty layered directories** — `app/services/interfaces`, `app/repositories/interfaces`, `app/di/providers`, etc. — once every resource has moved out.
+9. **Updates `config.yaml`** — `project.layout: layered` → `project.layout: feature`. The CLI reads this on every subsequent `gofasta g *` invocation so new scaffolds emit feature-shaped files automatically.
+10. **Regenerates Wire** — runs `go tool wire ./app/di/` so the stale `wire_gen.go` is rewritten against the new layout.
+11. **Verifies** — runs `go build ./...`. On failure the migration aborts with [`REFACTOR_ABORTED`](/docs/cli-reference/error-codes) and the partial state is left for you to inspect. `git restore` to revert.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--all` | `false` | Migrate every resource discovered in `app/models/`. |
+| `--dry-run` | `false` | Print the migration plan and exit without writing any files. |
+| `--force` | `false` | Proceed even if the git working tree has uncommitted changes. Without this flag, a dirty tree aborts with [`REFACTOR_DIRTY_TREE`](/docs/cli-reference/error-codes). |
+
+### Layout: what stays, what moves
+
+Not every layer collapses into the feature package — some stay shared for sound architectural reasons documented in [`featurize.go`](https://github.com/gofastadev/cli/blob/main/internal/featurize/featurize.go):
+
+| Layer | Layered | Feature (Option B hybrid) | Why |
+|-------|---------|--------------------------|-----|
+| Model | `app/models/<r>.model.go` | `app/models/<r>.model.go` | DTO mappers need to reference `*models.X`; moving the model creates an import cycle with `dtos`. |
+| DTOs (per-resource) | `app/dtos/<r>.dtos.go` | `app/<r>/dtos.go` | Collapse into the feature. |
+| DTOs (shared aliases) | `app/dtos/aliases.go` | `app/shared/dtos/aliases.go` | `TPaginationObjectDto`, `SortOrientation`, etc. live in a shared package — cross-feature addressable. |
+| Repository | `app/repositories/<r>.repository.go` | `app/<r>/repository.go` | Collapse. |
+| Repository iface | `app/repositories/interfaces/<r>_repository.go` | `app/<r>/repository_iface.go` | Collapse — interface and impl in same package. |
+| Service | `app/services/<r>.service.go` | `app/<r>/service.go` | Collapse. |
+| Service iface | `app/services/interfaces/<r>_service.go` | `app/<r>/service_iface.go` | Collapse. |
+| Errors | `app/services/<r>_errors.go` | `app/<r>/errors.go` | Collapse. |
+| Inputs | `app/services/<r>_inputs.go` | `app/<r>/inputs.go` | Collapse. |
+| Controller | `app/rest/controllers/<r>.controller.go` | `app/<r>/controller.go` | Collapse. |
+| Routes | `app/rest/routes/<r>.routes.go` | `app/<r>/routes.go` | Collapse. Function renames from `<R>Routes(...)` to `RegisterRoutes(...)`. |
+| Wire provider | `app/di/providers/<r>.go` | `app/<r>/wire.go` | Collapse. |
+| Validators (per-resource) | `app/validators/<r>.validators.go` | `app/validators/<r>.validators.go` | **Stays.** `register.go` calls package-private helpers — scattering would break the wiring. |
+| Container / wire / index.routes | shared | shared (with rewritten imports) | Per-layout aware. |
+
+This hybrid shape matches [Ben Johnson's "Standard Package Layout"](https://www.gobeyond.dev/standard-package-layout/) — features own their own behavior; cross-cutting types stay where every feature can reach them.
+
+### Examples
+
+Migrate a single resource as a one-off test:
+
+```bash
+gofasta refactor feature-package User --dry-run
+gofasta refactor feature-package User
+```
+
+Migrate the whole project at once (commit between!):
+
+```bash
+git add -A && git commit -m "checkpoint before feature-package migration"
+gofasta refactor feature-package --all
+go test ./...   # verify everything still works
+git add -A && git commit -m "migrate to feature-package layout"
+```
+
+If the migration aborts mid-flight, the partial state is on disk. `git restore .` reverts to the layered shape; investigate the build failure separately and re-run.
+
+### JSON output
+
+`gofasta --json refactor feature-package --all` emits:
+
+```json
+{
+  "action": "refactor.feature-package",
+  "resources": ["User", "Product"],
+  "files_moved": ["app/services/user.service.go → app/user/service.go", "..."],
+  "files_patched": ["app/di/container.go", "app/di/wire.go", "..."],
+  "dry_run": false,
+  "success": true
+}
+```
+
+## See also
+
+- [Project structure — Restructuring to feature modules](/docs/getting-started/project-structure#restructuring-to-feature-modules) — the layout's rationale, trade-offs, and when to migrate (or not).
+- [`gofasta new --layout=feature`](/docs/cli-reference/new) — scaffold a fresh project directly in feature layout instead of migrating.
+- [Error codes](/docs/cli-reference/error-codes) — full reference for `REFACTOR_INELIGIBLE`, `REFACTOR_ABORTED`, `REFACTOR_DIRTY_TREE`, `REFACTOR_RESOURCE_NOT_FOUND`.

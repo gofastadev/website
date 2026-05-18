@@ -19,6 +19,7 @@ const meta = {
   config: "gofasta config",
   serve: "gofasta serve",
   generate: "gofasta generate",
+  refactor: "gofasta refactor",
   migrate: "gofasta migrate",
   seed: "gofasta seed",
   db: "gofasta db",

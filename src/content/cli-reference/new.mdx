@@ -27,6 +27,7 @@ The `<name>` can be a simple name like `myapp` or a full Go module path like `gi
 | `--driver` | `postgres` | Database driver: `postgres` \| `mysql` \| `sqlite` \| `sqlserver` \| `clickhouse`. See [`--driver`](/docs/cli-reference/new/driver) for the full per-driver breakdown. |
 | `--graphql` | `false` | Include GraphQL support (gqlgen schema, resolvers, `/graphql` endpoint, playground). See [`--graphql / --gql`](/docs/cli-reference/new/graphql). |
 | `--gql` | `false` | Alias for `--graphql` |
+| `--layout` | `layered` | Project layout: `layered` \| `feature`. `layered` (default) puts each layer in its own directory (`app/models/`, `app/services/`, `app/repositories/`, …). `feature` collapses per-resource files into `app/<resource>/` (Option B hybrid — see [Restructuring to feature modules](/docs/getting-started/project-structure#restructuring-to-feature-modules)). |
 
 ### Flag references
 

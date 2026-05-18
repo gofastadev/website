@@ -241,14 +241,17 @@ Starting from a layered Gofasta scaffold, moving one resource at a time keeps th
 
 9. **Repeat** for each resource.
 
-### What the CLI does (and doesn't) do
+### What the CLI does
 
-As of today, `gofasta g scaffold Product name:string price:float` generates into the **layered** layout — that's the only output shape the generator supports. If you've restructured to feature modules, you have two options:
+You don't have to follow the manual recipe — gofasta ships both a scaffold flag and an automated migration command:
 
-- **Run `gofasta g scaffold`, then move the generated files** into your feature directory with the migration recipe above. Takes ~30 seconds per resource.
-- **Stop using `gofasta g scaffold`** for feature-module projects and write the files by hand. The eight-file template is predictable enough to copy-paste from an existing resource.
+- **`gofasta new my-app --layout=feature`** scaffolds a new project directly in the feature-package layout. Per-resource files (service, repository, controller, routes, dtos, errors, inputs, wire provider) live in `app/<feature>/`; the shared aliases (`TPaginationObjectDto`, `SortOrientation`) live in `app/shared/dtos/`. Models stay in `app/models/` and validator infrastructure stays in `app/validators/` — this is the Option B hybrid documented in [`internal/featurize/featurize.go`](https://github.com/gofastadev/cli/blob/main/internal/featurize/featurize.go), chosen to avoid the `dtos → feature → dtos` import cycle that would otherwise arise from collapsing every layer.
 
-A `--layout=feature` flag on `gofasta new` and the generators is on the wishlist — see [the white paper's roadmap](/docs/white-paper#24-roadmap) — but not yet implemented. If you'd find it useful, open an issue.
+- **`gofasta refactor feature-package <Resource>`** migrates one resource at a time. **`gofasta refactor feature-package --all`** migrates every resource in `app/models/`. After each resource the engine regenerates Wire and runs `go build ./...`; on failure it aborts with the partial state in place so you can `git restore`. The refactor command refuses to run on a dirty working tree unless you pass `--force`, and `--dry-run` previews the plan without writing.
+
+- **`gofasta g scaffold Product …`** detects the project's layout from `config.yaml`'s `project.layout` field and emits the right shape. New resources scaffolded into a feature-layout project land in `app/<resource>/` automatically.
+
+The full reference lives at [`gofasta refactor feature-package`](/docs/cli-reference/refactor).
 
 ### When to migrate (and when not to)
 
