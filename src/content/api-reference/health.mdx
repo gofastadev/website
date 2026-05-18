@@ -142,8 +142,4 @@ Health poll guidance:
 - **Liveness** — poll every 10–30 s with a short timeout (≤5 s). A failing liveness probe should typically trigger a restart.
 - **Readiness** — poll every 5–10 s. A failing readiness probe should remove the instance from traffic but **not** restart it.
 
-## Related Pages
-
-- [Config](/docs/api-reference/config) -- Database and cache configuration for checks
-- [Observability](/docs/api-reference/observability) -- Metrics complement health checks
-- [Resilience](/docs/api-reference/resilience) -- Circuit breaker states reflected in health
+<RelatedPages path="api-reference/health" />

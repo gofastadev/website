@@ -112,9 +112,9 @@ If the model struct already has the field, the command returns `FIELD_ALREADY_EX
 | `FIELD_ALREADY_EXISTS` | The model struct already has a field by that name. Pick a different name or remove the existing field first. |
 | `AST_PARSE_FAILED` | The model or DTO file has a syntax error. |
 
-## Related
-
-- [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) — generates the resource this command patches
-- [`gofasta g migration`](/docs/cli-reference/generate/migration) — generate a standalone migration pair (no model patch)
-- [`gofasta g relation`](/docs/cli-reference/generate/relation) — add an association (belongs_to / has_many / has_one) instead of a flat field
-- [`gofasta migrate up`](/docs/cli-reference/migrate#gofasta-migrate-up) — apply the generated migration
+<RelatedPages
+  path="cli-reference/generate/field"
+  extra={[
+    { href: "/docs/cli-reference/migrate#gofasta-migrate-up", label: "`gofasta migrate up`" },
+  ]}
+/>

@@ -146,9 +146,9 @@ The model patch checks each field individually — if the model already has `Cus
 | `RESOURCE_NOT_FOUND` | The parent resource's model file is missing. |
 | `AST_PARSE_FAILED` | The model file has a syntax error. |
 
-## Related
-
-- [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) — generate the resources this command relates
-- [`gofasta g field`](/docs/cli-reference/generate/field) — sibling: add a flat field instead of an association
-- [`gofasta g migration`](/docs/cli-reference/generate/migration) — generate a standalone migration pair
-- [`gofasta migrate up`](/docs/cli-reference/migrate#gofasta-migrate-up) — apply the generated FK migration
+<RelatedPages
+  path="cli-reference/generate/relation"
+  extra={[
+    { href: "/docs/cli-reference/migrate#gofasta-migrate-up", label: "`gofasta migrate up`" },
+  ]}
+/>

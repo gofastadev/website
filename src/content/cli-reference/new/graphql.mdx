@@ -125,9 +125,11 @@ This appends a `Product` type + `productById` / `products` queries + `createProd
 
 The flag adds ~1.5 MB of `gqlgen` dependency and ~10 generated files. If the project is going to be a pure REST API, skip the flag — the result is leaner and there's no GraphQL machinery to maintain. You can always re-scaffold a fresh project with the flag and copy resources across if requirements change later.
 
-## Related
-
-- [`gofasta new`](/docs/cli-reference/new) — full overview of the command
-- [`gofasta new --driver`](/docs/cli-reference/new/driver) — the other flag (pairs cleanly with `--graphql`)
-- [`gofasta g scaffold --graphql`](/docs/cli-reference/generate/scaffold) — per-resource GraphQL generation
-- [GraphQL guide](/docs/guides/graphql) — schema design, custom resolvers, subscriptions
+<RelatedPages
+  path="cli-reference/new/graphql"
+  extra={[
+    { href: "/docs/cli-reference/new", label: "`gofasta new`" },
+    { href: "/docs/cli-reference/generate/scaffold", label: "`gofasta g scaffold --graphql`" },
+    { href: "/docs/guides/graphql", label: "GraphQL guide" },
+  ]}
+/>

@@ -180,8 +180,10 @@ If it fails, the developer's fix is `gofasta g mock --all` locally + commit the 
 | `AST_PARSE_FAILED` | One of the interface files has a syntax error. |
 | `FILE_IO` | Couldn't create `testutil/mocks/` or write the output file. |
 
-## Related
-
-- [`gofasta g service`](/docs/cli-reference/generate/service) — generates the interface this command mocks
-- [`gofasta verify`](/docs/cli-reference/verify) — runs the project-wide preflight (use `gofasta g mock --all --check` alongside `verify` in CI to catch mock drift)
-- [`testify/mock`](https://pkg.go.dev/github.com/stretchr/testify/mock) — upstream library the generated mocks build on
+<RelatedPages
+  path="cli-reference/generate/mock"
+  extra={[
+    { href: "/docs/cli-reference/verify", label: "`gofasta verify`" },
+    { href: "https://pkg.go.dev/github.com/stretchr/testify/mock", label: "`testify/mock`" },
+  ]}
+/>

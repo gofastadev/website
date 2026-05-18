@@ -190,10 +190,10 @@ After generating a scaffold, complete these steps:
 2. Regenerate Wire (if not done automatically): `gofasta wire`
 3. Test the endpoints with curl or your preferred API client
 
-## Related
-
-- [gofasta g model](/docs/cli-reference/generate/model) -- generate only the model
-- [gofasta g controller](/docs/cli-reference/generate/controller) -- generate only the controller
-- [gofasta g migration](/docs/cli-reference/generate/migration) -- generate only migration files
-- [gofasta migrate](/docs/cli-reference/migrate) -- run the generated migrations
-- [Quick Start](/docs/getting-started/quick-start)
+<RelatedPages
+  path="cli-reference/generate/scaffold"
+  extra={[
+    { href: "/docs/cli-reference/migrate", label: "gofasta migrate" },
+    { href: "/docs/getting-started/quick-start", label: "Quick Start" },
+  ]}
+/>

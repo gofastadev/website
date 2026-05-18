@@ -109,7 +109,9 @@ The rewrite is regex-based, not AST-based — routes files are deliberately simp
 | `ROUTE_ALREADY_EXISTS` | No route in `app/rest/routes/*.routes.go` matches `<METHOD> <path>`. (Reused code — the message clarifies.) |
 | `FILE_IO` | The matched routes file couldn't be read or written. |
 
-## Related
-
-- [`gofasta g endpoint`](/docs/cli-reference/generate/endpoint) — generate the route this command wraps
-- [`gofasta routes`](/docs/cli-reference/routes) — list every registered route across the project
+<RelatedPages
+  path="cli-reference/generate/middleware"
+  extra={[
+    { href: "/docs/cli-reference/routes", label: "`gofasta routes`" },
+  ]}
+/>

@@ -184,8 +184,10 @@ Every modern AI coding agent has its own preferred configuration format — Clau
 
 The installer is the middle path: scaffold stays clean (just `AGENTS.md`), agent-specific files land only when you explicitly ask. Adding a sixth, seventh, or tenth agent later is a template directory — zero changes to the CLI.
 
-## Related
-
-- [AGENTS.md](https://agents.md/) -- the universal agent guidance format (shipped in every scaffold by default)
-- [llms.txt](https://gofasta.dev/llms.txt) -- LLM-optimized docs index for gofasta itself
-- [`gofasta verify`](/docs/cli-reference/verify) -- pre-commit check invoked by agent hooks
+<RelatedPages
+  path="cli-reference/ai"
+  extra={[
+    { href: "https://agents.md/", label: "AGENTS.md" },
+    { href: "https://gofasta.dev/llms.txt", label: "llms.txt" },
+  ]}
+/>

@@ -201,9 +201,4 @@ The webhook sender returns a clear error from `UploadFile` — incoming webhooks
 
 When `slack.provider` is empty, `NewSlackSender` returns a noop sender whose `PostMessage` and `UploadFile` both return `slack: not configured (set slack.provider in config.yaml to enable)`. Surface this in your tests so misconfigurations are loud rather than silent.
 
-## Related Pages
-
-- [Mailer](/docs/api-reference/mailer) — outbound email
-- [Push Notifications](/docs/api-reference/push) — outbound mobile push
-- [WhatsApp](/docs/api-reference/whatsapp) — outbound WhatsApp messaging
-- [Notifications](/docs/api-reference/notifications) — multi-channel notification orchestration
+<RelatedPages path="api-reference/slack" />

@@ -125,8 +125,9 @@ func (s *UserServiceImpl) Register(req dtos.RegisterRequest) (*dtos.UserResponse
 }
 ```
 
-## Related
-
-- [gofasta g job](/docs/cli-reference/generate/job) -- generate a scheduled background job instead
-- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource
-- [gofasta dev](/docs/cli-reference/dev) -- start the dev server which also runs the task worker
+<RelatedPages
+  path="cli-reference/generate/task"
+  extra={[
+    { href: "/docs/cli-reference/dev", label: "gofasta dev" },
+  ]}
+/>

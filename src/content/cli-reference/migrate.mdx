@@ -188,10 +188,10 @@ DROP TABLE IF EXISTS products;
 
 Generate new migration pairs via [`gofasta g migration`](/docs/cli-reference/generate/migration) or as part of [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold).
 
-## Related
-
-- [`gofasta new --driver`](/docs/cli-reference/new/driver) — picks the database engine the migrations are written for
-- [`gofasta g migration`](/docs/cli-reference/generate/migration) — generate a migration pair
-- [`gofasta seed`](/docs/cli-reference/seed) — run database seeders
-- [`gofasta init`](/docs/cli-reference/init) — initialize a cloned project (runs `migrate up`)
-- [`gofasta dev`](/docs/cli-reference/dev) — dev server runs `migrate up` automatically if the DB is reachable
+<RelatedPages
+  path="cli-reference/migrate"
+  extra={[
+    { href: "/docs/cli-reference/new/driver", label: "`gofasta new --driver`" },
+    { href: "/docs/cli-reference/generate/migration", label: "`gofasta g migration`" },
+  ]}
+/>

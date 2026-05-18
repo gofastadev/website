@@ -101,8 +101,9 @@ func (s *UsersSeeder) Order() int {
 
 The `Order()` method determines the sequence in which seeders run. Lower numbers run first, which is important for satisfying foreign key constraints.
 
-## Related
-
-- [gofasta migrate](/docs/cli-reference/migrate) -- run database migrations
-- [gofasta new](/docs/cli-reference/new) -- create a new project with default seeders
-- [Quick Start](/docs/getting-started/quick-start)
+<RelatedPages
+  path="cli-reference/seed"
+  extra={[
+    { href: "/docs/getting-started/quick-start", label: "Quick Start" },
+  ]}
+/>

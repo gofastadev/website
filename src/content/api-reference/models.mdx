@@ -155,8 +155,4 @@ func (r *UserRepository) Update(ctx context.Context, user *User) error {
 db, err := config.SetupDBWithMigrate(cfg.Database, &User{}, &Post{})
 ```
 
-## Related Pages
-
-- [Config](/docs/api-reference/config) -- Database setup and connection
-- [Seeds](/docs/api-reference/seeds) -- Seed initial data for models
-- [Types](/docs/api-reference/types) -- Shared type definitions
+<RelatedPages path="api-reference/models" />

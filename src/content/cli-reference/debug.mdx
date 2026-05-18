@@ -263,7 +263,9 @@ gofasta debug har -o session.har
 gofasta debug har --json | jq '.log.entries | length'
 ```
 
-## Related
-
-- [`gofasta dev`](/docs/cli-reference/dev) — starts the dev server with the `devtools` build tag active.
-- [Debugging guide](/docs/guides/debugging/overview) — full walkthrough, including how the devtools package hooks into the scaffold without dirtying the developer's code.
+<RelatedPages
+  path="cli-reference/debug"
+  extra={[
+    { href: "/docs/guides/debugging/overview", label: "Debugging guide" },
+  ]}
+/>

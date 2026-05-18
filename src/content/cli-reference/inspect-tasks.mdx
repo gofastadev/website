@@ -132,8 +132,9 @@ Methods (functions with a receiver) named `HandleFoo` don't count — only packa
 
 When the app is reachable and built with `devtools`, the JSON will additionally include per-task queue depth + recent runs from `/debug/tasks`. That endpoint isn't shipped yet.
 
-## Related
-
-- [`gofasta inspect-jobs`](/docs/cli-reference/inspect-jobs) — sibling for the cron-scheduled jobs layer
-- [`gofasta inspect`](/docs/cli-reference/inspect) — full resource view (model/DTOs/service/controller/routes), not tasks
-- [`gofasta g task`](/docs/cli-reference/generate/task) — generate a new task stub matching the contract this command scans for
+<RelatedPages
+  path="cli-reference/inspect-tasks"
+  extra={[
+    { href: "/docs/cli-reference/generate/task", label: "`gofasta g task`" },
+  ]}
+/>

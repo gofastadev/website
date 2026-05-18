@@ -269,9 +269,10 @@ The two `--layout` values differ in how the per-resource Go files are organized 
 
 Both layouts ship the same Wire dependency graph, the same HTTP middleware stack, the same migration model, and the same generated tests. You can switch between them at any time with [`gofasta refactor feature`](/docs/cli-reference/refactor#feature) or [`gofasta refactor layered`](/docs/cli-reference/refactor#layered).
 
-## Related
-
-- [Quick Start](/docs/getting-started/quick-start)
-- [Project Structure](/docs/getting-started/project-structure)
-- [gofasta init](/docs/cli-reference/init) -- initialize a cloned project
-- [gofasta dev](/docs/cli-reference/dev) -- start the development server
+<RelatedPages
+  path="cli-reference/new"
+  extra={[
+    { href: "/docs/getting-started/quick-start", label: "Quick Start" },
+    { href: "/docs/getting-started/project-structure", label: "Project Structure" },
+  ]}
+/>

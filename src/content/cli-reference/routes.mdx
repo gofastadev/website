@@ -45,8 +45,10 @@ DELETE   /api/v1/users/:id       routes/user.routes.go
 
 The command scans all `.go` files in `app/rest/routes/` and parses route registration calls (e.g., `GET`, `POST`, `PUT`, `DELETE`) to build the table. It does not start the server — it performs static analysis of the route files.
 
-## Related
-
-- [REST API Guide](/docs/guides/rest-api) -- build and customize REST endpoints
-- [gofasta generate route](/docs/cli-reference/generate/route) -- generate a route file
-- [gofasta serve](/docs/cli-reference/serve) -- start the HTTP server
+<RelatedPages
+  path="cli-reference/routes"
+  extra={[
+    { href: "/docs/guides/rest-api", label: "REST API Guide" },
+    { href: "/docs/cli-reference/generate/route", label: "gofasta generate route" },
+  ]}
+/>

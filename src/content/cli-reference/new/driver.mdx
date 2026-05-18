@@ -173,9 +173,11 @@ Replace `psql` with the native client for your driver (`mysql`, `sqlite3`, `sqlc
 - **ClickHouse is intentionally an analytics target.** It's wired up for completeness, but the typical use case is OLAP — write-heavy transactional workloads work better on one of the other four.
 - **`g scaffold <Resource>` already branches on the driver.** Once the project is generated with `--driver mysql`, every subsequent `gofasta g scaffold` or `gofasta g migration` emits MySQL syntax automatically by reading `database.driver` from `config.yaml`. No flag needed.
 
-## Related
-
-- [`gofasta new`](/docs/cli-reference/new) — full overview of the command
-- [`gofasta new --graphql`](/docs/cli-reference/new/graphql) — the other flag
-- [`gofasta migrate`](/docs/cli-reference/migrate) — runs the per-driver migrations the scaffold emits
-- [Configuration](/docs/guides/configuration) — full `config.yaml` reference
+<RelatedPages
+  path="cli-reference/new/driver"
+  extra={[
+    { href: "/docs/cli-reference/new", label: "`gofasta new`" },
+    { href: "/docs/cli-reference/migrate", label: "`gofasta migrate`" },
+    { href: "/docs/guides/configuration", label: "Configuration" },
+  ]}
+/>

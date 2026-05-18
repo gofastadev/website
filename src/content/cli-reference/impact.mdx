@@ -139,8 +139,4 @@ The reverse walk is `O(N)` over module size. Loading the module dominates total 
 - **Deletion safety.** "Is this helper still used?" → If `direct_importers` is empty, the package is dead code.
 - **Code review.** Reviewers can see at a glance whether a change in a leaf package is contained or rippling.
 
-## Related
-
-- [`gofasta xrefs`](/docs/cli-reference/xrefs) — same idea but at the symbol level (find every reference to one func / type / method, not just packages that import it)
-- [`gofasta verify --since`](/docs/cli-reference/verify) — pairs naturally with impact for scoped CI runs
-- [`gofasta inspect`](/docs/cli-reference/inspect) — drill into a single resource's shape (model, DTOs, methods)
+<RelatedPages path="cli-reference/impact" />

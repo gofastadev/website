@@ -127,8 +127,9 @@ ALTER TABLE orders RENAME COLUMN amount_cents TO total;
 | `INVALID_NAME` | First arg doesn't match `Resource.OldField`, or old + new are the same, or any of the three is empty. |
 | `FILE_IO` | A write failed in `--apply` mode (e.g. the file is read-only). |
 
-## Related
-
-- [`gofasta g field`](/docs/cli-reference/generate/field) — sibling: add a field (this is the inverse — rename an existing field)
-- [`gofasta g migration`](/docs/cli-reference/generate/migration) — standalone migration pair (no model changes)
-- [`gofasta xrefs`](/docs/cli-reference/xrefs) — find every reference to a symbol before deciding to rename it
+<RelatedPages
+  path="cli-reference/generate/rename"
+  extra={[
+    { href: "/docs/cli-reference/xrefs", label: "`gofasta xrefs`" },
+  ]}
+/>

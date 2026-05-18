@@ -121,8 +121,9 @@ A file with a syntax error is silently skipped — one bad file doesn't kill the
 
 When the app is reachable and built with the `devtools` build tag, the JSON output will additionally include per-job recent-run telemetry from `/debug/jobs`. That endpoint isn't shipped yet; for now `devtools_enabled` is always `false`.
 
-## Related
-
-- [`gofasta inspect-tasks`](/docs/cli-reference/inspect-tasks) — same idea for the async (asynq) task layer
-- [`gofasta inspect`](/docs/cli-reference/inspect) — full structural view of a resource (not jobs/tasks)
-- [`gofasta g job`](/docs/cli-reference/generate/job) — generate a new job stub
+<RelatedPages
+  path="cli-reference/inspect-jobs"
+  extra={[
+    { href: "/docs/cli-reference/generate/job", label: "`gofasta g job`" },
+  ]}
+/>

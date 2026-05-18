@@ -114,6 +114,4 @@ After adding spans, hit the route or fire the task, open the **Traces** list, cl
 - **Multiple bars, but all starting at offset 0** → you're creating sibling spans instead of children. Double-check you're shadowing `ctx` (step 1 above) and passing the shadowed one downstream.
 - **Multiple bars, properly nested** → done. The `Logs` tab shows only the records emitted under these spans, filtered by trace ID automatically.
 
-## Related
-
 <RelatedPages path="guides/debugging/tracing" />

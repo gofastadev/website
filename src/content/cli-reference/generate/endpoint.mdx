@@ -159,9 +159,9 @@ The route-already-registered check matches both bare `r.Post("/path", ...)` and 
 | `ROUTE_ALREADY_EXISTS` | The chi routes file already registers this `METHOD path` combination. |
 | `AST_PATCH_FAILED` | The routes file's `<Resource>Routes(...)` function couldn't be located — file may have been restructured by hand. |
 
-## Related
-
-- [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) — full CRUD generator (creates the controller this command patches)
-- [`gofasta g middleware`](/docs/cli-reference/generate/middleware) — wrap an existing route with a chi middleware
-- [`gofasta g method`](/docs/cli-reference/generate/method) — add a service method without a REST endpoint
-- [`gofasta swagger`](/docs/cli-reference/swagger) — regenerate the OpenAPI spec from the Swagger annotations this command emits
+<RelatedPages
+  path="cli-reference/generate/endpoint"
+  extra={[
+    { href: "/docs/cli-reference/swagger", label: "`gofasta swagger`" },
+  ]}
+/>

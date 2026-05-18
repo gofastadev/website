@@ -126,8 +126,9 @@ Fields are stable API — AI agents and CI pipelines consume them.
 
 Agents and humans commonly finish a task having run only one of the quality gates (usually `go test`). `gofasta verify` collapses every gate into one invocation, so the pre-commit check is always complete. Mirrors the `make preflight` target in the CLI and library repos — same contract, same mental model.
 
-## Related
-
-- [`gofasta do health-check`](/docs/cli-reference/do) -- runs `verify` + `status` together
-- [`gofasta status`](/docs/cli-reference/status) -- project drift report (complementary to `verify`)
-- [Testing guide](/docs/guides/testing) -- how to write tests `verify` will run
+<RelatedPages
+  path="cli-reference/verify"
+  extra={[
+    { href: "/docs/guides/testing", label: "Testing guide" },
+  ]}
+/>

@@ -124,7 +124,4 @@ Two things gofasta adds on top:
 - **In CI.** Pair with `--json` and pipe to `gotestsum` (or GitHub Actions' `--json-input` reporter) for structured test output.
 - **For coverage.** `gofasta test --coverage` is the one-shot way; `gofasta verify` runs the full preflight suite (lint + race + build + ...) when you want a stricter gate.
 
-## Related
-
-- [`gofasta verify`](/docs/cli-reference/verify) — full preflight: gofmt, vet, lint, test, build, wire drift, routes. Use `verify` before a PR; use `test` during inner-loop development.
-- [`gofasta dev`](/docs/cli-reference/dev) — dev server with hot reload (doesn't run tests)
+<RelatedPages path="cli-reference/test" />
