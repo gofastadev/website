@@ -185,6 +185,92 @@ describe("RelatedPages", () => {
     expect(screen.queryByText("wrong-route")).not.toBeInTheDocument();
   });
 
+  it("renders frontMatter.description next to each sibling link", async () => {
+    // SEO context: the description sits next to the link as
+    // crawlable surrounding text so internal links carry keyword
+    // signal — the same job the manual `## Related` bullets used
+    // to do.
+    getPageMapMock.mockResolvedValue([
+      {
+        name: "scheduler",
+        route: "/docs/api-reference/scheduler",
+        frontMatter: {
+          title: "Scheduler",
+          description: "Cron-based scheduling for background jobs.",
+        },
+      },
+      { name: "cache", route: "/docs/api-reference/cache", frontMatter: { title: "Cache" } },
+    ]);
+
+    await renderRSC(RelatedPages({ path: "api-reference/queue" }));
+
+    expect(screen.getByText("Scheduler")).toBeInTheDocument();
+    expect(
+      screen.getByText("Cron-based scheduling for background jobs."),
+    ).toBeInTheDocument();
+    // The page WITHOUT a description renders just the title.
+    expect(screen.getByText("Cache")).toBeInTheDocument();
+  });
+
+  it("trims long descriptions to the first sentence", async () => {
+    getPageMapMock.mockResolvedValue([
+      {
+        name: "long",
+        route: "/docs/api-reference/long",
+        frontMatter: {
+          title: "Long",
+          description:
+            "First sentence. Second sentence about additional details. Third sentence with even more.",
+        },
+      },
+    ]);
+
+    await renderRSC(RelatedPages({ path: "api-reference/queue" }));
+
+    expect(screen.getByText("First sentence.")).toBeInTheDocument();
+    expect(screen.queryByText(/Second sentence/)).not.toBeInTheDocument();
+  });
+
+  it("hard-truncates a description with no sentence break to ~140 chars + ellipsis", async () => {
+    const longRun =
+      "this is a very long description that has no sentence terminators anywhere in its body so it ends up exercising the hard-truncation branch which cuts on a word boundary";
+    getPageMapMock.mockResolvedValue([
+      {
+        name: "x",
+        route: "/docs/x",
+        frontMatter: { title: "X", description: longRun },
+      },
+    ]);
+
+    await renderRSC(RelatedPages({ path: "x/y" }));
+
+    const para = screen.getByText(/this is a very long description/);
+    // Ends with an ellipsis (we hit the hard-truncate branch).
+    expect(para.textContent?.endsWith("…")).toBe(true);
+    // And it's short enough — we didn't include the full input.
+    expect(para.textContent?.length).toBeLessThan(longRun.length);
+  });
+
+  it("renders descriptions on extra links when provided", async () => {
+    getPageMapMock.mockResolvedValue([]);
+
+    await renderRSC(
+      RelatedPages({
+        path: "cli-reference/dev",
+        extra: [
+          {
+            href: "/docs/api-reference/cache",
+            label: "pkg/cache",
+            description: "Redis or in-memory cache abstraction.",
+          },
+        ],
+      }),
+    );
+
+    expect(screen.getByText("pkg/cache")).toBeInTheDocument();
+    expect(screen.getByText("Redis or in-memory cache abstraction.")).toBeInTheDocument();
+  });
+
   it("uses semantic <nav> with aria-label for screen readers", async () => {
     getPageMapMock.mockResolvedValue([
       { name: "config", route: "/docs/cli-reference/config", frontMatter: { title: "Config" } },

@@ -35,6 +35,13 @@ import { getPageMap } from "nextra/page-map";
 export interface RelatedExtra {
   href: string;
   label: string;
+  /**
+   * Optional one-sentence description rendered next to the link.
+   * Adds keyword-rich context that helps Google's topical relevance
+   * scoring on internal links — the same way the manual `## Related`
+   * bullets used to. When omitted, the link renders as title-only.
+   */
+  description?: string;
 }
 
 interface RelatedPagesProps {
@@ -56,11 +63,17 @@ interface RelatedPagesProps {
 }
 
 // PageMapItem shape we need — Nextra's exported type tree includes
-// folders, MDX files, and meta files. We only render MDX files.
+// folders, MDX files, and meta files. We only render MDX files. The
+// frontMatter shape pulls `description` alongside `title` because the
+// description is rendered next to each link for SEO keyword context.
 interface MdxLikeItem {
   name: string;
   route: string;
-  frontMatter?: { title?: string; [key: string]: unknown };
+  frontMatter?: {
+    title?: string;
+    description?: string;
+    [key: string]: unknown;
+  };
   children?: unknown;
 }
 
@@ -76,6 +89,29 @@ function isRenderableMdx(item: unknown): item is MdxLikeItem {
   // for safety.
   if (obj.name.startsWith("_") || obj.name === "index") return false;
   return true;
+}
+
+// trimSentence picks the first sentence of a description (or the first
+// ~140 chars when there's no sentence break). The full frontmatter
+// description is often 2-3 sentences sized for the page meta tag;
+// inside the Related-Pages footer that's too heavy visually, so we
+// summarize. The full text remains in the page's <meta name="description">
+// so SEO indexes the whole thing — this trim is purely for the
+// in-page rendering.
+function trimSentence(s: string, max = 140): string {
+  const trimmed = s.trim();
+  if (trimmed.length === 0) return "";
+  // Look for the first sentence-terminator within the budget.
+  const slice = trimmed.slice(0, max + 60);
+  const m = slice.match(/^[\s\S]+?[.!?](?=\s|$)/);
+  if (m && m[0].length <= max + 30) {
+    return m[0];
+  }
+  if (trimmed.length <= max) return trimmed;
+  // No sentence break found in budget — hard-truncate on a word boundary.
+  const hardCut = trimmed.slice(0, max);
+  const lastSpace = hardCut.lastIndexOf(" ");
+  return (lastSpace > 0 ? hardCut.slice(0, lastSpace) : hardCut) + "…";
 }
 
 export async function RelatedPages({ path, extra = [] }: RelatedPagesProps) {
@@ -101,12 +137,19 @@ export async function RelatedPages({ path, extra = [] }: RelatedPagesProps) {
     .map((item) => ({
       href: item.route,
       label: (item.frontMatter?.title as string | undefined) ?? item.name,
+      description: trimSentence((item.frontMatter?.description as string | undefined) ?? ""),
     }));
 
   if (siblings.length === 0 && extra.length === 0) {
     return null;
   }
 
+  // Each <li> renders the link followed by an inline description (in
+  // dim text), if one is available. The description sits OUTSIDE the
+  // <a> on purpose: anchor text stays clean (the page title) while
+  // the surrounding text feeds Google's contextual relevance scoring —
+  // every internal link carries keyword-rich context just like the
+  // pre-normalization manual bullets did.
   return (
     <nav
       aria-label="Related pages"
@@ -115,25 +158,35 @@ export async function RelatedPages({ path, extra = [] }: RelatedPagesProps) {
       <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
         Related Pages
       </h3>
-      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
         {siblings.map((sibling) => (
-          <li key={sibling.href}>
+          <li key={sibling.href} className="leading-snug">
             <Link
               href={sibling.href}
-              className="text-sm text-gray-700 transition-colors hover:text-foreground hover:underline dark:text-gray-300"
+              className="text-sm font-medium text-gray-800 transition-colors hover:text-foreground hover:underline dark:text-gray-200"
             >
               {sibling.label}
             </Link>
+            {sibling.description ? (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {sibling.description}
+              </p>
+            ) : null}
           </li>
         ))}
         {extra.map((item) => (
-          <li key={item.href}>
+          <li key={item.href} className="leading-snug">
             <Link
               href={item.href}
-              className="text-sm text-gray-700 transition-colors hover:text-foreground hover:underline dark:text-gray-300"
+              className="text-sm font-medium text-gray-800 transition-colors hover:text-foreground hover:underline dark:text-gray-200"
             >
               {item.label}
             </Link>
+            {item.description ? (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {trimSentence(item.description)}
+              </p>
+            ) : null}
           </li>
         ))}
       </ul>
