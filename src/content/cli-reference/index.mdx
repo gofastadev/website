@@ -1,0 +1,99 @@
+---
+title: CLI Reference
+description: Every command the Gofasta CLI provides — project creation, the hot-reload dev loop, code generation, migrations, deployment, and the agent-facing inspection commands that emit structured JSON.
+keywords:
+  - "CLI reference"
+  - "gofasta commands"
+  - "code generation"
+  - "migrations"
+  - "structured output"
+  - "--json"
+asIndexPage: true
+---
+
+# CLI Reference
+
+The `gofasta` CLI is a single static binary. It creates projects, generates code inside them, runs the local dev loop, and reports on project state. It never becomes a runtime dependency of your service — it manipulates files and shells out to standard Go tooling.
+
+Every command honors the global `--json` flag: progress output moves to stderr and stdout carries a machine-readable document, which is what makes the CLI safe to drive from scripts and AI coding agents.
+
+## Starting a project
+
+| Command | What it does |
+|---|---|
+| [`gofasta new`](/docs/cli-reference/new) | Create a project scaffold — REST (optionally GraphQL), migrations, auth, DI, jobs, Docker, CI. Picks the database engine with [`--driver`](/docs/cli-reference/new/driver) and adds GraphQL with [`--graphql`](/docs/cli-reference/new/graphql). |
+| [`gofasta init`](/docs/cli-reference/init) | Initialize a cloned or existing project — install dependencies and run the code generators. |
+| [`gofasta doctor`](/docs/cli-reference/doctor) | Check system prerequisites, project configuration, and database connectivity. |
+
+## The dev loop
+
+| Command | What it does |
+|---|---|
+| [`gofasta dev`](/docs/cli-reference/dev) | Bring the whole local environment up with one command — compose services, migrations, and Air hot reload, with interactive restart. |
+| [`gofasta debug`](/docs/cli-reference/debug) | CLI surface for the `/debug/*` endpoints — requests, SQL, traces, logs, errors, cache, pprof, EXPLAIN, HAR, plus composed diagnostics. |
+| [`gofasta serve`](/docs/cli-reference/serve) | Start the production HTTP server: compiled binary, `config.yaml`, DB/cache/queue connections, REST and GraphQL endpoints. |
+| [`gofasta console`](/docs/cli-reference/console) | Interactive Go REPL inside your project (via yaegi) for poking at services, repos, and the DI container live. |
+
+## Inspecting the project
+
+These are the commands built for automation — each emits structured output and reads the project statically, without a running server.
+
+| Command | What it does |
+|---|---|
+| [`gofasta verify`](/docs/cli-reference/verify) | Run the full preflight gauntlet — gofmt, vet, golangci-lint, tests, build, Wire drift, routes — in one command. |
+| [`gofasta test`](/docs/cli-reference/test) | Run `go test` with Gofasta defaults (race detector, every package, live output) plus short/integration/coverage shortcuts. |
+| [`gofasta status`](/docs/cli-reference/status) | Report project health: Wire drift, swagger drift, pending migrations, uncommitted generated files, module freshness. |
+| [`gofasta inspect`](/docs/cli-reference/inspect) | Show a resource's full composition — model fields, DTOs, service methods, controller methods, routes. |
+| [`gofasta inspect-jobs`](/docs/cli-reference/inspect-jobs) | Static AST scan of `app/jobs/` listing every registered cron job with its schedule from `config.yaml`. |
+| [`gofasta inspect-tasks`](/docs/cli-reference/inspect-tasks) | Static AST scan of `app/tasks/` listing every async task with its wire name, payload shape, and handler presence. |
+| [`gofasta impact`](/docs/cli-reference/impact) | Reverse-dependency analysis — every package (direct and transitive) that depends on a given file or import path. |
+| [`gofasta xrefs`](/docs/cli-reference/xrefs) | Type-aware reverse symbol lookup across the module — survives renames, aliasing, and method-set resolution. |
+| [`gofasta routes`](/docs/cli-reference/routes) | Print every registered REST route — method, path, handler, chained middleware — read statically from the route registrations. |
+| [`gofasta config`](/docs/cli-reference/config) | Inspect and validate `config.yaml`; currently the schema emitter. |
+
+## Generating and reshaping code
+
+| Command | What it does |
+|---|---|
+| [`gofasta generate`](/docs/cli-reference/generate) | The generator family (shorthand `g`) — scaffolds, per-layer generators, surface-add commands, jobs, tasks, and mocks. |
+| [`gofasta refactor`](/docs/cli-reference/refactor) | Switch between layered and feature-package layouts with a bidirectional AST-based migration and safety gates. |
+| [`gofasta wire`](/docs/cli-reference/wire) | Regenerate the Google Wire dependency-injection code. |
+| [`gofasta swagger`](/docs/cli-reference/swagger) | Generate `docs/swagger.json` and `docs/swagger.yaml` from the annotations the scaffold emits. |
+
+## Database
+
+| Command | What it does |
+|---|---|
+| [`gofasta migrate`](/docs/cli-reference/migrate) | Run migrations up or down, with static analysis (`--explain`), safe rollbacks (`--steps`, `--all`), and dirty-state repair. |
+| [`gofasta seed`](/docs/cli-reference/seed) | Run database seeders to populate initial or test data. |
+| [`gofasta db`](/docs/cli-reference/db) | Database management commands for resetting and managing the development database. |
+
+## Shipping and maintenance
+
+| Command | What it does |
+|---|---|
+| [`gofasta deploy`](/docs/cli-reference/deploy) | Deploy to a remote VPS over SSH using Docker or a compiled binary. |
+| [`gofasta ai`](/docs/cli-reference/ai) | Install per-agent configuration for Claude Code, Cursor, OpenAI Codex, Aider, and Windsurf — allowlists, hooks, project rules, slash commands. |
+| [`gofasta do`](/docs/cli-reference/do) | Run a named development workflow — a predefined chain of commands that accomplishes one higher-level task. |
+| [`gofasta upgrade`](/docs/cli-reference/upgrade) | Self-update the CLI to the latest release — `go install` or checksum-verified binary replacement, chosen automatically. |
+| [`gofasta version`](/docs/cli-reference/version) | Print the CLI version, the Go version it was built with, and the OS/architecture target. |
+
+## Reference
+
+- **[Error codes](/docs/cli-reference/error-codes)** — Every structured code the CLI can emit, with the remediation hint attached to each. These are the identifiers `--json` consumers branch on.
+
+<RelatedPages
+  path="cli-reference"
+  extra={[
+    {
+      href: "/docs/getting-started/installation",
+      label: "Installation",
+      description: "Install the CLI via Homebrew, the install script, or go install.",
+    },
+    {
+      href: "/docs/guides/code-generation",
+      label: "Code Generation guide",
+      description: "The narrative walkthrough of the generator commands documented here.",
+    },
+  ]}
+/>

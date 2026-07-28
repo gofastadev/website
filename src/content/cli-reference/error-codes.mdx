@@ -1,0 +1,245 @@
+---
+title: Error codes
+description: Reference for every structured error code the Gofasta CLI emits — the stable machine-readable identifiers in `--json` output, grouped by subsystem, each with the remediation hint the CLI prints and a link to the relevant command page.
+keywords:
+  - "error codes"
+  - "CLI errors"
+  - "--json"
+  - "structured output"
+  - "troubleshooting"
+  - "exit codes"
+---
+
+# Error codes
+
+Every failure the Gofasta CLI reports carries a stable, machine-readable code. Codes exist so that scripts, CI steps, and AI coding agents can branch on *what* went wrong without pattern-matching English error text that may be reworded later.
+
+## Where codes appear
+
+In text mode the code is printed alongside the message and a remediation hint. Under `--json`, stdout carries the error object:
+
+```json
+{
+  "code": "DEV_PORT_IN_USE",
+  "message": "port 8080 is already in use",
+  "hint": "another process is already bound to the configured PORT; stop it, pick a different port with `--port`, or update `server.port` in config.yaml",
+  "docs": "https://gofasta.dev/docs/cli-reference/dev"
+}
+```
+
+`hint` and `docs` are looked up from the code registry, so the same code always produces the same remediation guidance regardless of which command raised it. Both fields are omitted when empty.
+
+## Stability guarantee
+
+A code is part of the CLI's public interface. Once shipped it is never renamed — a code that stops being useful is deprecated in favor of a successor rather than repurposed. Automation can safely hard-code the strings below.
+
+Unregistered codes still produce usable errors, just without a hint or docs link. `INTERNAL` is reserved for unexpected failures that indicate a bug in the CLI itself rather than anything wrong with your project — those are worth reporting.
+
+## The codes
+
+### General
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `INTERNAL` | file a bug at https://github.com/gofastadev/cli/issues with the full command output | — |
+
+### Project lifecycle
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `NOT_GOFASTA_PROJECT` | run this command from the root of a gofasta project (directory containing go.mod plus the scaffolded app/ directory) | [docs](/docs/getting-started/project-structure) |
+| `PROJECT_DIR_EXISTS` | choose a different project name or remove the existing directory | [docs](/docs/cli-reference/new) |
+| `INVALID_NAME` | project names must be a valid Go module path (lowercase letters, digits, dots, slashes, hyphens) | [docs](/docs/cli-reference/new) |
+
+### go / go.mod
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `GO_MOD_INIT_FAILED` | make sure Go 1.25.0 or later is installed and on $PATH; run `go version` to check | [docs](/docs/getting-started/installation) |
+| `GO_MOD_TIDY_FAILED` | run `go mod tidy` manually and inspect the output; a transitive dep may be unavailable or the module proxy may be unreachable | [docs](/docs/getting-started/installation) |
+| `GOFASTA_INSTALL_FAILED` | wait 5–30 minutes for sum.golang.org to index a freshly-published release and retry, or run `go get github.com/gofastadev/gofasta@latest` inside the generated project once the sum DB catches up | [docs](/docs/cli-reference/new) |
+| `GO_BUILD_FAILED` | the generated or edited Go code does not compile; fix the error above and re-run | — |
+| `GO_TEST_FAILED` | one or more tests failed; inspect the output above for the specific failure | [docs](/docs/guides/testing) |
+| `GO_VET_FAILED` | `go vet` flagged a static issue; address the warnings above and re-run | — |
+| `GO_FMT_FAILED` | run `gofmt -s -w .` to apply formatting | — |
+| `GO_LINT_FAILED` | `golangci-lint` reported issues; run `golangci-lint run` for full output | — |
+
+### Wire / codegen
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `WIRE_MISSING_PROVIDER` | add the provider to a provider set in app/di/providers/, then run `gofasta wire` to regenerate | [docs](/docs/cli-reference/wire) |
+| `WIRE_GENERATION_FAILED` | Wire failed to generate — inspect the error above; common causes are a missing provider, a type mismatch, or a circular dependency | [docs](/docs/cli-reference/wire) |
+| `GENERATOR_FAILED` | the generator could not complete; inspect the error above and verify the project layout is intact | [docs](/docs/cli-reference/generate/scaffold) |
+| `PATCHER_FAILED` | the patcher could not locate an expected marker in a target file; verify you have not heavily modified the generated scaffold files | [docs](/docs/cli-reference/generate/scaffold) |
+| `SWAGGER_GENERATION_FAILED` | run `gofasta swagger` manually to inspect the error; usually caused by malformed Swagger annotations on controller methods | [docs](/docs/cli-reference/swagger) |
+| `GQLGEN_GENERATION_FAILED` | run `go tool gqlgen generate` manually to inspect the error; usually caused by a malformed .gql schema file | [docs](/docs/guides/graphql) |
+
+### Database / migrations
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `MIGRATION_FAILED` | inspect the SQL error above; ensure the database is reachable and the migration file is valid | [docs](/docs/cli-reference/migrate) |
+| `MIGRATION_DIR_MISSING` | create db/migrations/ or generate a migration with `gofasta g migration` | [docs](/docs/cli-reference/generate/migration) |
+| `SEED_FAILED` | a seeder returned an error; inspect the output above | [docs](/docs/cli-reference/seed) |
+| `DATABASE_UNREACHABLE` | verify the database is running and the `database` section of config.yaml matches; test with `gofasta doctor` | [docs](/docs/guides/database-and-migrations) |
+| `DATABASE_RESET_FAILED` | `gofasta db reset` could not complete; inspect the step that failed above | [docs](/docs/cli-reference/db) |
+
+### Deploy
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `DEPLOY_HOST_REQUIRED` | set `deploy.host` in config.yaml or pass --host user@server | [docs](/docs/cli-reference/deploy) |
+| `DEPLOY_CONFIG_INVALID` | the deploy configuration is invalid; run `gofasta doctor` or check config.yaml against the schema | [docs](/docs/cli-reference/deploy) |
+| `SSH_FAILED` | verify your SSH key is authorized on the server and the host/port are reachable — test with `ssh -p <port> user@server echo ok` | [docs](/docs/cli-reference/deploy) |
+| `HEALTH_CHECK_FAILED` | the deployed app did not respond at the health endpoint within the timeout; the previous release is still active — inspect logs with `gofasta deploy logs` | [docs](/docs/cli-reference/deploy) |
+| `DOCKER_COMMAND_FAILED` | a Docker command failed; check that Docker is running locally and on the remote host (run `gofasta deploy setup` to install it remotely) | [docs](/docs/cli-reference/deploy) |
+| `ROLLBACK_FAILED` | rollback could not complete; inspect the step that failed above — the current release is unchanged | [docs](/docs/cli-reference/deploy) |
+
+### Introspection / utility
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `ROUTES_DIR_MISSING` | app/rest/routes/ was not found — run this command from the root of a gofasta project | [docs](/docs/getting-started/project-structure) |
+| `CONFIG_INVALID` | config.yaml is malformed; validate it against the schema emitted by `gofasta config schema` | [docs](/docs/guides/configuration) |
+| `CONFIG_NOT_FOUND` | config.yaml not found in the current directory | [docs](/docs/guides/configuration) |
+| `FILE_IO` | could not read or write a file; check filesystem permissions | — |
+
+### Verify / preflight
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `VERIFY_FAILED` | `gofasta verify` reported a failing check above; fix the first failure and re-run | — |
+
+### AI installer
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `UNKNOWN_AGENT` | run `gofasta ai list` to see supported agents | — |
+| `AI_MANIFEST_IO` | could not read or write .gofasta/ai.json; check filesystem permissions | — |
+| `AI_INSTALL_FAILED` | one or more agent configuration files could not be written; inspect the error above | — |
+| `AI_AGENT_CONFLICT` | another AI agent is already installed in this project; re-run with `--switch` to replace it, or `gofasta ai uninstall <agent>` to remove it first | — |
+
+### Debug (gofasta debug)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `DEBUG_APP_UNREACHABLE` | the target app is not reachable at the resolved URL — start it with `gofasta dev` or pass `--app-url=http://host:port` if it runs on a different address | [docs](/docs/cli-reference/debug) |
+| `DEBUG_DEVTOOLS_OFF` | the app is running without the `devtools` build tag — rebuild under `gofasta dev` (which sets GOFLAGS=-tags=devtools) so /debug/* endpoints become available | [docs](/docs/guides/debugging) |
+| `DEBUG_TRACE_NOT_FOUND` | the requested trace is not in the ring — it may have been evicted (rings hold at most 50 traces); re-issue the request you want to inspect and try again | [docs](/docs/guides/debugging) |
+| `DEBUG_BAD_FILTER` | a filter value was rejected; see the command's --help for accepted syntax | [docs](/docs/cli-reference/debug) |
+| `DEBUG_BAD_DURATION` | duration values use Go's time.ParseDuration syntax — e.g. `100ms`, `2s`, `1m30s` | [docs](/docs/cli-reference/debug) |
+| `DEBUG_PROFILE_UNSUPPORTED` | supported profile kinds: cpu, heap, goroutine, mutex, block, allocs, threadcreate, trace | [docs](/docs/cli-reference/debug) |
+| `DEBUG_EXPLAIN_FAILED` | EXPLAIN is SELECT-only and requires the app to have registered its *gorm.DB via devtools.RegisterDB — verify the app was built with the devtools tag | [docs](/docs/guides/debugging) |
+
+### Dev server (gofasta dev)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `DEV_DOCKER_UNAVAILABLE` | install Docker Desktop (or Docker Engine + docker compose plugin) and make sure the daemon is running — test with `docker info` | [docs](/docs/cli-reference/dev) |
+| `DEV_COMPOSE_NOT_FOUND` | a compose.yaml is required for service orchestration; re-run with `--no-services` to skip Docker and run Air against an externally-managed database | [docs](/docs/cli-reference/dev) |
+| `DEV_SERVICE_UNHEALTHY` | a compose service did not become healthy within the timeout; tail its logs with `docker compose logs <service>`, or raise `--wait-timeout` | [docs](/docs/cli-reference/dev) |
+| `DEV_MIGRATION_FAILED` | `migrate up` returned a non-zero exit; inspect the SQL error above or re-run with `--no-migrate` to skip and investigate the DB state manually | [docs](/docs/cli-reference/dev) |
+| `DEV_AIR_NOT_INSTALLED` | Air is not registered on the project toolchain; run `go get github.com/air-verse/air@latest && go mod edit -tool github.com/air-verse/air` | [docs](/docs/cli-reference/dev) |
+| `DEV_PORT_IN_USE` | another process is already bound to the configured PORT; stop it, pick a different port with `--port`, or update `server.port` in config.yaml | [docs](/docs/cli-reference/dev) |
+| `DEV_FLAG_CONFLICT` | two flags requested incompatible behavior — see the message above; run `gofasta dev --help` for the flag matrix | [docs](/docs/cli-reference/dev) |
+| `DEV_LOCAL_REPLACE` | filesystem-path replaces (e.g. `replace ... => ../foo`) only resolve on the host — the docker build context cannot see paths outside the project. Either run without --all-in-docker (host mode handles local replaces fine), drop the replace and `go get` a published version, or vendor with `go mod vendor` so the replaced module is bundled into the build context. | [docs](/docs/cli-reference/dev) |
+| `DEV_SERVICE_UNKNOWN` | the name passed to --services is not declared in compose.yaml; check `docker compose config --services` for the list of valid names | [docs](/docs/cli-reference/dev) |
+| `DEV_PREFLIGHT_CANCELED` | preflight was canceled by the user (menu option [4]) or aborted on a non-TTY session — resolve the unreachable dependency manually, then re-run `gofasta dev` | [docs](/docs/cli-reference/dev) |
+
+### Upgrade (gofasta upgrade)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `UPGRADE_VERIFICATION_FAILED` | could not verify the downloaded binary against the release checksums.txt — retry, or download and verify the release asset manually before installing | [docs](/docs/cli-reference/upgrade) |
+| `INTERACTIVE_ONLY` | this command requires an interactive terminal and cannot run in --json / headless mode; drop --json or invoke a non-interactive equivalent | [docs](/docs/cli-reference) |
+
+### Cross-resource impact analysis (gofasta xrefs / impact)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `SYMBOL_NOT_FOUND` | the symbol was not found in the current module — check the spelling and package qualifier (e.g. `pkg.Func` or `pkg.Type.Method`) | [docs](/docs/cli-reference/xrefs) |
+| `TYPE_ANALYSIS_FAILED` | go/packages could not type-check the module; run `go build ./...` to surface the underlying compile error | [docs](/docs/cli-reference/xrefs) |
+| `PACKAGE_LOAD_FAILED` | one or more packages failed to load — fix the build error above before running impact analysis | [docs](/docs/cli-reference/impact) |
+| `AMBIGUOUS_SYMBOL` | the unqualified symbol matches definitions in multiple packages; pass the fully qualified name (e.g. `irodata/app/services.OrderService.Archive`) | [docs](/docs/cli-reference/xrefs) |
+
+### Change-scoped verify (--since / --changed)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `GIT_NOT_AVAILABLE` | this directory is not a git repository — run `git init` or drop the --since/--changed flag | [docs](/docs/cli-reference/verify) |
+| `GIT_DIFF_FAILED` | `git diff` returned an error; check that the ref exists locally (`git fetch` may be needed) and that you have read access to the repo | [docs](/docs/cli-reference/verify) |
+| `GIT_REF_NOT_FOUND` | the supplied git ref does not resolve — try `git fetch origin` or pass a known commit / branch / tag | [docs](/docs/cli-reference/verify) |
+
+### Modify-aware generators (g method / g field / g endpoint / ...)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `RESOURCE_NOT_FOUND` | no files match the given resource name — check spelling (PascalCase, singular) or run `gofasta g scaffold <Name>` to create it first | [docs](/docs/cli-reference/generate/method) |
+| `METHOD_ALREADY_EXISTS` | a method with that name already exists on the target interface — pick a different name or skip this generator | [docs](/docs/cli-reference/generate/method) |
+| `FIELD_ALREADY_EXISTS` | the model already has a field with that name — pick a different name or remove the existing field first | [docs](/docs/cli-reference/generate/field) |
+| `ROUTE_ALREADY_EXISTS` | that METHOD + path combination is already registered — pick a different path or use `gofasta g middleware` to attach behavior | [docs](/docs/cli-reference/generate/endpoint) |
+| `AST_PARSE_FAILED` | the target Go file has a syntax error and cannot be parsed — fix the error above and re-run | [docs](/docs/cli-reference/generate/method) |
+| `AST_PATCH_FAILED` | could not locate the AST insertion target (e.g. interface or struct named for the resource) — the file may have been heavily restructured; inspect manually | [docs](/docs/cli-reference/generate/method) |
+
+### Migration safety preview (gofasta migrate up --explain)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `MIGRATION_LINT_FAILED` | static SQL analysis errored on a pending migration — inspect the file for malformed SQL or unsupported syntax | [docs](/docs/cli-reference/migrate) |
+| `MIGRATION_PARSE_FAILED` | could not split the migration into statements — check for unmatched `$$` dollar-quote blocks or stray string literals | [docs](/docs/cli-reference/migrate) |
+
+### Mock regeneration (gofasta g mock)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `INTERFACE_NOT_FOUND` | no interface with that name was found under app/services/interfaces/ or app/repositories/interfaces/ — check spelling or pass --all to refresh every mock | [docs](/docs/cli-reference/generate/mock) |
+| `MOCK_GEN_FAILED` | the mock template failed to render — inspect the error above; often caused by an interface that uses unsupported features (generics, embedded external interfaces) | [docs](/docs/cli-reference/generate/mock) |
+| `MOCK_DRIFT` | the on-disk mock no longer matches the interface — run `gofasta g mock --all` to regenerate, then commit the result | [docs](/docs/cli-reference/generate/mock) |
+
+### Job / task introspection (gofasta inspect-jobs / inspect-tasks)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `JOBS_DIR_MISSING` | app/jobs/ was not found — generate a job with `gofasta g job <name> "<cron>"` first, or run this command from the project root | [docs](/docs/cli-reference/inspect-jobs) |
+| `TASKS_DIR_MISSING` | app/tasks/ was not found — generate a task with `gofasta g task <name>` first, or run this command from the project root | [docs](/docs/cli-reference/inspect-tasks) |
+
+### Debug replay (gofasta debug replay)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `DEBUG_REPLAY_NOT_FOUND` | the request id is not in the capture ring — it may have been evicted (rings hold at most 200 requests); re-issue the request you want to replay | [docs](/docs/cli-reference/debug) |
+| `DEBUG_REPLAY_FAILED` | the replayed request failed at the target app — inspect the response payload above or check the app logs | [docs](/docs/cli-reference/debug) |
+| `DEBUG_REPLAY_UNSAFE` | the replay override was rejected by the SSRF guard — overrides may change path / headers / body but cannot change scheme, host, or port | [docs](/docs/cli-reference/debug) |
+
+### Debug stack resolver (gofasta debug stack)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `DEBUG_STACK_PARSE_FAILED` | the stack frame does not match the expected `file:line function` format — verify the source is a gofasta-captured stack (TraceSpan.Stack or ExceptionEntry.Stack) | [docs](/docs/cli-reference/debug) |
+| `DEBUG_SOURCE_UNAVAILABLE` | the source file referenced in the stack frame is not present on disk (deleted, vendored, or outside the current module) — the frame is still resolvable but without source context | [docs](/docs/cli-reference/debug) |
+
+### Refactor (gofasta refactor feature-package)
+
+| Code | What it means and how to recover | Reference |
+|---|---|---|
+| `REFACTOR_INELIGIBLE` | not in a gofasta project, or already in the target layout — run `gofasta refactor status` to see where you actually are | [docs](/docs/cli-reference/refactor) |
+| `REFACTOR_ABORTED` | the migration started but the post-move `go build` failed — `git restore .` to revert, then investigate; the output shows which files moved before the failure | [docs](/docs/cli-reference/refactor) |
+| `REFACTOR_DIRTY_TREE` | the git working tree has uncommitted changes — commit, stash, or pass `--force` | [docs](/docs/cli-reference/refactor) |
+| `REFACTOR_RESOURCE_NOT_FOUND` | the named resource doesn't have a file at the expected source path — spell the resource name correctly (PascalCase), or use `--all` | [docs](/docs/cli-reference/refactor) |
+
+<RelatedPages
+  path="cli-reference/error-codes"
+  extra={[
+    {
+      href: "/docs/cli-reference/doctor",
+      label: "gofasta doctor",
+      description: "Check prerequisites, project configuration, and database connectivity before debugging a code.",
+    },
+    {
+      href: "/docs/cli-reference/verify",
+      label: "gofasta verify",
+      description: "The preflight gauntlet that surfaces the GO_*, VERIFY_*, and GIT_* codes.",
+    },
+  ]}
+/>
