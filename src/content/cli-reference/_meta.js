@@ -31,6 +31,7 @@ const meta = {
   doctor: "gofasta doctor",
   upgrade: "gofasta upgrade",
   version: "gofasta version",
+  "error-codes": "Error codes",
 };
 
 export default meta;

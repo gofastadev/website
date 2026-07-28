@@ -1,22 +1,21 @@
 ---
 title: gofasta upgrade
-description: Self-update the Gofasta CLI to the latest GitHub release. Auto-detects install method (homebrew / go install / curl-pipe-sh) and uses the right strategy per source — no manual `brew upgrade` or `go install ...@latest` required.
+description: Self-update the Gofasta CLI to the latest GitHub release. Detects whether the running binary came from `go install` or a pre-built download, verifies the replacement against the release checksums, and asserts the installed version afterwards.
 keywords:
   - "CLI"
   - "upgrade"
   - "self-update"
   - "CLI upgrade"
   - "auto-update"
-  - "homebrew"
   - "go install"
   - "install script"
-  - "release upgrade"
+  - "checksum verification"
   - "gofasta upgrade"
 ---
 
 # gofasta upgrade
 
-Checks for a newer version of the Gofasta CLI and installs it. The upgrade method is automatically detected based on how gofasta was originally installed.
+Checks GitHub for a newer release of the CLI and installs it in place. The upgrade strategy is chosen automatically from where the running binary lives, so the same command works whether you installed with `go install` or downloaded a pre-built binary.
 
 ## Usage
 
@@ -24,31 +23,85 @@ Checks for a newer version of the Gofasta CLI and installs it. The upgrade metho
 gofasta upgrade
 ```
 
-This command takes no flags.
+The command takes no flags of its own. The root command's global flags apply, including `--json`.
 
-## How It Works
+## What happens
 
-The command detects your installation method and runs the appropriate upgrade:
+1. **Check.** The latest release tag is read from the GitHub releases API. Leading `v` characters are stripped from both sides before comparing, so `v1.2.3` and `1.2.3` are equal. If the versions match, the command reports that you are up to date and exits without touching anything.
+2. **Detect.** If the running executable lives under `$GOPATH` (or `~/go` when `GOPATH` is unset), the binary is treated as a `go install` build. Anything else is treated as a pre-built binary.
+3. **Install.** See the two strategies below.
+4. **Verify.** After a `go install` upgrade, the newly written binary is executed with `--version` and the result is compared against the expected release tag. A mismatch is reported as an error with a hint to check `$GOBIN` / `$GOPATH` — it nearly always means `go install` wrote the binary to a different directory than the one on your `PATH`.
 
-| Installation method | Upgrade command |
-|--------------------|----------------|
-| Go install | `go install github.com/gofastadev/cli/cmd/gofasta@latest` |
-| Binary (curl install) | Downloads the latest release from GitHub and replaces the current binary |
+Pseudo-versions like `v0.1.10-0.20260728120000-abc1234` — what you get from `go install` against a branch — never compare equal to a release tag, so a dev build is always considered upgradeable.
 
-## Examples
+## The two strategies
+
+| Detected as | What runs |
+|---|---|
+| `go install` build | `go install github.com/gofastadev/cli/cmd/gofasta@<tag>`, pinned to the exact tag rather than `@latest`. |
+| Pre-built binary | Downloads the platform-matched asset from the release, verifies its SHA-256, and replaces the running binary in place. |
+
+The pinned tag matters. The version check queries the GitHub releases API directly, while `go install …@latest` resolves through the Go module proxy, which has its own indexing lag — for minutes to hours after a tag is pushed the proxy can still report the previous version as latest. Pinning to `@v0.1.10` asks for that exact version and sidesteps the race.
+
+For the binary path, the asset is written to a temp file first, and the replacement is an atomic `os.Rename` over the current executable. If the rename crosses a filesystem boundary it falls back to a read-and-write copy.
+
+## Checksum verification
+
+Before the downloaded binary is made executable — and before anything overwrites the binary you are currently running — its SHA-256 is compared against the entry in the `checksums.txt` asset published with the same release.
+
+Every failure in that path is fatal: a checksums file that cannot be fetched, a missing entry for the asset, or a digest that does not match all abort with the `UPGRADE_VERIFICATION_FAILED` code. There is no fallback that installs an unverified binary, because a self-updater that skips verification is a supply-chain hole — a compromised mirror or a MITM could swap the asset for anything.
+
+## JSON output
 
 ```bash
-$ gofasta upgrade
-Checking for updates...
-Current version: v0.5.0
-Latest version:  v0.6.0
-Upgrading via go install...
-✓ Upgraded to v0.6.0
+$ gofasta upgrade --json
+{
+  "action": "upgrade",
+  "method": "go-install",
+  "old_version": "0.1.9",
+  "new_version": "0.1.10",
+  "upgraded": true,
+  "success": true
+}
 ```
+
+| Field | Meaning |
+|---|---|
+| `method` | `go-install`, `binary`, or `none` (nothing was installed — already current, or the check failed). |
+| `old_version` / `new_version` | Normalized, without the leading `v`. |
+| `path` | Where the new binary was written. Present for the binary strategy and for `go install` when the target was resolved. |
+| `upgraded` | `false` when already on the latest release. |
+| `success` | `false` when the upgrade failed; `error` then carries the reason. |
+
+An agent can read `method` to decide whether follow-up advice about `hash -r` or a shell restart is warranted.
+
+## After upgrading
+
+If `gofasta --version` still reports the old version in the same terminal, your shell has cached the previous executable's inode. Refresh it:
+
+```bash
+hash -r        # bash / zsh
+rehash         # zsh (alternative)
+```
+
+Or open a new terminal.
+
+## Permissions
+
+The binary strategy writes to wherever the current executable lives. If that is a root-owned directory such as `/usr/local/bin` — where the install script puts it — the write fails without elevated permissions, and the error says so. Re-run with `sudo`, or reinstall to a directory you own.
+
+## Errors
+
+| Code | When |
+|---|---|
+| `UPGRADE_VERIFICATION_FAILED` | The download could not be verified against the release checksums. Nothing was installed. |
+
+Network failures, a missing release asset, and a post-install version mismatch are reported as plain errors with the underlying cause attached. See [Error codes](/docs/cli-reference/error-codes) for the full registry.
 
 <RelatedPages
   path="cli-reference/upgrade"
   extra={[
-    { href: "/docs/getting-started/installation", label: "Installation" },
+    { href: "/docs/getting-started/installation", label: "Installation", description: "The two supported install paths and the PATH fixes for each." },
+    { href: "/docs/cli-reference/version", label: "gofasta version", description: "Confirm which version and which binary your shell is actually resolving." },
   ]}
 />

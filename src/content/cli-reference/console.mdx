@@ -1,6 +1,6 @@
 ---
 title: gofasta console
-description: Start an interactive Go REPL inside your project — powered by yaegi — so you can poke at your services, repos, and DI container live. Useful for one-off data inspection, debugging a stuck job, or trying an API surface without rebuilding the binary.
+description: Start an interactive Go REPL in your project directory, powered by yaegi, for one-off data inspection and exploring an API surface without writing a throwaway main(). Covers installing yaegi, what the interpreter cannot run, and why the command refuses `--json`.
 keywords:
   - "CLI"
   - "console"
@@ -13,7 +13,7 @@ keywords:
 
 # gofasta console
 
-Launches [yaegi](https://github.com/traefik/yaegi) (a Go interpreter) in the current project directory for interactive exploration of your application code.
+Launches [yaegi](https://github.com/traefik/yaegi) — a Go interpreter — in the current project directory, with your project on the import path. Useful for poking at a service, running an ad-hoc query, or trying out a library API without writing a throwaway `main()` and rebuilding.
 
 ## Usage
 
@@ -21,31 +21,63 @@ Launches [yaegi](https://github.com/traefik/yaegi) (a Go interpreter) in the cur
 gofasta console
 ```
 
-This command takes no flags.
+Run it from the project root. The command takes no flags of its own.
 
-## Prerequisites
+## Prerequisite: yaegi
 
-Yaegi must be installed:
+Yaegi is a third-party interpreter, not a dependency of the CLI, so it is not installed for you. Install it once:
 
 ```bash
 go install github.com/traefik/yaegi/cmd/yaegi@latest
 ```
 
-## Examples
+The command looks up `yaegi` on `$PATH` and fails immediately with an install hint if it isn't there. If you just installed it and the lookup still fails, `~/go/bin` (or `$GOBIN`) is not on your `PATH` — see [Installation → Troubleshooting](/docs/getting-started/installation#troubleshooting) for the one-time fix.
 
-Start the REPL:
+## Session
 
 ```bash
-gofasta console
-```
+$ gofasta console
+Starting gofasta console (yaegi)...
+Type Go code interactively. Press Ctrl+D to exit.
 
-Once inside, you can import and test your project's packages interactively:
-
-```go
 > import "myapp/app/models"
 > u := models.User{FirstName: "Alice"}
 > u.FirstName
 "Alice"
 ```
 
-<RelatedPages path="cli-reference/console" />
+Press `Ctrl+D` to exit. `Ctrl+C` is forwarded to the interpreter, so it interrupts the statement being evaluated rather than killing the terminal session out from under you.
+
+## What the interpreter can and cannot do
+
+Yaegi interprets Go rather than compiling it, and that boundary is where surprises live:
+
+- **cgo is unavailable.** Any package that requires cgo will not load. This includes some database drivers — notably the cgo build of SQLite.
+- **`unsafe` is restricted**, so packages reaching into memory layout directly may fail to import.
+- **Generics support depends on the yaegi release** you installed; older versions choke on generic code that compiles fine with `go build`.
+
+When yaegi cannot handle something, write it into a small file and use `go run` instead. The console is for exploration, not a substitute for the compiler.
+
+## Not available in `--json` mode
+
+The console is a REPL: stdin is your keyboard and stdout is the interpreter's prompts, neither of which can be represented as a structured document. Invoking it with `--json` therefore fails immediately with the `INTERACTIVE_ONLY` error code rather than launching a process whose output an agent could not parse:
+
+```bash
+$ gofasta console --json
+{
+  "code": "INTERACTIVE_ONLY",
+  "message": "console is an interactive REPL and cannot run in --json mode",
+  "hint": "this command requires an interactive terminal and cannot run in --json / headless mode; drop --json or invoke a non-interactive equivalent"
+}
+```
+
+Agents and CI runners can pattern-match on that code and skip the command instead of hanging on a process waiting for input. For inspection that *is* scriptable, reach for [`gofasta inspect`](/docs/cli-reference/inspect), [`gofasta routes`](/docs/cli-reference/routes), or the [`gofasta debug`](/docs/cli-reference/debug) family — all of which emit structured output.
+
+<RelatedPages
+  path="cli-reference/console"
+  extra={[
+    { href: "/docs/cli-reference/debug", label: "gofasta debug", description: "Inspect a running app's requests, SQL, traces, and logs from the terminal." },
+    { href: "/docs/cli-reference/inspect", label: "gofasta inspect", description: "Structured view of a resource's model, DTOs, service methods, and routes." },
+    { href: "/docs/cli-reference/error-codes", label: "Error codes", description: "Every structured code the CLI emits, including INTERACTIVE_ONLY." },
+  ]}
+/>

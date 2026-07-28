@@ -1,22 +1,19 @@
 ---
 title: gofasta serve
-description: Start the production HTTP server — runs the compiled binary, loads `config.yaml`, opens the DB / cache / queue connections, and serves the REST (and GraphQL, if enabled) endpoints. The production counterpart to `gofasta dev`.
+description: Run the project's HTTP server in production mode — no Air, no hot reload. Delegates to the project's own binary, loads `.env` first so the child process sees the connection details, and forwards any flags the project's serve command defines.
 keywords:
   - "CLI"
   - "serve"
   - "production server"
   - "HTTP server"
-  - "production binary"
   - "app server"
-  - "compiled binary"
-  - "serve.go"
   - "production deploy"
   - "gofasta serve"
 ---
 
 # gofasta serve
 
-Starts the HTTP server by delegating to `go run ./app/main serve`. Unlike `gofasta dev`, this command does not include hot reload or file watching.
+Starts the project's HTTP server by delegating to the project's own binary — `go run ./app/main serve`. No file watching, no Air, no reload on change. This is the production-shaped way to run the server; for the development loop use [`gofasta dev`](/docs/cli-reference/dev).
 
 ## Usage
 
@@ -24,53 +21,52 @@ Starts the HTTP server by delegating to `go run ./app/main serve`. Unlike `gofas
 gofasta serve
 ```
 
-Run this command from the root directory of your Gofasta project.
+Run it from the project root. `gofasta serve` defines no flags of its own, but because it shells out to the project binary, any flags the project's own `serve` subcommand registers are forwarded through unchanged.
 
-This command takes no flags.
+## What it does
 
-## Examples
+1. Loads `.env` from the project root into the environment. This matters: a scaffolded project keeps its database credentials, `REDIS_URL`, and similar in `.env`, and the library's config loader reads from the process environment without loading `.env` itself. The CLI populates the environment before spawning so the child inherits everything it needs.
+2. Spawns `go run ./app/main serve` with stdin, stdout, and stderr wired straight through, so the server's logs stream to your terminal and `Ctrl+C` reaches the server.
 
-Start the server:
+Server configuration — host, port, environment, database, cache, queue — comes from `config.yaml` and its `GOFASTA_`-prefixed environment overrides, not from CLI flags. See the [Configuration guide](/docs/guides/configuration).
 
-```bash
-gofasta serve
-```
+## Endpoints
 
-## How It Works
+With the scaffold's defaults (`server.port: "8080"`):
 
-The `gofasta serve` command simply delegates to:
+| Surface | Path | Notes |
+|---|---|---|
+| REST API | `/api/v1/…` | The prefix the index router mounts. |
+| Health probes | `/health`, `/health/live`, `/health/ready` | Liveness and readiness, including dependency status. |
+| Swagger UI | `/swagger/index.html` | Populated by [`gofasta swagger`](/docs/cli-reference/swagger). |
+| GraphQL | `/graphql` | Only in projects created with `--graphql`. |
+| GraphQL playground | `/graphql-playground` | Same condition. |
+| Prometheus metrics | `/metrics` | When `observability.metrics_enabled` is true. |
 
-```bash
-go run ./app/main serve
-```
+Run [`gofasta routes`](/docs/cli-reference/routes) to see the actual registered REST surface for your project rather than the defaults.
 
-All server configuration (port, host, environment, etc.) is controlled through `config.yaml` and environment variables, not through CLI flags.
+## Running it for real
 
-## Production Deployment
-
-For production, you typically build the binary first and then run it:
+`go run` compiles on every start, which is fine locally but wasteful for a long-lived deployment. In production, build once and run the binary:
 
 ```bash
 go build -o server ./app/main
 ./server serve
 ```
 
-Or use the provided Docker setup:
+The scaffold's Dockerfile already does this — build the image and run it:
 
 ```bash
 docker build -t myapp .
 docker run -p 8080:8080 myapp
 ```
 
-## Available Endpoints
+[`gofasta deploy`](/docs/cli-reference/deploy) wraps the whole path — build, ship over SSH, restart under systemd or Docker, and health-check the result before considering the release live.
 
-Once the server is running, the following endpoints are available:
-
-| Endpoint | URL |
-|----------|-----|
-| REST API | `http://localhost:8080/api/v1/` |
-| GraphQL | `http://localhost:8080/graphql` |
-| Health Check | `http://localhost:8080/health` |
-| Swagger UI | `http://localhost:8080/swagger/index.html` |
-
-<RelatedPages path="cli-reference/serve" />
+<RelatedPages
+  path="cli-reference/serve"
+  extra={[
+    { href: "/docs/cli-reference/dev", label: "gofasta dev", description: "The development counterpart: compose services, migrations, and hot reload." },
+    { href: "/docs/guides/deployment", label: "Deployment guide", description: "Getting the server onto a VPS with systemd, nginx, and CI." },
+  ]}
+/>

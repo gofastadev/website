@@ -1,18 +1,19 @@
 ---
 title: gofasta version
-description: Display the CLI version, the Go compiler version it was built with, and the OS/architecture target. Useful for bug reports, CI environment checks, and verifying the right CLI is installed across a team.
+description: Print the CLI version, the Go toolchain it was compiled with, and the OS/architecture target. Covers the difference between `gofasta version` and the script-friendly `gofasta --version`, the JSON payload, and how dev builds and pseudo-versions are displayed.
 keywords:
   - "CLI"
   - "version"
   - "build info"
   - "go version"
   - "CLI version"
+  - "pseudo-version"
   - "gofasta version"
 ---
 
 # gofasta version
 
-Displays the CLI version, Go version, and OS/architecture details.
+Prints a multi-line version block: the CLI version, the Go toolchain the binary was compiled with, and the OS/architecture pair it was built for. It is the block to paste into a bug report, and the quickest way to confirm which binary is actually first on your `PATH`.
 
 ## Usage
 
@@ -20,19 +21,70 @@ Displays the CLI version, Go version, and OS/architecture details.
 gofasta version
 ```
 
-This command takes no flags. You can also use the `-v` or `--version` flag on the root command:
+The command takes no flags of its own. The root command's global flags apply, including `--json`.
 
-```bash
-gofasta -v
-```
-
-## Examples
+## Example
 
 ```bash
 $ gofasta version
-gofasta version 0.6.0
-Go:     go1.25.0
-OS:     darwin/arm64
+gofasta v0.1.10
+Go:      go1.25.0
+OS/Arch: darwin/arm64
 ```
 
-<RelatedPages path="cli-reference/version" />
+## `version` versus `--version`
+
+Two surfaces, two audiences:
+
+| Invocation | Output | Use it for |
+|---|---|---|
+| `gofasta version` | The multi-line block above. Intended for humans, and may gain fields in future releases. | Bug reports, checking a teammate's environment. |
+| `gofasta --version` (or `-v`) | A single stable, parseable line. | Scripts, CI assertions, anything that greps. |
+
+Because `gofasta version` may grow additional lines, do not parse it. Use `--version` — or better, `--json` — when a machine reads the result.
+
+## JSON output
+
+```bash
+$ gofasta version --json
+{
+  "gofasta": "v0.1.10",
+  "go": "go1.25.0",
+  "os": "darwin",
+  "arch": "arm64"
+}
+```
+
+These four field names are a stable contract that agents and scripts consume; they will not be renamed. Note that `os` and `arch` are separate fields here, while the text form joins them with a slash.
+
+## How the version string is derived
+
+The version comes from the release tag when the binary was built from a tagged release, and from Go's `runtime/debug` build info otherwise. What you see tells you how the binary got onto your machine:
+
+| Displayed | What it means |
+|---|---|
+| `v0.1.10` | A tagged release — installed from GitHub Releases or `go install …@v0.1.10`. |
+| `v0.1.10-0.20260728120000-abc1234` | A pseudo-version: `go install` from a branch or a local working tree. [`gofasta upgrade`](/docs/cli-reference/upgrade) always treats these as upgradeable. |
+| `dev` or `(devel)` | Built from source without version information — typically a plain `go build` in a checkout. |
+
+A leading `v` is added for semver-like strings that lack one, so the output is consistent regardless of how the tag was injected.
+
+## Checking the installed version matches what you expect
+
+After an upgrade, a shell that has cached the old executable's inode will keep reporting the previous version. If `gofasta version` disagrees with what you just installed, run `hash -r` (bash / zsh) or open a new terminal, then check which binary is being resolved:
+
+```bash
+which gofasta
+gofasta --version
+```
+
+A mismatch between the two usually means a second copy is earlier on your `PATH` — commonly `/usr/local/bin/gofasta` from the install script shadowing `~/go/bin/gofasta` from `go install`, or the reverse.
+
+<RelatedPages
+  path="cli-reference/version"
+  extra={[
+    { href: "/docs/getting-started/installation", label: "Installation", description: "The two supported install paths and the PATH fixes for each." },
+    { href: "/docs/cli-reference/upgrade", label: "gofasta upgrade", description: "Self-update to the latest release and verify the installed binary afterwards." },
+    { href: "/docs/cli-reference/doctor", label: "gofasta doctor", description: "Check prerequisites, project configuration, and database connectivity." },
+  ]}
+/>

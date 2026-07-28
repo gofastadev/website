@@ -11,6 +11,25 @@ export default withNextra({
   reactStrictMode: true,
   reactCompiler: true,
   output: "standalone",
+  // ── Canonical host ───────────────────────────────────────────────
+  // `www.gofasta.dev` used to serve the entire site with a 200, so
+  // every page existed at two URLs. The canonical tag pointed Google
+  // at the apex, which is why Search Console filed the www copy under
+  // "Alternate page with proper canonical tag" rather than as a
+  // duplicate — but a canonical is a hint, not an instruction, and it
+  // still cost crawl budget on a second copy of all 89 URLs. A 308
+  // makes the apex the only reachable host. The `has` host condition
+  // scopes this to requests that arrive on www, so it can't loop.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.gofasta.dev" }],
+        destination: "https://gofasta.dev/:path*",
+        permanent: true,
+      },
+    ];
+  },
   turbopack: {
     root: __dirname,
     // ── react-aria duplicate-context workaround ──────────────────────
