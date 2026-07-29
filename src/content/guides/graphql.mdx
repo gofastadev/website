@@ -39,18 +39,19 @@ Schema (.gql files) → gqlgen generates → Resolver stubs → You implement �
 ```
 app/graphql/
 ├── schema/
-│   ├── schema.gql          # Root schema (Query, Mutation, Subscription types)
+│   ├── common.gql          # Shared scalars/inputs (pagination, sorting)
+│   ├── server.health.gql   # Root Query/Mutation + health check
 │   ├── user.gql            # User type and operations
-│   └── product.gql         # Product type and operations
-├── resolvers/
-│   ├── resolver.go         # Resolver struct with service dependencies
-│   ├── schema.resolvers.go # Generated resolver stubs
-│   ├── user.resolvers.go   # User resolver implementations
-│   └── product.resolvers.go
-├── generated/
-│   └── generated.go        # Auto-generated runtime code (do not edit)
-└── model/
-    └── models_gen.go       # Auto-generated Go types from schema
+│   └── product.gql         # Added per resource by `g scaffold --graphql`
+└── resolvers/
+    ├── resolver.go         # Resolver struct with service dependencies
+    ├── user.resolvers.go   # User resolver implementations (gqlgen-owned)
+    ├── gql_errors.go       # Shared error helpers (not gqlgen-owned)
+    └── gql_filters.go      # GraphQL input → domain filter conversion
+
+app/generated.go            # Auto-generated runtime code (do not edit)
+app/dtos/generated-types.dtos.go  # Auto-generated Go types from schema
+                                  # (app/shared/dtos/ in feature layout)
 ```
 
 The `gqlgen.yml` file at the project root controls code generation paths and type mappings.
@@ -121,99 +122,80 @@ type ProductConnection {
 After modifying schema files, regenerate the resolver stubs:
 
 ```bash
-go generate ./...
+make gqlgen          # runs `go tool gqlgen generate`
 ```
 
-Or use the Gofasta CLI:
+To wire an existing service into the resolver root, use the Gofasta CLI:
 
 ```bash
-gofasta g resolver
+gofasta g resolver <Resource>
 ```
 
-This updates `schema.resolvers.go` with new stub methods for any schema additions. Existing implementations are preserved -- only new stubs are added.
+gqlgen updates the `{name}.resolvers.go` file matching each schema file with new stub methods for any schema additions. Existing implementations are preserved -- only new stubs are added.
 
 ## Implementing Resolvers
 
 The resolver struct holds references to your services, injected via Wire:
 
 ```go
-// app/graphql/resolvers/resolver.go
+// app/graphql/resolvers/resolver.go  (layered layout)
 package resolvers
 
-import "myapp/app/services/interfaces"
+import svcInterfaces "myapp/app/services/interfaces"
 
 type Resolver struct {
-    UserService    interfaces.UserService
-    ProductService interfaces.ProductService
+    UserService    svcInterfaces.UserServiceInterface
+    ProductService svcInterfaces.ProductServiceInterface
 }
 ```
+
+In feature layout the same struct references the feature packages instead: `UserService userpkg.UserServiceInterface` with `userpkg "myapp/app/user"` — see [GraphQL and project layouts](#graphql-and-project-layouts).
 
 Resolver methods call the same services used by REST controllers:
 
 ```go
-// app/graphql/resolvers/product.resolvers.go
+// app/graphql/resolvers/product.resolvers.go  (layered layout)
 package resolvers
 
 import (
     "context"
+    "errors"
+
+    "gorm.io/gorm"
 
     "myapp/app/dtos"
-    "myapp/app/graphql/model"
+    "myapp/app/services"
 )
 
-func (r *queryResolver) Products(ctx context.Context, page *int, perPage *int) (*model.ProductConnection, error) {
-    p := 1
-    pp := 20
-    if page != nil {
-        p = *page
+// CreateProduct is the resolver for the createProduct field.
+func (r *mutationResolver) CreateProduct(ctx context.Context, input dtos.TCreateProductDto) (*dtos.Product, error) {
+    if errs := r.Validator.ValidateStruct(input); len(errs) > 0 {
+        return nil, validationGqlError(errs)
     }
-    if perPage != nil {
-        pp = *perPage
-    }
-
-    params := &dtos.PaginationParams{Page: p, PerPage: pp}
-    products, total, err := r.ProductService.FindAll(ctx, params)
+    product, err := r.ProductService.Create(ctx, input.ToCreateInput())
     if err != nil {
-        return nil, err
+        return nil, internalGqlError("failed to create product", err)
     }
-
-    totalPages := (int(total) + pp - 1) / pp
-    return &model.ProductConnection{
-        Nodes: products,
-        PageInfo: &model.PageInfo{
-            Page:       p,
-            PerPage:    pp,
-            Total:      int(total),
-            TotalPages: totalPages,
-        },
-    }, nil
+    return dtos.ProductFromModel(product), nil
 }
 
-func (r *queryResolver) Product(ctx context.Context, id string) (*model.Product, error) {
-    return r.ProductService.FindByID(ctx, id)
-}
-
-func (r *mutationResolver) CreateProduct(ctx context.Context, input model.CreateProductInput) (*model.Product, error) {
-    req := &dtos.CreateProductRequest{
-        Name:  input.Name,
-        Price: input.Price,
+// FindProductByID is the resolver for the findProductById field.
+func (r *queryResolver) FindProductByID(ctx context.Context, filters dtos.TFindProductByIDDto) (*dtos.Product, error) {
+    if errs := r.Validator.ValidateStruct(filters); len(errs) > 0 {
+        return nil, validationGqlError(errs)
     }
-    return r.ProductService.Create(ctx, req)
-}
-
-func (r *mutationResolver) UpdateProduct(ctx context.Context, id string, input model.UpdateProductInput) (*model.Product, error) {
-    req := &dtos.UpdateProductRequest{
-        Name:  input.Name,
-        Price: input.Price,
+    product, err := r.ProductService.Get(ctx, filters.ProductID)
+    switch {
+    case errors.Is(err, services.ErrProductNotFound), errors.Is(err, gorm.ErrRecordNotFound):
+        return nil, gqlError("NOT_FOUND", "product not found")
+    case err != nil:
+        return nil, internalGqlError("failed to find product", err)
     }
-    return r.ProductService.Update(ctx, id, req)
-}
-
-func (r *mutationResolver) DeleteProduct(ctx context.Context, id string) (bool, error) {
-    err := r.ProductService.Delete(ctx, id)
-    return err == nil, err
+    return dtos.ProductFromModel(product), nil
 }
 ```
+
+(In feature layout the per-resource references read `productpkg.TCreateProductDto` / `productpkg.ErrProductNotFound` instead — `gofasta refactor` rewrites them for you.) The `gqlError` / `validationGqlError` / `internalGqlError` helpers live in `gql_errors.go`.
 
 ## Subscriptions
 
@@ -230,8 +212,8 @@ extend type Subscription {
 Implement the subscription resolver with a channel:
 
 ```go
-func (r *subscriptionResolver) ProductCreated(ctx context.Context) (<-chan *model.Product, error) {
-    ch := make(chan *model.Product, 1)
+func (r *subscriptionResolver) ProductCreated(ctx context.Context) (<-chan *dtos.Product, error) {
+    ch := make(chan *dtos.Product, 1)
 
     go func() {
         defer close(ch)
@@ -271,7 +253,7 @@ You can use the playground to explore your schema, run queries, and test mutatio
 GraphQL requests pass through the same middleware stack as REST. The JWT auth middleware extracts the user from the `Authorization` header and sets claims on the request context, which is accessible in resolvers:
 
 ```go
-func (r *mutationResolver) CreateProduct(ctx context.Context, input model.CreateProductInput) (*model.Product, error) {
+func (r *mutationResolver) CreateProduct(ctx context.Context, input dtos.TCreateProductDto) (*dtos.Product, error) {
     claims := auth.ClaimsFromContext(ctx)
     userID := claims.UserID
     role := claims.Role
@@ -283,30 +265,41 @@ func (r *mutationResolver) CreateProduct(ctx context.Context, input model.Create
 
 ## gqlgen Configuration
 
-The `gqlgen.yml` file at your project root controls code generation:
+The `gqlgen.yml` file at your project root controls code generation. The scaffold ships it in this shape (layered layout):
 
 ```yaml
 schema:
   - app/graphql/schema/*.gql
 
 exec:
-  filename: app/graphql/generated/generated.go
-  package: generated
+  filename: app/generated.go
+  package: app
 
 model:
-  filename: app/graphql/model/models_gen.go
-  package: model
+  filename: app/dtos/generated-types.dtos.go
+  package: dtos
 
 resolver:
   layout: follow-schema
   dir: app/graphql/resolvers
   package: resolvers
+  filename_template: "{name}.resolvers.go"
 
 autobind:
-  - myapp/app/models
+ - "myapp/app/dtos"
 ```
 
-The `autobind` setting tells gqlgen to map GraphQL types to your existing Go model structs when names match, avoiding duplicate type definitions.
+The `autobind` setting tells gqlgen to map GraphQL types to your existing DTO structs when names match, avoiding duplicate type definitions. Anything the schema declares that has no matching DTO is generated into the `model.filename` file.
+
+## GraphQL and project layouts
+
+Gofasta supports two project layouts ([layered and feature-package](/docs/getting-started/project-structure#choosing-a-layout-layered-or-feature-package)); the GraphQL surface adapts to both:
+
+- **File locations don't change.** `app/graphql/schema/` and `app/graphql/resolvers/` are shared directories in both layouts — gqlgen owns the resolver directory, so resolvers are never split across feature packages.
+- **What the resolvers reference changes.** In layered, resolvers import `<mod>/app/dtos` and `<mod>/app/services`; in feature layout the per-resource symbols live in `app/<r>/`, so resolvers use the feature alias (`userpkg.TCreateUserDto`, `userpkg.ErrUserNotFound`) and only shared/generated types keep the `dtos.` qualifier (imported from `<mod>/app/shared/dtos`).
+- **`gqlgen.yml` follows the layout.** Feature-layout projects autobind against `<mod>/app/shared/dtos` plus one `<mod>/app/<r>` entry per resource, and generate models into `app/shared/dtos/generated-types.dtos.go`.
+- **`gofasta refactor` handles all of it.** Switching layouts rewrites the resolver files and `gqlgen.yml` and re-runs `go tool gqlgen generate` — see [refactor → GraphQL projects](/docs/cli-reference/refactor#graphql-projects). Use `--all` on GraphQL projects.
+- **`gofasta g scaffold <R> --graphql`** works in both layouts: on a feature project it wires the resolver with the feature alias and appends the new `<mod>/app/<r>` autobind entry automatically.
 
 ## Adding a New GraphQL Resource
 

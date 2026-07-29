@@ -26,7 +26,7 @@ The fragments are loaded by gqlgen, not the Go compiler. In your project's `gqlg
 
 ```yaml
 schema:
-  - app/graphql/schema/**/*.gql
+  - app/graphql/schema/*.gql
 ```
 
 The CLI scaffold copies the fragments below into `app/graphql/schema/` at project creation time. You can also `go:embed` them from the library if you need to feed them to gqlgen programmatically:

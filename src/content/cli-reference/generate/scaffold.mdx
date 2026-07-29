@@ -98,8 +98,9 @@ After generation, Wire regeneration is run automatically.
 
 With `--graphql`, the scaffold additionally:
 
-- Generates a GraphQL schema file (`.gql`)
-- Patches `resolver.go` to add the service dependency
+- Generates a GraphQL schema file (`app/graphql/schema/<resource>.gql`)
+- Patches `app/graphql/resolvers/resolver.go` to add the service dependency (layout-aware: `svcInterfaces.` in layered projects, the `<resource>pkg.` feature alias in feature projects)
+- On feature-layout projects, appends `"<mod>/app/<resource>"` to `gqlgen.yml`'s `autobind` list so the schema types bind against the feature package's DTOs
 - Runs `gqlgen generate`
 
 ## Generated Code Examples

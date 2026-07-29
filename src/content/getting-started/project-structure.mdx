@@ -179,6 +179,7 @@ Two other things relocate (but don't disappear):
 | Category | Layered | Feature |
 |----------|---------|---------|
 | **Shared DTO aliases** | `app/dtos/aliases.go` (`package dtos`) | `app/shared/dtos/aliases.go` *(same package, new path)* — re-exports `TPaginationObjectDto`, `SortOrientation`, `TCommonResponseDto`, etc. from `pkg/types`. |
+| **gqlgen generated models** (`--graphql` only) | `app/dtos/generated-types.dtos.go` | `app/shared/dtos/generated-types.dtos.go` — follows the shared dtos package; `gqlgen.yml`'s `model.filename` and `autobind` point at the layout's location. |
 | **`password_generator.go`** | `app/services/password_generator.go` | `app/user/password_generator.go` — follows the User feature because that's its only consumer in the bootstrap scaffold. |
 
 This hybrid shape matches [Ben Johnson's "Standard Package Layout"](https://www.gobeyond.dev/standard-package-layout/): features own their behavior; cross-cutting types live where every feature can reach them.
@@ -209,8 +210,9 @@ Tasks consumed by the asynq queue worker. Same pattern as jobs (struct + handler
 
 ### `app/graphql/` — GraphQL surface (`--graphql` only)
 
-- **`schema/`** — `.gql` schema files. Each resource gets `<r>.gql`.
-- **`resolvers/`** — gqlgen-generated resolver stubs. Hand-edited code goes inside the resolver methods. In feature layout, the resolver still lives here (shared, not per-feature); only its imports differ (`userpkg "<mod>/app/user"` vs. layered's `svcInterfaces`).
+- **`schema/`** — `.gql` schema files. Each resource gets `<r>.gql`. Same location in both layouts.
+- **`resolvers/`** — gqlgen-generated resolver stubs. Hand-edited code goes inside the resolver methods. In feature layout, the resolvers still live here (shared, not per-feature — gqlgen owns the directory and generates every `{name}.resolvers.go` into it); only their imports and qualifiers differ: per-resource references use the feature alias (`userpkg "<mod>/app/user"` → `userpkg.TCreateUserDto`, `userpkg.ErrUserNotFound`) instead of layered's `dtos.` / `services.` / `svcInterfaces.`.
+- **`gqlgen.yml`** (project root) also differs per layout: layered autobinds against `<mod>/app/dtos` and generates models into `app/dtos/generated-types.dtos.go`; feature autobinds against `<mod>/app/shared/dtos` plus each `<mod>/app/<r>` package and generates models into `app/shared/dtos/generated-types.dtos.go`. `gofasta refactor` rewrites this file (and re-runs `go tool gqlgen generate`) when switching layouts — never adjust it by hand for a layout switch.
 
 ### `cmd/` — Project CLI commands
 
@@ -350,12 +352,16 @@ For each resource it migrates (or every resource with `--all`):
 2. **Rewrites each moved file's source** — package declaration, imports, selector expressions, and (for external test packages) qualifier prefixes.
 3. **Patches the cross-cutting files** — `app/di/container.go`, `app/di/wire.go`, `app/rest/routes/index.routes.go`, `app/di/providers/core.go` — to import the right packages and reference symbols with the right qualifier.
 4. **Updates `testutil/mocks/<r>_*_mock.go`** so mock imports point at the new package.
-5. **Patches shared infra files** that import the dtos package (`app_validator.go`, `validator.go`, `resolver.go`) — flips the import path between `<mod>/app/dtos` and `<mod>/app/shared/dtos`.
-6. **Relocates shared files** — `aliases.go` between `app/dtos/` and `app/shared/dtos/`, `password_generator.go` between `app/services/` and `app/user/`.
-7. **Prunes empty directories** left behind by the moves.
-8. **Updates `config.yaml`** — flips `project.layout` to the new layout.
-9. **Regenerates Wire** — deletes the stale `app/di/wire_gen.go` and runs `go tool wire ./app/di/` to rebuild it against the new layout.
-10. **Verifies** — runs `go build ./...` as a final gate. **On failure the migration aborts** with `REFACTOR_ABORTED` and leaves the partial state in place. Run `git restore .` to revert and inspect what failed.
+5. **Patches shared infra files** that import the dtos package (`app_validator.go`, `validator.go`) — flips the import path between `<mod>/app/dtos` and `<mod>/app/shared/dtos`.
+6. **Patches the GraphQL surface** (`--graphql` projects) — re-qualifies every `.go` file in `app/graphql/resolvers/` for the target layout, rewrites `gqlgen.yml`'s `autobind` and `model.filename`, and lists any resource without a resolver file as a visible skip (REST-only resources inside a GraphQL project are legal).
+7. **Relocates shared files** — `aliases.go` (and, with GraphQL, `generated-types.dtos.go`) between `app/dtos/` and `app/shared/dtos/`, `password_generator.go` between `app/services/` and `app/user/`.
+8. **Prunes empty directories** left behind by the moves.
+9. **Updates `config.yaml`** — flips `project.layout` to the new layout.
+10. **Regenerates Wire** — deletes the stale `app/di/wire_gen.go` and runs `go tool wire ./app/di/` to rebuild it against the new layout.
+11. **Regenerates gqlgen** (`--graphql` projects) — deletes the stale `app/generated.go` and runs `go tool gqlgen generate` against the rewritten config (after Wire, whose fresh `wire_gen.go` gqlgen's validation pass needs). Resolver method bodies are preserved by gqlgen; the generated scaffolding around them is re-emitted for the new layout.
+12. **Verifies** — runs `go build ./...` as a final gate. **On failure the migration aborts** with `REFACTOR_ABORTED` and leaves the partial state in place. Run `git restore .` to revert and inspect what failed.
+
+On GraphQL projects, prefer `--all` over per-resource migration: the dtos package and `gqlgen.yml`'s autobind move together, so migrating a subset can leave the remaining resources uncompilable until they migrate too. The CLI warns when it detects this.
 
 The compile gate means a successful refactor produces a project that builds. It does NOT run `go test ./...` (that takes too long for an interactive migration) — run the tests yourself afterward.
 

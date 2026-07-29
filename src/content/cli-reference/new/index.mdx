@@ -227,9 +227,8 @@ myapp/
         user.go
         auth.go
     graphql/                        # GraphQL schema and resolvers (--graphql only)
-      schema.graphqls
-      resolver.go
-      generated.go
+      schema/                       # .gql schema files (common, user, server.health)
+      resolvers/                    # resolver.go + per-schema *.resolvers.go + helpers
     jobs/                           # Background jobs
     tasks/                          # Scheduled tasks (cron)
     emails/                         # Email templates
