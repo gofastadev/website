@@ -154,7 +154,7 @@ These files stay at their paths but their content is patched to reflect the new 
 
 In order, for `refactor feature` (the `--all` case shows the full picture; single-resource skips the per-resource loop after the first iteration):
 
-1. **Preconditions** — `project.layout == "layered"` (or empty + `app/models/` exists); git tree clean (or `--force`).
+1. **Preconditions** — `project.layout == "layered"` (or empty + `app/models/` exists); git tree clean (or `--force`); the [eligibility preflight](#eligibility-preflight) passes — blockers refuse the migration before anything is written.
 2. **Resolve resources** — explicit `<Resource>` argument, or `glob app/models/*.model.go` for `--all`. On GraphQL projects, migrating a subset prints a warning recommending `--all` (see [GraphQL projects](#graphql-projects)).
 3. **Per-resource loop** — for each resource, move + featurize-transform every file in the mapping table above; update mocks.
 4. **Relocate shared files** — `app/dtos/aliases.go` → `app/shared/dtos/aliases.go`, and (GraphQL) `app/dtos/generated-types.dtos.go` → `app/shared/dtos/`.
@@ -311,6 +311,40 @@ gofasta refactor status
 
 ---
 
+## Eligibility preflight
+
+Both migration commands run a full-project eligibility scan **before writing anything**. It traverses every `.go` file under `app/` and `testutil/mocks/`, cross-checks the layout state on disk against `config.yaml`, and validates the anchors the rewrites depend on. Findings come in two severities:
+
+- **Blockers** refuse the migration with `REFACTOR_PRECHECK_FAILED` (or `REFACTOR_NO_GIT`). Nothing is written. Blockers are **not** overridable — the one exception is `no-git`, which `--force` downgrades because it is a missing safety net rather than a broken project. `--force` otherwise keeps its original meaning: skip the dirty-tree check.
+- **Warnings** are printed and the migration proceeds. They tell you exactly which files and symbols fall outside the scaffold surface and what will happen to them.
+
+The same scan is surfaced read-only by [`gofasta refactor status`](#status) (an `Eligibility:` section, plus a `preflight` object in `--json`) and by `gofasta doctor` (project-health entries), so you can check eligibility without attempting a migration. `--dry-run` shows the findings but never refuses — it writes nothing.
+
+| Check | Severity | Fires when | How to fix |
+|---|---|---|---|
+| `layout-state` | blocker | the **same resource** has files in both layouts (`app/services/user.service.go` AND `app/user/service.go`) — an aborted migration or hand-moved files | `git restore .`, or reconcile the resource onto one side |
+| `layout-state` | warning | a resource is already fully on the target side (the legal one-resource-at-a-time workflow) | nothing — it will be skipped |
+| `parse-error` | blocker | a file the migration must rewrite does not parse as Go | fix the syntax error first |
+| `parse-error` | warning | an unmanaged file (which the migration ignores) does not parse | informational |
+| `gqlgen-anchors` | blocker | `gqlgen.yml` is missing the `model.filename` / `autobind` lines the rewrite anchors on | restore the scaffold-shaped lines, or migrate the file by hand first |
+| `no-git` | blocker (`--force` downgrades) | the project is not a git repository — an aborted migration cannot be undone | `git init && git add -A && git commit`, or `--force` |
+| `unmanaged-file` | warning | a `.go` file in a directory the migration drains isn't scaffold-generated (e.g. `app/services/custom_cache.go`) | it stays behind and keeps its package alive — verify the project compiles after migrating |
+| `renamed-symbols` | warning | a per-resource file's exports deviate from the scaffold names (`UserServiceInterface` renamed, extra exported helpers) | references to non-scaffold names are not rewritten — review those call sites after migrating |
+| `generator-markers` | warning | a `// gofasta:scaffold:*` marker comment was removed | the migration succeeds, but future `gofasta g scaffold` runs can't patch that file — restore the marker |
+| `gqlgen-custom` | warning | `gqlgen.yml` carries federation, a custom resolver dir, or a custom filename template | the GraphQL rewrite covers only the scaffold shape — review the file after migrating |
+| `generated-hand-edits` | warning | always, on GraphQL projects | `app/generated.go`, `wire_gen.go` and the generated models file are regenerated — hand edits to generated files are lost |
+
+### When not to refactor
+
+The preflight catches the detectable cases; some project shapes deserve a conscious decision even when only warnings fire:
+
+- **Hand-restructured DI or routing** — if `container.go` / `wire.go` / `index.routes.go` no longer follow the scaffold shape, the AST patches may only partially apply. The final `go build` gate catches hard breakage, but review the diff.
+- **Renamed scaffold types** — the engines recognize the generated names (`<R>Service`, `Err<R>NotFound`, `TCreate<R>Dto`, …). Renames migrate as-is, and every reference to the new names keeps its old package qualifier. Expect manual fixes, or rename back first.
+- **Heavily customized `gqlgen.yml`** — the rewrite targets exactly the scaffold's anchor lines; everything else passes through untouched.
+- **Uncommitted work anywhere in the tree** — the recovery story for any surprise is `git restore .`; keep the checkpoint discipline even with `--force` available.
+
+---
+
 ## GraphQL projects
 
 Projects scaffolded with `--graphql` get full treatment in both directions. What's different from a REST-only migration:
@@ -333,6 +367,8 @@ Projects scaffolded with `--graphql` get full treatment in both directions. What
 | `REFACTOR_DIRTY_TREE` | Git working tree has uncommitted changes. | Commit, stash, or pass `--force`. |
 | `REFACTOR_RESOURCE_NOT_FOUND` | The named resource doesn't have a file at the expected source path. | Spell the resource name correctly (PascalCase), or use `--all`. |
 | `REFACTOR_ABORTED` | The migration started but the post-move `go build` failed. | `git restore .` to revert, then investigate. The output shows which files moved/patched before the failure. |
+| `REFACTOR_PRECHECK_FAILED` | The eligibility preflight found blocking conditions. Nothing was written. | Fix the findings listed in the output (`gofasta refactor status` re-checks), then re-run. Not overridable. |
+| `REFACTOR_NO_GIT` | Not a git repository — no recovery path for an aborted migration. | `git init && git add -A && git commit`, or pass `--force` to accept the risk. |
 
 ---
 

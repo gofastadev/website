@@ -324,7 +324,7 @@ project:
 
 ### Switching layouts: `gofasta refactor`
 
-Two subcommands, one in each direction. Both run AST-based rewrites (using `github.com/dave/dst`) so aliased imports, external test packages, and complex selector expressions are handled correctly. Both are idempotent: running them twice does nothing the second time.
+Two subcommands, one in each direction. Before writing anything, both run a full-project [eligibility preflight](/docs/cli-reference/refactor#eligibility-preflight) — it refuses on states a migration would corrupt (a resource torn across both layouts, unparseable files it must rewrite, a hand-edited `gqlgen.yml`, no git repository to revert with) and warns about anything outside the scaffold surface (custom files in drained directories, renamed scaffold types, removed generator markers). Run `gofasta refactor status` to see the verdict without migrating. Both run AST-based rewrites (using `github.com/dave/dst`) so aliased imports, external test packages, and complex selector expressions are handled correctly. Both are idempotent: running them twice does nothing the second time.
 
 ```bash
 # Migrate layered → feature

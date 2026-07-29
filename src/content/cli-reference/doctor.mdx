@@ -69,6 +69,7 @@ When run inside a project directory (where `config.yaml` exists):
 |-------|-----------------|
 | `config.yaml` | Configuration file exists |
 | `database` | Database is reachable using the connection details from config |
+| `refactor` | Layout-migration eligibility — runs the same full-project preflight as [`gofasta refactor status`](/docs/cli-reference/refactor#eligibility-preflight): a summary line, one `✗` entry per blocker (torn layout state, unparseable files, non-scaffold `gqlgen.yml`, no git repository), one info entry per warning (unmanaged files, renamed scaffold symbols, missing generator markers). These entries never fail the doctor run — they describe the project's shape, not broken prerequisites |
 
 <RelatedPages
   path="cli-reference/doctor"
