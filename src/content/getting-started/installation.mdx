@@ -32,15 +32,12 @@ Because gofasta is a tool for Go developers, this is the simplest path: you alre
 
 ## Option B: Pre-built binary (no Go toolchain needed)
 
-If you don't have Go installed or just want a single self-contained binary:
+If you don't have Go installed or just want a single self-contained binary, download the archive for your platform from [GitHub Releases](https://github.com/gofastadev/cli/releases) (macOS and Linux, `amd64` and `arm64`), then unpack it onto your `PATH`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gofastadev/cli/main/dist/install.sh | sh
+tar -xzf gofasta_*_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz
+sudo install -m 0755 gofasta /usr/local/bin/gofasta
 ```
-
-This downloads the latest pre-built binary for your platform from [GitHub Releases](https://github.com/gofastadev/cli/releases) and installs it to `/usr/local/bin/gofasta`. Works on macOS and Linux for both `amd64` and `arm64`. The script detects your shell and prints exact `export PATH=…` instructions if the install directory isn't already on your `$PATH`, so most users are done after running it.
-
-You can also grab a binary manually from the [releases page](https://github.com/gofastadev/cli/releases) and put it on your `PATH` yourself.
 
 ## Verify Installation
 
@@ -128,7 +125,7 @@ If you see something like `go: github.com/gofastadev/cli@v0.1.2 requires go >= 1
 | You have Go installed and use it day-to-day | **Option A** — no extra downloads, no version drift |
 | You don't have Go installed | **Option B** — self-contained binary, no toolchain |
 | Corporate machine where `go install` is blocked | **Option B** — downloads a pre-built binary instead |
-| You want reproducible pinned versions in CI | Either — both support version pinning (`@v0.1.3` for Option A, `GOFASTA_VERSION=v0.1.3 sh install.sh` is on the roadmap) |
+| You want reproducible pinned versions in CI | Either — both support version pinning (`@v0.1.3` for Option A; download the matching tagged archive from the releases page for Option B) |
 
 Both paths end up as a `gofasta` binary on disk, so pick whichever fits your environment. You can switch between them at any time.
 
