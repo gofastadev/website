@@ -224,7 +224,7 @@ Gofasta projects ship in one of **two layouts**, picked at scaffold time via `go
 
 Both layouts produce a fully working REST/GraphQL backend with the same Wire dependency graph, the same HTTP routes, and the same runtime behavior. They differ only in how files are organized on disk:
 
-- **Layered** (the default) groups files by their architectural role: `app/models/`, `app/services/`, `app/repositories/`, `app/rest/controllers/`, etc. Adding a `Subscription` resource touches one file in each of those directories. This is the familiar shape from MVC backends in Rails, Laravel, NestJS, Django, etc. — the "controller → service → repository → database" pipeline is one directory per layer, with one file per resource inside each.
+- **Layered** (the default) groups files by their architectural role: `app/models/`, `app/services/`, `app/repositories/`, `app/rest/controllers/`, etc. Adding a `Subscription` resource touches one file in each of those directories. This is the familiar shape of classic MVC backends — the "controller → service → repository → database" pipeline is one directory per layer, with one file per resource inside each.
 - **Feature-package** groups files by business domain: `app/user/`, `app/product/`, `app/order/` — each containing its own service, repository, controller, routes, DTOs, and Wire provider. This is the shape advocated by Ben Johnson's ["Standard Package Layout"](https://www.gobeyond.dev/standard-package-layout/) and the package-by-feature / vertical-slice tradition. Adding a `Subscription` resource creates one directory.
 
 The feature-package layout is a deliberate **hybrid**, not a wholesale collapse. Four categories of files stay in their layered locations even in feature mode:
