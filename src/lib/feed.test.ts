@@ -209,3 +209,39 @@ describe("buildJsonFeed", () => {
     expect(buildJsonFeed([], META).items).toEqual([]);
   });
 });
+
+describe("feed hardening", () => {
+  it("escapes a literal ]]> inside a post body so the CDATA section survives", () => {
+    // An engineering post showing XML/CDATA in a code block contains the
+    // exact byte sequence that terminates a CDATA section. Unescaped, it
+    // would truncate <content:encoded> and corrupt the whole feed.
+    const xml = buildRssFeed(
+      [post({ body: "Some prose with a literal ]]> sequence in it." })],
+      META,
+    );
+    expect(xml).toContain("]]]]><![CDATA[>");
+    // The document still ends with a well-formed channel — the item's
+    // CDATA didn't swallow the closing tags.
+    expect(xml).toContain("</channel>");
+    expect(xml).toContain("</rss>");
+  });
+
+  it("caps the RSS feed at the 20 newest posts", () => {
+    const posts = Array.from({ length: 25 }, (_, i) =>
+      post({ slug: `post-${i}`, title: `Post ${i}` }),
+    );
+    const xml = buildRssFeed(posts, META);
+    expect(xml.match(/<item>/g)).toHaveLength(20);
+    expect(xml).toContain("post-0");
+    expect(xml).not.toContain("post-24");
+  });
+
+  it("caps the JSON feed at the 20 newest posts", () => {
+    const posts = Array.from({ length: 25 }, (_, i) =>
+      post({ slug: `post-${i}` }),
+    );
+    const feed = buildJsonFeed(posts, META);
+    expect(feed.items).toHaveLength(20);
+    expect(feed.items[0].id).toContain("post-0");
+  });
+});

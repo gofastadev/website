@@ -38,10 +38,12 @@ export interface BlogPostFrontmatter {
   cover: string;
   /**
    * Editorial draft flag from Keystatic. When `true`, the post is
-   * filtered out of every public surface (index, sitemap, RSS, JSON
-   * Feed, tag pages, on-site search). Defaults to `false` when
-   * missing so legacy posts authored before the field existed stay
-   * published without re-edit.
+   * filtered out of every PRODUCTION surface (index, sitemap, RSS,
+   * JSON Feed, tag pages, on-site search) but stays visible on
+   * preview deploys and in local dev so PR-mode editorial review can
+   * actually see the post. Defaults to `false` when missing so legacy
+   * posts authored before the field existed stay published without
+   * re-edit.
    */
   draft?: boolean;
 }
@@ -89,6 +91,7 @@ function parsePost(
   filename: string,
   source: string,
   now: Date,
+  includeDrafts: boolean,
 ): BlogPost | null {
   const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!match) return null;
@@ -134,10 +137,17 @@ function parsePost(
   // (or missing) value falls through to "published" — matches Keystatic
   // checkbox semantics and keeps existing posts that lack the field
   // visible without a re-edit.
-  if (fm.draft === true) return null;
+  if (fm.draft === true && !includeDrafts) return null;
 
-  const updatedAt =
-    typeof fm.updatedAt === "string" ? fm.updatedAt : undefined;
+  let updatedAt: string | undefined;
+  if (typeof fm.updatedAt === "string") {
+    // Same strictness as publishedAt: a malformed date would flow into
+    // `new Date(...)` in the sitemap (Invalid Date lastModified),
+    // JSON-LD dateModified, and OpenGraph modifiedTime. Invalid input
+    // rejects the post, consistent with every other gate above.
+    if (Number.isNaN(new Date(fm.updatedAt).getTime())) return null;
+    updatedAt = fm.updatedAt;
+  }
 
   const authorUrl =
     typeof fm.authorUrl === "string" && fm.authorUrl.length > 0
@@ -172,6 +182,15 @@ function parsePost(
 
 export interface BlogServiceOptions {
   now?: () => Date;
+  /**
+   * Whether posts flagged `draft: true` are included. Defaults to the
+   * deploy context: drafts stay hidden in production but ARE rendered
+   * on Vercel preview deploys and in local dev — Keystatic's PR mode
+   * exists so editors review a post on its preview deploy, which is
+   * impossible if the draft flag hides it there too. (Previews are
+   * noindexed by Vercel, so draft content doesn't leak into search.)
+   */
+  includeDrafts?: boolean;
 }
 
 export interface BlogService {
@@ -187,6 +206,8 @@ export function createBlogService(
   opts: BlogServiceOptions = {},
 ): BlogService {
   const nowFn = opts.now ?? (() => new Date());
+  const includeDrafts =
+    opts.includeDrafts ?? process.env.VERCEL_ENV !== "production";
 
   function listFiles(): string[] {
     if (!fs.existsSync(dir)) return [];
@@ -200,7 +221,7 @@ export function createBlogService(
     const posts: BlogPost[] = [];
     for (const filename of listFiles()) {
       const source = fs.readFileSync(path.join(dir, filename), "utf8");
-      const post = parsePost(filename, source, now);
+      const post = parsePost(filename, source, now, includeDrafts);
       if (post) posts.push(post);
     }
     return posts.sort(

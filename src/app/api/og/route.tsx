@@ -12,10 +12,30 @@ export const runtime = "nodejs";
 // fires.
 const OG_CACHE_HEADER = "public, max-age=31536000, immutable";
 
+// The endpoint is intentionally public (og:image URLs must be
+// crawlable), which also makes it an arbitrary-text image generator on
+// this domain. Clamp the inputs so nobody can mint Gofasta-branded
+// cards carrying paragraphs of attacker-chosen text, and so legitimate
+// long titles can't overflow the card layout. Control characters are
+// stripped outright.
+const MAX_TITLE_LENGTH = 120;
+const MAX_SECTION_LENGTH = 40;
+
+function clampParam(
+  value: string | null,
+  fallback: string,
+  maxLength: number,
+): string {
+  const cleaned = (value ?? "").replace(/\p{C}/gu, " ").replace(/\s+/g, " ").trim();
+  if (cleaned.length === 0) return fallback;
+  if (cleaned.length <= maxLength) return cleaned;
+  return cleaned.slice(0, maxLength - 1).trimEnd() + "…";
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-  const title = searchParams.get("title") ?? "Documentation";
-  const section = searchParams.get("section") ?? "Docs";
+  const title = clampParam(searchParams.get("title"), "Documentation", MAX_TITLE_LENGTH);
+  const section = clampParam(searchParams.get("section"), "Docs", MAX_SECTION_LENGTH);
   const footerUrl = buildOgFooterUrl(section);
 
   return new ImageResponse(

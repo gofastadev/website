@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -38,7 +38,13 @@ function validFrontmatter(overrides: string[] = []): string {
 
 beforeEach(() => {
   fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "blog-test-"));
-  service = createBlogService(fixtureDir, { now: () => FROZEN_NOW });
+  // includeDrafts pinned to production semantics: the suite's draft
+  // tests assert the PUBLIC contract (drafts hidden); the preview-mode
+  // behavior has its own tests below.
+  service = createBlogService(fixtureDir, {
+    now: () => FROZEN_NOW,
+    includeDrafts: false,
+  });
 });
 
 afterEach(() => {
@@ -562,5 +568,67 @@ describe("default service exports", () => {
       prev: null,
       next: null,
     });
+  });
+});
+
+describe("createBlogService updatedAt validation", () => {
+  it("rejects a post whose updatedAt string is not a parseable date", () => {
+    // A malformed updatedAt would flow into `new Date(...)` in the
+    // sitemap (Invalid Date lastModified), JSON-LD dateModified, and
+    // OpenGraph modifiedTime — same strictness as publishedAt.
+    writePost("bad-updated", validFrontmatter(['updatedAt: "not-a-date"']));
+    expect(service.getPost("bad-updated")).toBeNull();
+  });
+});
+
+describe("createBlogService draft visibility", () => {
+  let dir: string;
+  const NOW = new Date("2026-05-01T00:00:00.000Z");
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "blog-drafts-"));
+    fs.writeFileSync(
+      path.join(dir, "draft-post.mdx"),
+      [
+        "---",
+        'title: "Draft Post"',
+        'description: "A draft that reviewers need to see on preview deploys."',
+        "publishedAt: 2026-04-01T10:00:00.000Z",
+        'author: "Test Author"',
+        "tags: []",
+        'cover: "sample.jpg"',
+        "draft: true",
+        "---",
+        "Body",
+      ].join("\n"),
+      "utf8",
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.unstubAllEnvs();
+  });
+
+  it("includes drafts when includeDrafts is true (preview review)", () => {
+    const s = createBlogService(dir, { now: () => NOW, includeDrafts: true });
+    expect(s.getPost("draft-post")).not.toBeNull();
+  });
+
+  it("excludes drafts when includeDrafts is false (production)", () => {
+    const s = createBlogService(dir, { now: () => NOW, includeDrafts: false });
+    expect(s.getPost("draft-post")).toBeNull();
+  });
+
+  it("defaults to hiding drafts when VERCEL_ENV is production", () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const s = createBlogService(dir, { now: () => NOW });
+    expect(s.getPost("draft-post")).toBeNull();
+  });
+
+  it("defaults to showing drafts outside production (previews, dev)", () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const s = createBlogService(dir, { now: () => NOW });
+    expect(s.getPost("draft-post")).not.toBeNull();
   });
 });

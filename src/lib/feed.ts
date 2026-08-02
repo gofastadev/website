@@ -44,6 +44,21 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
+// Feeds carry the newest posts only: every aggregator re-downloads the
+// whole document on each poll, so an uncapped full-body feed grows
+// without bound as the archive does. 20 matches common practice
+// (GitHub's own feeds, most engineering blogs).
+const FEED_MAX_ITEMS = 20;
+
+// A post body that CONTAINS the literal sequence "]]>" (easy in a code
+// block showing XML or CDATA) would terminate the enclosing
+// <content:encoded> CDATA section early and corrupt the whole feed.
+// The standard fix: close the section, emit the dangerous ">" outside
+// it, and reopen — lossless for every conforming XML parser.
+function escapeCdata(html: string): string {
+  return html.replaceAll("]]>", "]]]]><![CDATA[>");
+}
+
 function toRfc822(iso: string): string {
   return new Date(iso).toUTCString();
 }
@@ -63,9 +78,9 @@ export function buildRssFeed(posts: BlogPost[], meta: SiteMeta): string {
       ? toRfc822(posts[0].publishedAt)
       : new Date().toUTCString();
 
-  const itemBlocks = posts.map((post) => {
+  const itemBlocks = posts.slice(0, FEED_MAX_ITEMS).map((post) => {
     const link = `${meta.siteUrl}/blog/${post.slug}`;
-    const html = renderMdxToHtml(post.body);
+    const html = escapeCdata(renderMdxToHtml(post.body));
     const categoryLines = post.tags.map(
       (tag) => `    <category>${escapeXml(tag)}</category>`,
     );
@@ -139,7 +154,7 @@ export function buildJsonFeed(posts: BlogPost[], meta: SiteMeta): JsonFeed {
     feed_url: `${meta.siteUrl}/blog/feed.json`,
     description: meta.description,
     language: meta.language,
-    items: posts.map((post) => {
+    items: posts.slice(0, FEED_MAX_ITEMS).map((post) => {
       const url = `${meta.siteUrl}/blog/${post.slug}`;
       const author: JsonFeedAuthor = post.authorUrl
         ? { name: post.author, url: post.authorUrl }
