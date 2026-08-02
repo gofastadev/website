@@ -5,6 +5,7 @@ import {
   buildBlogPostingJsonLd,
   buildBlogIndexJsonLd,
   humanize,
+  buildTagPageJsonLd,
 } from "./structured-data";
 
 describe("buildBreadcrumbJsonLd", () => {
@@ -375,5 +376,68 @@ describe("humanize export", () => {
     expect(humanize("cli-reference")).toBe("Cli Reference");
     expect(humanize("go")).toBe("Go");
     expect(humanize("multi-word-tag")).toBe("Multi Word Tag");
+  });
+});
+
+describe("buildTagPageJsonLd", () => {
+  it("emits a CollectionPage with a proper ItemList mainEntity", () => {
+    const out = buildTagPageJsonLd({
+      tag: "golang",
+      posts: [
+        { slug: "first", title: "First Post" },
+        { slug: "second", title: "Second Post" },
+      ],
+    });
+    expect(out["@graph"]).toHaveLength(2);
+    const page = out["@graph"][1] as Record<string, unknown>;
+    expect(page["@type"]).toBe("CollectionPage");
+    expect(page.url).toBe("https://gofasta.dev/blog/tags/golang");
+    expect(page.isPartOf).toMatchObject({ "@id": "https://gofasta.dev/blog" });
+    expect(page.publisher).toMatchObject({
+      "@id": "https://gofasta.dev/#organization",
+    });
+    // numberOfItems lives on the ItemList, not the CollectionPage — the
+    // previous inline schema had it on the wrong node.
+    expect(page.numberOfItems).toBeUndefined();
+    expect(page.mainEntity).toMatchObject({
+      "@type": "ItemList",
+      numberOfItems: 2,
+    });
+    const items = (page.mainEntity as { itemListElement: unknown[] })
+      .itemListElement;
+    expect(items[0]).toMatchObject({
+      position: 1,
+      name: "First Post",
+      url: "https://gofasta.dev/blog/first",
+    });
+  });
+});
+
+describe("blog index summary images", () => {
+  it("includes the image on summaries that have one and omits it otherwise", () => {
+    const out = buildBlogIndexJsonLd({
+      posts: [
+        {
+          slug: "with-image",
+          title: "A",
+          description: "—",
+          publishedAt: "2026-01-01T00:00:00.000Z",
+          image: "https://gofasta.dev/blog/covers/a/cover.png",
+        },
+        {
+          slug: "without-image",
+          title: "B",
+          description: "—",
+          publishedAt: "2026-01-02T00:00:00.000Z",
+        },
+      ],
+    });
+    const blog = out["@graph"][1] as {
+      blogPost: Array<Record<string, unknown>>;
+    };
+    expect(blog.blogPost[0].image).toBe(
+      "https://gofasta.dev/blog/covers/a/cover.png",
+    );
+    expect(blog.blogPost[1]).not.toHaveProperty("image");
   });
 });

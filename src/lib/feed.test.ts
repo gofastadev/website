@@ -271,3 +271,11 @@ describe("feed metadata hardening", () => {
     );
   });
 });
+
+describe("json feed icons", () => {
+  it("declares icon and favicon per JSON Feed 1.1", () => {
+    const feed = buildJsonFeed([post()], META);
+    expect(feed.icon).toBe("https://gofasta.dev/logo.png");
+    expect(feed.favicon).toBe("https://gofasta.dev/icon-48.png");
+  });
+});
