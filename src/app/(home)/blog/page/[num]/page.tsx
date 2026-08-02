@@ -44,13 +44,25 @@ export async function generateMetadata({
       type: "website",
       url,
       siteName: "Gofasta",
+      locale: "en_US",
       title,
       description,
+      images: [
+        {
+          url: `/api/og?title=${encodeURIComponent(`Blog — Page ${num}`)}&section=Blog`,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: [
+        `/api/og?title=${encodeURIComponent(`Blog — Page ${num}`)}&section=Blog`,
+      ],
     },
   };
 }

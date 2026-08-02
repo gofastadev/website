@@ -28,7 +28,11 @@ export async function generateMetadata({
   const { tag } = await params;
   const normalized = slugifyTag(tag);
   const posts = getPostsByTag(normalized);
-  if (posts.length === 0) return { title: "Tag not found — Gofasta Blog" };
+  if (posts.length === 0)
+    return {
+      title: "Tag not found — Gofasta Blog",
+      robots: { index: false, follow: false },
+    };
 
   const title = `#${normalized} — Gofasta Blog`;
   const description = `Posts tagged ${normalized} on the Gofasta blog.`;

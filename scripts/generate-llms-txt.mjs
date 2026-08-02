@@ -19,6 +19,7 @@
 // No external dependencies — pure Node stdlib (fs/promises, path, url).
 
 import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
+import { parse as parseYaml } from 'yaml';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -82,22 +83,28 @@ const STARTING_POINTS = [
   },
 ];
 
-// Minimal YAML frontmatter parser — only handles `key: value` pairs on a
-// single line, which is all our MDX frontmatter (docs + blog) uses for the
-// fields llms.txt cares about (title, description, publishedAt). Returns
-// { frontmatter, body }. No external YAML dep needed.
+// Frontmatter parser backed by the real `yaml` package (already a
+// runtime dependency of the blog itself). The previous hand-rolled
+// single-line parser emitted folded scalars (`description: >-`)
+// LITERALLY — llms.txt shipped ">-" as the description of any post
+// using multi-line YAML, which Keystatic produces routinely.
 function parseFrontmatter(source) {
   const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!match) return { frontmatter: {}, body: source };
+  let raw;
+  try {
+    raw = parseYaml(match[1]);
+  } catch {
+    return { frontmatter: {}, body: match[2] };
+  }
+  if (!raw || typeof raw !== 'object') return { frontmatter: {}, body: match[2] };
   const frontmatter = {};
-  for (const line of match[1].split(/\r?\n/)) {
-    const kv = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
-    if (!kv) continue;
-    let value = kv[2].trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    frontmatter[kv[1]] = value;
+  for (const [key, value] of Object.entries(raw)) {
+    // llms.txt only consumes scalar fields (title, description, dates);
+    // normalize everything printable to a single-line string.
+    if (typeof value === 'string') frontmatter[key] = value.replace(/\s+/g, ' ').trim();
+    else if (value instanceof Date) frontmatter[key] = value.toISOString();
+    else if (typeof value === 'number' || typeof value === 'boolean') frontmatter[key] = String(value);
   }
   return { frontmatter, body: match[2] };
 }

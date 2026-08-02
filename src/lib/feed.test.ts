@@ -245,3 +245,29 @@ describe("feed hardening", () => {
     expect(feed.items[0].id).toContain("post-0");
   });
 });
+
+describe("feed metadata hardening", () => {
+  it("declares the WebSub hub and a channel image", () => {
+    const xml = buildRssFeed([post()], META);
+    expect(xml).toContain(
+      '<atom:link href="https://pubsubhubbub.appspot.com/" rel="hub" />',
+    );
+    expect(xml).toContain("<image>");
+    expect(xml).toContain("https://gofasta.dev/logo.png");
+  });
+
+  it("bumps lastBuildDate when an older post was edited more recently", () => {
+    const posts = [
+      post({ slug: "newer", publishedAt: "2026-05-01T10:00:00.000Z" }),
+      post({
+        slug: "older-but-edited",
+        publishedAt: "2026-04-01T10:00:00.000Z",
+        updatedAt: "2026-06-15T10:00:00.000Z",
+      }),
+    ];
+    const xml = buildRssFeed(posts, META);
+    expect(xml).toContain(
+      `<lastBuildDate>${new Date("2026-06-15T10:00:00.000Z").toUTCString()}</lastBuildDate>`,
+    );
+  });
+});

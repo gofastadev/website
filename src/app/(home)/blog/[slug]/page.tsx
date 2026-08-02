@@ -18,6 +18,7 @@ import {
 } from "@/lib/blog";
 import { SITE_URL, withBaseKeywords } from "@/lib/seo";
 import { buildBlogPostingJsonLd, humanize } from "@/lib/structured-data";
+import { getLocalImageDim } from "@/lib/image-dim";
 
 // `force-static` + `generateStaticParams` + `dynamicParams = false`
 // guarantees each post is prerendered to flat HTML at build time —
@@ -74,7 +75,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const post = getPost(slug);
-  if (!post) return { title: "Post not found — Gofasta Blog" };
+  if (!post)
+    return {
+      title: "Post not found — Gofasta Blog",
+      robots: { index: false, follow: false },
+    };
 
   const url = postUrl(slug);
   const ogImage = postOgImage(post);
@@ -97,6 +102,7 @@ export async function generateMetadata({
       type: "article",
       url,
       siteName: "Gofasta",
+      locale: "en_US",
       title: post.title,
       description: post.description,
       publishedTime: post.publishedAt,
@@ -121,6 +127,30 @@ export async function generateMetadata({
   };
 }
 
+// Google's Article guidance asks for multiple high-resolution images in
+// 16:9, 4:3, and 1:1 — the build derives -4x3/-1x1 crops next to every
+// local cover (scripts/generate-seo-assets.mjs). Collect whichever
+// variants exist with their MEASURED dimensions; remote covers are
+// passed through as a bare URL (no invented numbers).
+function coverImageSet(coverUrl: string) {
+  if (coverUrl.startsWith("http")) {
+    return [{ url: coverUrl }];
+  }
+  const dot = coverUrl.lastIndexOf(".");
+  const stem = dot > 0 ? coverUrl.slice(0, dot) : coverUrl;
+  const images: Array<{ url: string; width?: number; height?: number }> = [];
+  for (const variant of [coverUrl, `${stem}-4x3.jpg`, `${stem}-1x1.jpg`]) {
+    const dim = getLocalImageDim(variant);
+    if (variant === coverUrl) {
+      // The cover itself is always listed — dimensions when measurable.
+      images.push({ url: `${SITE_URL}${variant}`, ...(dim ?? {}) });
+    } else if (dim) {
+      images.push({ url: `${SITE_URL}${variant}`, ...dim });
+    }
+  }
+  return images;
+}
+
 function buildPostJsonLd(post: BlogPost) {
   const coverImage = post.coverUrl.startsWith("http")
     ? post.coverUrl
@@ -136,10 +166,14 @@ function buildPostJsonLd(post: BlogPost) {
     title: post.title,
     description: post.description,
     authorName: post.author,
+    // "Gofasta Team" is an organization, not a person — schema type
+    // must match reality per Google's author best practices.
+    authorType: /\bteam$/i.test(post.author) ? "Organization" : "Person",
     authorUrl: post.authorUrl,
     publishedAt: post.publishedAt,
     updatedAt: post.updatedAt,
     coverImageUrl: coverImage,
+    images: coverImageSet(post.coverUrl),
     keywords: withBaseKeywords("blog", ...post.tags),
     wordCount: post.readingTime.words,
     timeRequired: `PT${minutes}M`,

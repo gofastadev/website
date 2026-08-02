@@ -1,0 +1,47 @@
+# Notifies search engines after a production deploy.
+#
+#   - IndexNow → Bing, Yandex, Naver, Seznam, Yep (and transitively
+#     DuckDuckGo / Yahoo / Ecosia / ChatGPT Search via the Bing index)
+#   - WebSub  → Google's documented push channel for feed changes
+#
+# Google's own discovery path stays the sitemap (accurate per-post
+# lastmod) — Google does not consume IndexNow.
+#
+# Runs on pushes to main that could change blog output, waits for the
+# Vercel production deploy to serve the fresh sitemap, then submits
+# only the URLs whose lastmod moved (see scripts/submit-indexnow.mjs
+# for the anti-spam policy).
+
+name: Notify search engines
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/blog/**"
+      - "public/blog/**"
+      - "src/app/(home)/blog/**"
+      - "src/lib/blog.ts"
+      - "src/lib/feed.ts"
+      - "src/app/sitemap.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Vercel production deploy for this same push runs in
+      # parallel; give it time to go live so the sitemap we read
+      # reflects this commit. Cheap and reliable enough for a
+      # notification job — a missed window self-heals on the next push
+      # or a manual workflow_dispatch.
+      - name: Wait for production deploy
+        run: sleep 180
+
+      - name: Submit changed URLs (IndexNow + WebSub)
+        run: node scripts/submit-indexnow.mjs

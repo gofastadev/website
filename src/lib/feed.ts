@@ -73,10 +73,14 @@ function absoluteCoverUrl(siteUrl: string, coverUrl: string): string {
 export function buildRssFeed(posts: BlogPost[], meta: SiteMeta): string {
   const blogUrl = `${meta.siteUrl}/blog`;
   const feedUrl = `${meta.siteUrl}/blog/rss.xml`;
+  // Newest publish-or-edit instant across the feed window — an edited
+  // older post must bump lastBuildDate so aggregators re-fetch.
+  const newest = posts
+    .slice(0, FEED_MAX_ITEMS)
+    .map((p) => new Date(p.updatedAt ?? p.publishedAt).getTime())
+    .reduce((a, b) => Math.max(a, b), 0);
   const lastBuildDate =
-    posts.length > 0
-      ? toRfc822(posts[0].publishedAt)
-      : new Date().toUTCString();
+    newest > 0 ? new Date(newest).toUTCString() : new Date().toUTCString();
 
   const itemBlocks = posts.slice(0, FEED_MAX_ITEMS).map((post) => {
     const link = `${meta.siteUrl}/blog/${post.slug}`;
@@ -110,7 +114,16 @@ export function buildRssFeed(posts: BlogPost[], meta: SiteMeta): string {
     `    <description>${escapeXml(meta.description)}</description>`,
     `    <language>${escapeXml(meta.language)}</language>`,
     `    <lastBuildDate>${lastBuildDate}</lastBuildDate>`,
+    "    <image>",
+    `      <url>${escapeXml(`${meta.siteUrl}/logo.png`)}</url>`,
+    `      <title>${escapeXml(meta.title)}</title>`,
+    `      <link>${escapeXml(blogUrl)}</link>`,
+    "    </image>",
     `    <atom:link href="${escapeXml(feedUrl)}" rel="self" type="application/rss+xml" />`,
+    // WebSub hub: the push channel Google's sitemap docs recommend as
+    // the replacement for the retired ping endpoint. The deploy
+    // pipeline notifies the hub after each publish.
+    `    <atom:link href="https://pubsubhubbub.appspot.com/" rel="hub" />`,
     ...itemBlocks,
     "  </channel>",
     "</rss>",

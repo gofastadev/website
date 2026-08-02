@@ -48,26 +48,27 @@ function getMdxPaths(
 // `/blog`) sit one notch below; individual pages sit at 0.7. The HTML
 // sitemap at /sitemap is a secondary discovery surface for humans.
 //
-// `lastModified` precision:
-//   - Static pages + docs use the build timestamp (= deploy time), which
-//     is a coherent freshness signal since every build is a deployment.
+// `lastModified` precision — VERIFIABLE dates only:
 //   - Blog posts use frontmatter `updatedAt ?? publishedAt` — true
 //     per-post freshness so crawlers can tell which posts actually
 //     changed since the last sitemap fetch.
-//   - Tag pages use the most recent post in that tag.
+//   - The blog index + tag pages derive from their newest post.
+//   - Static pages + docs carry NO lastModified: stamping them with the
+//     build time bumped every URL on every deploy, which is exactly the
+//     inaccuracy Google documents as the reason it stops trusting a
+//     site's lastmod. Omitting the field keeps the blog's accurate
+//     values credible.
 export default function sitemap(): MetadataRoute.Sitemap {
   const buildTime = new Date();
 
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: SITE_URL,
-      lastModified: buildTime,
       changeFrequency: "weekly",
       priority: 1.0,
     },
     {
       url: `${SITE_URL}/sitemap`,
-      lastModified: buildTime,
       changeFrequency: "monthly",
       priority: 0.5,
     },
@@ -95,7 +96,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const docPages: MetadataRoute.Sitemap = docPaths.map((path) => ({
     url: `${SITE_URL}${path}`,
-    lastModified: buildTime,
     changeFrequency: "weekly" as const,
     priority: path === "/docs" ? 0.9 : 0.7,
   }));
@@ -122,6 +122,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
         lastModified: new Date(post.updatedAt ?? post.publishedAt),
         changeFrequency: "weekly",
         priority: 0.7,
+        // Sitemap image extension: tells Google Images (and Discover)
+        // which image belongs to the post without waiting for a page
+        // parse.
+        images: [
+          post.coverUrl.startsWith("http")
+            ? post.coverUrl
+            : `${SITE_URL}${post.coverUrl}`,
+        ],
       });
     }
   }

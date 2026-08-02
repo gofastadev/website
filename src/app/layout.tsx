@@ -66,6 +66,14 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+    // Top-level (generic <meta name="robots">) so EVERY engine gets the
+    // preview directives — previously these lived only under googleBot,
+    // which left Bing and others without max-image-preview:large.
+    // "large" is the documented gate for big image cards in Google
+    // Discover and rich image previews in Search.
+    "max-video-preview": -1,
+    "max-image-preview": "large",
+    "max-snippet": -1,
     googleBot: {
       index: true,
       follow: true,
@@ -73,6 +81,17 @@ export const metadata: Metadata = {
       "max-image-preview": "large",
       "max-snippet": -1,
     },
+  },
+  // Real favicon files (generated from logo.png by
+  // scripts/generate-seo-assets.mjs). Google renders a site's favicon
+  // beside every search result (48×48 minimum) — the previous
+  // Nextra-glyph-only setup gave SERPs nothing to show.
+  icons: {
+    icon: [
+      { url: "/icon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/logo.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   alternates: {
     canonical: siteUrl,

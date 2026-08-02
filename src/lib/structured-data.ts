@@ -19,6 +19,32 @@
 
 import { SITE_URL } from "./seo";
 
+// ── Shared Organization entity ───────────────────────────────────────
+//
+// One canonical Organization node, referenced by @id from every
+// publisher/author field, so Google merges the entity across pages
+// instead of seeing disconnected inline copies. sameAs disambiguates
+// the org (E-E-A-T signal); the logo is a typed ImageObject (512×512 —
+// well above Google's 112×112 minimum) as the Organization docs
+// recommend.
+export const ORG_ID = `${SITE_URL}/#organization`;
+
+export function buildOrganizationNode() {
+  return {
+    "@type": "Organization" as const,
+    "@id": ORG_ID,
+    name: "Gofasta",
+    url: SITE_URL,
+    logo: {
+      "@type": "ImageObject" as const,
+      url: `${SITE_URL}/logo.png`,
+      width: 512,
+      height: 512,
+    },
+    sameAs: ["https://github.com/gofastadev"],
+  };
+}
+
 // Title-cases a kebab-case slug for display: "cli-reference" → "Cli Reference".
 // Used both for breadcrumb item names and for the OG-image / article
 // `section` so the on-page text and the structured data agree. Exported
@@ -60,9 +86,7 @@ export function buildBreadcrumbJsonLd(input: BreadcrumbInput) {
 
   return {
     "@type": "BreadcrumbList" as const,
-    // The breadcrumb's parent: Google groups sitelinks better when
-    // BreadcrumbList nests under a WebPage with the current URL.
-    mainEntity: { "@type": "WebPage" as const, "@id": fullUrl },
+    "@id": `${fullUrl}#breadcrumb`,
     itemListElement: items.map((item, i) => ({
       "@type": "ListItem" as const,
       position: i + 1,
@@ -118,13 +142,8 @@ export function buildTechArticleJsonLd(input: TechArticleInput) {
         articleSection,
         keywords: keywords.length > 0 ? keywords.join(", ") : undefined,
         image: ogImageUrl,
-        author: { "@type": "Organization", name: "Gofasta" },
-        publisher: {
-          "@type": "Organization",
-          name: "Gofasta",
-          url: SITE_URL,
-          logo: `${SITE_URL}/logo.png`,
-        },
+        author: buildOrganizationNode(),
+        publisher: buildOrganizationNode(),
         mainEntityOfPage: fullUrl,
       },
     ],
@@ -154,6 +173,21 @@ export interface BlogPostingInput {
    * results; the OG dimensions give us ~756,000 px which passes.
    */
   coverImageUrl: string;
+  /**
+   * Optional additional image variants. Google's Article guidance asks
+   * for multiple high-resolution images in 16:9, 4:3, and 1:1 aspect
+   * ratios — the build derives 4:3 and 1:1 crops next to each cover.
+   * Width/height are included only when actually measured; a remote
+   * cover whose dimensions are unknown is emitted as a bare URL rather
+   * than with invented numbers.
+   */
+  images?: ReadonlyArray<{ url: string; width?: number; height?: number }>;
+  /**
+   * Schema type for the author. "Gofasta Team" is an organization, not
+   * a person — Google's author best practices say to use the type that
+   * matches reality. Defaults to Person.
+   */
+  authorType?: "Person" | "Organization";
   /** Fully-resolved keyword list (base + per-post tags). Omitted/empty → no keywords field in the schema. */
   keywords?: readonly string[];
   /** Word count of the body — Google reads `wordCount` as an Article-eligibility signal. Omitted when undefined. */
@@ -179,6 +213,8 @@ export function buildBlogPostingJsonLd(input: BlogPostingInput) {
     publishedAt,
     updatedAt,
     coverImageUrl,
+    images,
+    authorType = "Person",
     keywords = [],
     wordCount,
     timeRequired,
@@ -205,27 +241,26 @@ export function buildBlogPostingJsonLd(input: BlogPostingInput) {
         datePublished: publishedAt,
         dateModified: updatedAt ?? publishedAt,
         author: {
-          "@type": "Person",
+          "@type": authorType,
           name: authorName,
           // Google's Article guidelines recommend including author.url
           // when one exists — improves entity-linking in search.
           ...(authorUrl ? { url: authorUrl } : {}),
         },
-        publisher: {
-          "@type": "Organization",
-          name: "Gofasta",
-          url: SITE_URL,
-          logo: `${SITE_URL}/logo.png`,
-        },
-        // Typed ImageObject is the recommended form for blog hero
-        // images — Google uses width + height as eligibility signals
-        // for Article rich results.
-        image: {
-          "@type": "ImageObject",
-          url: coverImageUrl,
-          width: 1200,
-          height: 630,
-        },
+        publisher: buildOrganizationNode(),
+        // Multiple aspect-ratio variants when the caller measured them
+        // (Google's recommended 16:9 / 4:3 / 1:1 set); otherwise the
+        // cover URL alone. Dimensions are never invented.
+        image:
+          images && images.length > 0
+            ? images.map((img) => ({
+                "@type": "ImageObject",
+                url: img.url,
+                ...(img.width && img.height
+                  ? { width: img.width, height: img.height }
+                  : {}),
+              }))
+            : coverImageUrl,
         keywords: keywords.length > 0 ? keywords.join(", ") : undefined,
         // Optional Article-eligibility signals. Each is omitted when
         // undefined so the emitted JSON-LD stays tidy and the existing
@@ -233,6 +268,7 @@ export function buildBlogPostingJsonLd(input: BlogPostingInput) {
         wordCount,
         timeRequired,
         articleSection,
+        isPartOf: { "@type": "Blog", "@id": `${SITE_URL}/blog` },
         mainEntityOfPage: {
           "@type": "WebPage",
           "@id": fullUrl,
@@ -289,12 +325,7 @@ export function buildBlogIndexJsonLd(input: BlogIndexInput) {
           "Engineering notes on the Gofasta toolkit — CLI changes, library updates, and longer-form posts on Go backend topics.",
         url: indexUrl,
         inLanguage: "en",
-        publisher: {
-          "@type": "Organization",
-          name: "Gofasta",
-          url: SITE_URL,
-          logo: `${SITE_URL}/logo.png`,
-        },
+        publisher: buildOrganizationNode(),
         blogPost: input.posts.map((p) => ({
           "@type": "BlogPosting",
           headline: p.title,

@@ -43,16 +43,28 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "Organization",
+      // Same @id the blog's publisher/author nodes reference — one
+      // merged entity across the whole site instead of disconnected
+      // inline copies.
+      "@id": "https://gofasta.dev/#organization",
       name: "Gofasta",
       url: "https://gofasta.dev",
-      logo: "https://gofasta.dev/logo.png",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://gofasta.dev/logo.png",
+        width: 512,
+        height: 512,
+      },
+      sameAs: ["https://github.com/gofastadev"],
       description:
         "Agent-native Go toolkit that scaffolds production backends in one command. Auth, databases, jobs, observability, and deployment wired on day one. Standard Go, zero lock-in.",
     },
     {
       "@type": "WebSite",
+      "@id": "https://gofasta.dev/#website",
       name: "Gofasta",
       url: "https://gofasta.dev",
+      publisher: { "@id": "https://gofasta.dev/#organization" },
       description:
         "Agent-native Go toolkit that scaffolds production backends in one command. Auth, databases, jobs, observability, and deployment wired on day one. Standard Go, zero lock-in.",
       potentialAction: {

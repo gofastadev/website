@@ -15,7 +15,7 @@ describe("buildBreadcrumbJsonLd", () => {
       segments: [],
     });
     expect(out["@type"]).toBe("BreadcrumbList");
-    expect(out.mainEntity["@id"]).toBe("https://gofasta.dev/docs");
+    expect(out["@id"]).toBe("https://gofasta.dev/docs#breadcrumb");
     expect(out.itemListElement).toHaveLength(2);
     expect(out.itemListElement[0]).toMatchObject({
       position: 1,
@@ -46,8 +46,8 @@ describe("buildBreadcrumbJsonLd", () => {
       name: "Dev",
       item: "https://gofasta.dev/docs/cli-reference/dev",
     });
-    expect(out.mainEntity["@id"]).toBe(
-      "https://gofasta.dev/docs/cli-reference/dev",
+    expect(out["@id"]).toBe(
+      "https://gofasta.dev/docs/cli-reference/dev#breadcrumb",
     );
   });
 
@@ -147,16 +147,73 @@ describe("buildBlogPostingJsonLd", () => {
       name: "Jane Doe",
       url: "https://gofasta.dev/about/jane",
     });
-    expect(post.image).toMatchObject({
-      "@type": "ImageObject",
-      url: "https://gofasta.dev/api/og?title=Wire&section=Blog",
-      width: 1200,
-      height: 630,
+    // No measured variants supplied → the cover URL alone, with no
+    // invented dimensions.
+    expect(post.image).toBe(
+      "https://gofasta.dev/api/og?title=Wire&section=Blog",
+    );
+    expect(post.isPartOf).toMatchObject({
+      "@type": "Blog",
+      "@id": "https://gofasta.dev/blog",
     });
     expect(post.keywords).toBe("wire, di, go");
     expect((post.mainEntityOfPage as Record<string, string>)["@id"]).toBe(
       "https://gofasta.dev/blog/wire-explained",
     );
+  });
+
+  it("emits measured image variants as typed ImageObjects, dimensionless when unmeasured", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "with-variants",
+      title: "With Variants",
+      description: "—",
+      authorName: "Jane Doe",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/blog/covers/x/cover.png",
+      images: [
+        { url: "https://gofasta.dev/blog/covers/x/cover.png", width: 1200, height: 630 },
+        { url: "https://gofasta.dev/blog/covers/x/cover-4x3.jpg", width: 840, height: 630 },
+        { url: "https://cdn.example.com/remote.png" },
+      ],
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.image).toEqual([
+      {
+        "@type": "ImageObject",
+        url: "https://gofasta.dev/blog/covers/x/cover.png",
+        width: 1200,
+        height: 630,
+      },
+      {
+        "@type": "ImageObject",
+        url: "https://gofasta.dev/blog/covers/x/cover-4x3.jpg",
+        width: 840,
+        height: 630,
+      },
+      // Unmeasured variant: URL only — dimensions are never invented.
+      { "@type": "ImageObject", url: "https://cdn.example.com/remote.png" },
+    ]);
+  });
+
+  it("types the author as an Organization when authorType says so", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "team-post",
+      title: "Team Post",
+      description: "—",
+      authorName: "Gofasta Team",
+      authorType: "Organization",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=T&section=Blog",
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.author).toMatchObject({
+      "@type": "Organization",
+      name: "Gofasta Team",
+    });
+    // The publisher entity is the shared @id-linked Organization.
+    expect(post.publisher).toMatchObject({
+      "@id": "https://gofasta.dev/#organization",
+    });
   });
 
   it("omits author.url when not provided + falls back updatedAt to publishedAt + omits keywords when absent", () => {
@@ -277,7 +334,13 @@ describe("buildBlogIndexJsonLd", () => {
       "@type": "Organization",
       name: "Gofasta",
       url: "https://gofasta.dev",
-      logo: "https://gofasta.dev/logo.png",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://gofasta.dev/logo.png",
+        width: 512,
+        height: 512,
+      },
+      sameAs: ["https://github.com/gofastadev"],
     });
 
     const items = blog.blogPost as Array<Record<string, unknown>>;
