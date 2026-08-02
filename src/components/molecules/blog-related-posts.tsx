@@ -58,7 +58,7 @@ export function BlogRelatedPosts({
         {related.map((post) => (
           <li key={post.slug}>
             <Link
-              href={`/blog/${post.slug}`}
+              href={`/blog/${encodeURIComponent(post.slug)}`}
               className="block rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.02]"
             >
               <span className="text-sm font-medium text-foreground">

@@ -37,7 +37,7 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
       )}
     >
       <Link
-        href={`/blog/${post.slug}`}
+        href={`/blog/${encodeURIComponent(post.slug)}`}
         className="flex h-full flex-col"
         aria-label={post.title}
       >

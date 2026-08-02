@@ -4,6 +4,24 @@ import path from "node:path";
 import os from "node:os";
 import { getLocalImageDim } from "./image-dim";
 
+// ESM module namespaces are not configurable, so `vi.spyOn(mod,
+// "imageSize")` cannot work (vitest throws "Cannot redefine property").
+// Instead the module is mocked once with a pass-through wrapper: each
+// call uses the real implementation unless a test installs an override
+// via this hoisted holder.
+const imageSizeOverride = vi.hoisted(() => ({
+  fn: null as ((buf: Buffer) => unknown) | null,
+}));
+
+vi.mock("image-size", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("image-size")>();
+  return {
+    ...actual,
+    imageSize: (buf: Buffer) =>
+      imageSizeOverride.fn ? imageSizeOverride.fn(buf) : actual.imageSize(buf),
+  };
+});
+
 // Construct a minimal valid PNG buffer with width/height embedded in
 // the IHDR chunk. `image-size` parses the IHDR to extract dimensions
 // and doesn't validate the CRC, so a 33-byte header is enough to give
@@ -36,6 +54,7 @@ beforeEach(() => {
 
 afterEach(() => {
   fs.rmSync(publicDir, { recursive: true, force: true });
+  imageSizeOverride.fn = null;
   vi.restoreAllMocks();
 });
 
@@ -83,18 +102,17 @@ describe("getLocalImageDim", () => {
     ).toBeNull();
   });
 
-  it("returns null when image-size cannot determine dimensions", async () => {
-    // Mock image-size's `imageSize` to return a partial result —
-    // simulates an SVG without explicit width/height/viewBox or any
-    // future format where the lib detects the type but can't read
-    // dimensions. This is the only path to the typed null guard short
-    // of pinning a specific image-size version.
-    const mod = await import("image-size");
-    vi.spyOn(mod, "imageSize").mockReturnValue({
+  it("returns null when image-size cannot determine dimensions", () => {
+    // Override `imageSize` to return a partial result — simulates an
+    // SVG without explicit width/height/viewBox or any future format
+    // where the lib detects the type but can't read dimensions. This is
+    // the only path to the typed null guard short of pinning a specific
+    // image-size version.
+    imageSizeOverride.fn = () => ({
       width: undefined,
       height: undefined,
       type: "svg",
-    } as unknown as ReturnType<typeof mod.imageSize>);
+    });
     fs.writeFileSync(path.join(publicDir, "weird.svg"), Buffer.from("<svg/>"));
     expect(getLocalImageDim("/weird.svg", { publicDir })).toBeNull();
   });

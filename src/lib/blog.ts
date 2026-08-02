@@ -144,7 +144,14 @@ function parsePost(
       ? fm.authorUrl
       : undefined;
 
+  // The slug is interpolated into hrefs, canonical URLs, RSS links, and
+  // JSON-LD across the site. Constrain it to a strict kebab-case charset
+  // at this single boundary so no downstream consumer has to reason
+  // about traversal sequences or URL metacharacters in a filename — a
+  // file that violates the pattern is excluded, like any other invalid
+  // input above.
   const slug = filename.replace(/\.mdx$/, "");
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
   const body = match[2];
 
   return {

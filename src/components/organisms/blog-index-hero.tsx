@@ -25,7 +25,7 @@ export function BlogIndexHero({ post }: BlogIndexHeroProps) {
       className="mb-12 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-white/[0.02]"
     >
       <Link
-        href={`/blog/${post.slug}`}
+        href={`/blog/${encodeURIComponent(post.slug)}`}
         className="group grid grid-cols-1 lg:grid-cols-2"
       >
         <div className="relative aspect-[1200/630] w-full overflow-hidden bg-gray-100 dark:bg-black/40 lg:aspect-auto">

@@ -255,6 +255,25 @@ describe("createBlogService", () => {
     expect(service.getAllPosts()).toEqual([]);
   });
 
+  it("rejects a filename whose slug is not strict kebab-case", () => {
+    // The slug flows into hrefs, canonical URLs, RSS, and JSON-LD across
+    // the site — the lib boundary is the single place it's constrained,
+    // so traversal sequences and URL metacharacters must die here.
+    for (const name of [
+      "UpperCase.mdx",
+      "spaces in name.mdx",
+      "trailing-.mdx",
+      "quote\"y.mdx",
+    ]) {
+      fs.writeFileSync(
+        path.join(fixtureDir, name),
+        validFrontmatter(),
+        "utf8",
+      );
+    }
+    expect(service.getAllPosts()).toEqual([]);
+  });
+
   it("rejects a post with invalid YAML in the frontmatter", () => {
     fs.writeFileSync(
       path.join(fixtureDir, "broken-yaml.mdx"),

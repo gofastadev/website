@@ -281,4 +281,59 @@ describe("RelatedPages", () => {
     const nav = screen.getByRole("navigation", { name: "Related pages" });
     expect(nav).toBeInTheDocument();
   });
+
+  it("renders a short terminator-free description verbatim", async () => {
+    getPageMapMock.mockResolvedValue([
+      { name: "dev", route: "/docs/cli-reference/dev", frontMatter: { title: "Dev" } },
+      {
+        name: "config",
+        route: "/docs/cli-reference/config",
+        frontMatter: {
+          title: "Config",
+          description: "Just a plain phrase without a sentence ending",
+        },
+      },
+    ]);
+
+    await renderRSC(RelatedPages({ path: "cli-reference/dev" }));
+
+    expect(
+      screen.getByText("Just a plain phrase without a sentence ending"),
+    ).toBeInTheDocument();
+  });
+
+  it("hard-truncates a long terminator-free description on a word boundary", async () => {
+    const longDescription =
+      "word ".repeat(60).trim(); // 299 chars, no sentence terminator anywhere
+    getPageMapMock.mockResolvedValue([
+      { name: "dev", route: "/docs/cli-reference/dev", frontMatter: { title: "Dev" } },
+      {
+        name: "config",
+        route: "/docs/cli-reference/config",
+        frontMatter: { title: "Config", description: longDescription },
+      },
+    ]);
+
+    await renderRSC(RelatedPages({ path: "cli-reference/dev" }));
+
+    const truncated = screen.getByText(/word .*…$/);
+    expect(truncated.textContent!.length).toBeLessThanOrEqual(141);
+    expect(truncated.textContent!.endsWith("…")).toBe(true);
+  });
+
+  it("hard-truncates a long unbroken token without a word boundary", async () => {
+    getPageMapMock.mockResolvedValue([
+      { name: "dev", route: "/docs/cli-reference/dev", frontMatter: { title: "Dev" } },
+      {
+        name: "config",
+        route: "/docs/cli-reference/config",
+        frontMatter: { title: "Config", description: "x".repeat(200) },
+      },
+    ]);
+
+    await renderRSC(RelatedPages({ path: "cli-reference/dev" }));
+
+    const truncated = screen.getByText(/^x+…$/);
+    expect(truncated.textContent).toHaveLength(141);
+  });
 });

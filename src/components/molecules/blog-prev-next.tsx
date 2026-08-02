@@ -57,7 +57,7 @@ export function BlogPrevNext({ prev, next }: BlogPrevNextProps) {
     >
       {prev ? (
         <Link
-          href={`/blog/${prev.slug}`}
+          href={`/blog/${encodeURIComponent(prev.slug)}`}
           className="group flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.02]"
         >
           <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-gray-600 dark:text-gray-500">
@@ -73,7 +73,7 @@ export function BlogPrevNext({ prev, next }: BlogPrevNextProps) {
       )}
       {next ? (
         <Link
-          href={`/blog/${next.slug}`}
+          href={`/blog/${encodeURIComponent(next.slug)}`}
           className="group flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 text-right transition-colors hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.02] sm:items-end"
         >
           <span className="flex items-center justify-end gap-1 text-xs uppercase tracking-wide text-gray-600 dark:text-gray-500">
