@@ -1,0 +1,106 @@
+---
+title: Deploy to Coolify
+description: Deploy a Gofasta application to Coolify using the generated Dockerfile — build pack setup, environment variables, PostgreSQL, health checks, migrations, and auto-deploy on push.
+keywords:
+  - "Coolify"
+  - "deployment"
+  - "self-hosted PaaS"
+  - "Docker"
+  - "Go deployment"
+---
+
+# Deploy to Coolify
+
+[Coolify](https://coolify.io) is an open-source, self-hosted PaaS (Apache 2.0) — a Heroku-style deploy experience on your own server, with free automatic SSL. A gofasta project deploys to it **unchanged**: the scaffold's root `Dockerfile` is a standard multi-stage build that Coolify's Dockerfile build pack consumes directly. No adapter files, no gofasta-specific configuration.
+
+Prefer gofasta's zero-dependency built-in deploy instead? See [Deploy to a VPS](/docs/guides/deployment).
+
+Throughout this guide the project is called `myapp` — its environment variables use the `MYAPP_` prefix. Substitute your project's name.
+
+## 1. Install Coolify
+
+On a server with at least 2 CPU cores, 2 GB RAM, and 30 GB storage (Ubuntu LTS, Debian, and most major distributions are supported):
+
+```bash
+curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash
+```
+
+Then open the Coolify dashboard and complete onboarding.
+
+## 2. Create the application
+
+1. In a project, choose **Create New Resource** and pick your Git source — a public repository URL, or a private repository via the GitHub App or an SSH deploy key.
+2. Coolify defaults the build pack to Nixpacks. Change it to **Dockerfile** — the scaffold ships its production `Dockerfile` at the repository root, so leave **Base Directory** at `/`.
+3. Set **Ports Exposes** to `8080`. Coolify assumes port 3000 by default; the gofasta container listens on 8080 (`MYAPP_SERVER_HOST=0.0.0.0` is baked into the image, so it binds all interfaces).
+
+## 3. Provision the database
+
+Create a database from **New Resource** (Coolify one-click databases include PostgreSQL, MySQL, MariaDB, Redis, ClickHouse, and MongoDB — matching gofasta's SQL drivers except SQL Server, plus Redis for `pkg/cache`).
+
+Open the database's configuration page and copy its **internal** connection details — apps on the same Coolify network reach the database by its internal hostname, no public exposure needed.
+
+## 4. Set environment variables
+
+In the application's **Environment Variables** section (the Developer View accepts bulk `.env`-style paste), configure the runtime settings:
+
+```bash
+MYAPP_DATABASE_HOST=<internal hostname from the database page>
+MYAPP_DATABASE_PORT=5432
+MYAPP_DATABASE_USER=myapp
+MYAPP_DATABASE_PASSWORD=<database password>
+MYAPP_DATABASE_NAME=myapp
+MYAPP_AUTH_JWT_SECRET=<openssl rand -hex 32>
+MYAPP_SESSION_SECRET=<openssl rand -hex 32>
+MYAPP_SESSION_COOKIE_SECURE=true
+MYAPP_LOG_FORMAT=json
+```
+
+gofasta reads all configuration at runtime, so the **Runtime Variable** flag (on by default) is all you need — no build-time variables are required for a standard scaffold. For values containing `$`, enable Coolify's **Literal** option so they aren't interpolated.
+
+## 5. Health check
+
+In the application's health check settings, set the path to `/health/ready` — gofasta's readiness endpoint verifies real database and cache connectivity, not just that the process is up. The port defaults to the first entry in Ports Exposes (`8080`).
+
+Two notes from Coolify's health-check documentation:
+
+- The container must have `curl` or `wget` available. The gofasta runtime image is Alpine, which ships BusyBox `wget` — health checks work out of the box.
+- With health checks enabled, Coolify's proxy only routes traffic to the app once the check passes; a failing check surfaces as "No available server" rather than a broken app.
+
+## 6. Domain and HTTPS
+
+Set the application's domain in FQDN form, e.g. `https://api.example.com`. Entering an `https://` domain is all it takes — Coolify configures its reverse proxy and obtains (and renews) a Let's Encrypt certificate automatically.
+
+## 7. Migrations
+
+Set the application's **Post-deployment command** (under the Advanced menu) to:
+
+```bash
+/app migrate up
+```
+
+The gofasta image bundles the golang-migrate CLI and its migrations under `/migrations`; the app's own `migrate` subcommand applies anything pending after each deployment. For one-off commands, Coolify's built-in web terminal gives you a shell in the running container.
+
+## 8. Deploy and auto-deploy
+
+Click **Deploy**. For continuous deployment:
+
+- **GitHub App source**: Auto Deploy is enabled automatically — every push to the configured branch deploys.
+- **Public repo / other sources**: enable Auto Deploy in the app's Advanced settings, then add the Coolify-provided webhook URL (with a secret) to your repository's webhook settings, subscribed to push events.
+
+## Alternative: compose-based deployment
+
+Coolify also has a **Docker Compose** build pack. Point **Docker Compose Location** at `/deployments/docker/compose.production.yaml` to deploy the app together with its database container in one stack. Two Coolify-specific caveats if you take this route: remove any custom `networks:` definitions from the compose file (Coolify documents that they cause intermittent HTTPS outages), and define health checks in the compose file itself (the scaffold's app and db services already carry them). For most projects the Dockerfile build pack plus a Coolify-managed database is the simpler path.
+
+## References
+
+- Coolify installation — https://coolify.io/docs/get-started/installation
+- Applications overview (Git sources, Ports Exposes) — https://coolify.io/docs/applications
+- Dockerfile build pack — https://coolify.io/docs/applications/build-packs/dockerfile
+- Docker Compose build pack — https://coolify.io/docs/applications/build-packs/docker-compose
+- Environment variables — https://coolify.io/docs/knowledge-base/environment-variables
+- Health checks — https://coolify.io/docs/knowledge-base/health-checks
+- Domains and SSL — https://coolify.io/docs/knowledge-base/domains
+- Databases — https://coolify.io/docs/databases
+- Auto-deploy — https://coolify.io/docs/applications/ci-cd/github/auto-deploy
+
+<RelatedPages path="guides/deployment/coolify" />

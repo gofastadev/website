@@ -92,7 +92,7 @@ Unregistered codes still produce usable errors, just without a hint or docs link
 | `DEPLOY_HOST_REQUIRED` | set `deploy.host` in config.yaml or pass --host user@server | [docs](/docs/cli-reference/deploy) |
 | `DEPLOY_CONFIG_INVALID` | the deploy configuration is invalid; run `gofasta doctor` or check config.yaml against the schema | [docs](/docs/cli-reference/deploy) |
 | `SSH_FAILED` | verify your SSH key is authorized on the server and the host/port are reachable — test with `ssh -p <port> user@server echo ok` | [docs](/docs/cli-reference/deploy) |
-| `HEALTH_CHECK_FAILED` | the deployed app did not respond at the health endpoint within the timeout; the previous release is still active — inspect logs with `gofasta deploy logs` | [docs](/docs/cli-reference/deploy) |
+| `HEALTH_CHECK_FAILED` | the deployed app did not respond at the health endpoint within the timeout; gofasta automatically rolled back to the previous release (first deploys are left in place) — inspect logs with `gofasta deploy logs` | [docs](/docs/cli-reference/deploy) |
 | `DOCKER_COMMAND_FAILED` | a Docker command failed; check that Docker is running locally and on the remote host (run `gofasta deploy setup` to install it remotely) | [docs](/docs/cli-reference/deploy) |
 | `ROLLBACK_FAILED` | rollback could not complete; inspect the step that failed above — the current release is unchanged | [docs](/docs/cli-reference/deploy) |
 
