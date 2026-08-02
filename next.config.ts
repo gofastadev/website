@@ -10,6 +10,9 @@ const withNextra = nextra({
 export default withNextra({
   reactStrictMode: true,
   reactCompiler: true,
+  // TEMPORARY (debugging): single export worker so --debug-prerender
+  // fits in the 6GB Docker VM. Remove before committing.
+  experimental: { cpus: 1 },
   output: "standalone",
   poweredByHeader: false,
   // ── Canonical host ───────────────────────────────────────────────
