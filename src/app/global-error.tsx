@@ -3,19 +3,16 @@
 // ─────────────────────────────────────────────────────────────────────
 // Global error boundary — intentionally self-contained.
 //
-// Next.js 16 prerenders /_global-error at build time WITHOUT the root
-// layout's providers. Its internal fallback error page crashes there
-// with "Cannot read properties of null (reading 'useContext')"
-// (vercel/next.js#86178, #84994, discussion #94667), which aborts
-// `next build` for the whole site. Supplying our own global-error that
-// consumes NO app contexts replaces that crashing composition.
+// This file replaces Next's unbranded internal error page. It is
+// prerendered at build time (/_global-error) and rendered at runtime
+// WITHOUT the root layout's providers, so it must not depend on them.
 //
-// Hard constraints, per the upstream guidance:
+// Hard constraints:
 //   - must render its own <html> and <body> (it replaces the root
 //     layout when it triggers);
-//   - no next/link (needs AppRouterContext — null here), no
-//     next-themes, no ConsentProvider, no component that reads any
-//     React context;
+//   - no next/link (needs AppRouterContext, which is unavailable in
+//     this tree), no next-themes, no ConsentProvider, no component
+//     that reads any React context;
 //   - raw elements are deliberate: importing app atoms would drag in
 //     the very module graph this file must stay independent of. This
 //     file is a sanctioned exception to the "no raw HTML outside
