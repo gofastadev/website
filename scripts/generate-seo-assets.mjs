@@ -21,7 +21,29 @@
 import { readdir, stat, mkdir } from "node:fs/promises";
 import { join, resolve, dirname, extname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
-import sharp from "sharp";
+
+// sharp is loaded LAZILY, and only when there is actual work to do.
+// The generated assets are committed, so a normal CI/Vercel build has
+// zero stale outputs and never touches sharp's native binaries at all —
+// making builds immune to platform-binary install quirks. When work IS
+// pending (e.g. a Keystatic PR added a cover without running the script
+// locally) and sharp cannot load, the build fails loudly rather than
+// silently shipping posts without their image variants.
+let sharpModule;
+async function loadSharp() {
+  if (!sharpModule) {
+    try {
+      sharpModule = (await import("sharp")).default;
+    } catch (err) {
+      throw new Error(
+        `seo-assets: image work is pending but the "sharp" module failed to load ` +
+          `(${err.message}). Run \`node scripts/generate-seo-assets.mjs\` locally ` +
+          `and commit the generated files, or fix the sharp install.`,
+      );
+    }
+  }
+  return sharpModule;
+}
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC = resolve(__dirname, "..", "public");
@@ -58,6 +80,7 @@ async function walk(dir) {
 // Center-crop `source` to the largest region matching w:h, write JPEG.
 async function crop(source, output, ratioW, ratioH) {
   if (!(await isStale(output, source))) return false;
+  const sharp = await loadSharp();
   const meta = await sharp(source).metadata();
   const { width, height } = meta;
   if (!width || !height) return false;
@@ -82,7 +105,8 @@ async function crop(source, output, ratioW, ratioH) {
 
 async function resizePng(source, output, size) {
   if (!(await isStale(output, source))) return false;
-  await sharp(source)
+  const sharp = await loadSharp();
+  await (sharp(source))
     .resize(size, size, { fit: "cover" })
     .png()
     .toFile(output);
