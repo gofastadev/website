@@ -60,6 +60,11 @@ export function BlogArticleHeader({ post }: BlogArticleHeaderProps) {
           </span>
         )}
         <span aria-hidden>·</span>
+{post.draft ? (
+          <span className="rounded-full border border-amber-400/60 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+            Draft
+          </span>
+        ) : null}
         <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
         <span aria-hidden>·</span>
         <span>{post.readingTime.text}</span>

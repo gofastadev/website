@@ -56,4 +56,9 @@ describe("BlogIndexHero", () => {
     expect(img).toHaveAttribute("src", "/blog/covers/hello.svg");
     expect(img).toHaveAttribute("alt", "");
   });
+
+  it("shows a Draft badge when the featured post is a draft (previews/dev only)", () => {
+    render(<BlogIndexHero post={post({ draft: true })} />);
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+  });
 });

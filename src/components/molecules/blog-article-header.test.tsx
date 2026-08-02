@@ -86,4 +86,9 @@ describe("BlogArticleHeader", () => {
     expect(img).toHaveAttribute("src", "/blog/covers/hello.svg");
     expect(img).toHaveAttribute("alt", "");
   });
+
+  it("shows a Draft badge when the post is a draft (previews/dev only)", () => {
+    render(<BlogArticleHeader post={post({ draft: true })} />);
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+  });
 });

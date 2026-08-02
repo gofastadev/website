@@ -52,6 +52,11 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
         </div>
         <div className="flex flex-1 flex-col gap-3 p-5">
           <div className="flex items-center gap-3 text-xs text-gray-700 dark:text-gray-400">
+            {post.draft ? (
+              <span className="rounded-full border border-amber-400/60 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                Draft
+              </span>
+            ) : null}
             <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
             <span aria-hidden>·</span>
             <span>{post.readingTime.text}</span>

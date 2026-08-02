@@ -177,6 +177,9 @@ function parsePost(
     coverUrl: resolveCoverUrl(cover),
     body,
     readingTime: computeReadingTime(body),
+    // Surfaced so the UI can badge draft posts on previews/dev — the
+    // only contexts where a draft is ever rendered.
+    draft: fm.draft === true,
   };
 }
 

@@ -632,3 +632,33 @@ describe("createBlogService draft visibility", () => {
     expect(s.getPost("draft-post")).not.toBeNull();
   });
 });
+
+describe("draft flag surfaced on parsed posts", () => {
+  it("marks draft posts so the UI can badge them on previews", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "blog-flag-"));
+    fs.writeFileSync(
+      path.join(dir, "flagged.mdx"),
+      "---\n" +
+        'title: "Flagged"\n' +
+        'description: "A draft that must carry its flag when rendered."\n' +
+        "publishedAt: 2026-04-01T10:00:00.000Z\n" +
+        'author: "Test Author"\n' +
+        "tags: []\n" +
+        'cover: "c.jpg"\n' +
+        "draft: true\n" +
+        "---\nBody",
+      "utf8",
+    );
+    const s = createBlogService(dir, {
+      now: () => new Date("2026-05-01T00:00:00.000Z"),
+      includeDrafts: true,
+    });
+    expect(s.getPost("flagged")?.draft).toBe(true);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("marks published posts as non-draft", () => {
+    writePost("plain", validFrontmatter());
+    expect(service.getPost("plain")?.draft).toBe(false);
+  });
+});

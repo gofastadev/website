@@ -79,4 +79,9 @@ describe("BlogPostCard", () => {
       /extra-card-class/,
     );
   });
+
+  it("shows a Draft badge when the post is a draft (previews/dev only)", () => {
+    render(<BlogPostCard post={post({ draft: true })} />);
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+  });
 });
