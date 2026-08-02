@@ -50,8 +50,9 @@ export default function GlobalError({
               Try again
             </button>
             {/* Plain <a>, not next/link: AppRouterContext is unavailable
-                in the global-error tree and next/link would crash the
-                prerender — the exact bug this file exists to avoid. */}
+                in the global-error tree, and after a crash a full page
+                load is the reliable way home anyway. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a
               href="/"
               className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent"
