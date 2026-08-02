@@ -338,6 +338,11 @@ function renderLLMsTxt(pages, blogPosts) {
       const suffix = post.description ? `: ${post.description}` : '';
       out += `- [${post.title}](${post.url})${suffix}\n`;
     }
+    // Machine-readable discovery surfaces for agents that read llms.txt:
+    // the feeds carry full post bodies, the sitemap the full URL set.
+    out += '- [RSS feed](https://gofasta.dev/blog/rss.xml): Full-content RSS 2.0 feed of the blog\n';
+    out += '- [JSON Feed](https://gofasta.dev/blog/feed.json): Full-content JSON Feed 1.1 of the blog\n';
+    out += '- [Sitemap](https://gofasta.dev/sitemap.xml): Every indexable page on this site\n';
     out += '\n';
   }
 

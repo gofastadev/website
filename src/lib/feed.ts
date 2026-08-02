@@ -156,6 +156,10 @@ export interface JsonFeed {
   feed_url: string;
   description: string;
   language: string;
+  /** Large square feed icon (JSON Feed 1.1 `icon`, ~512px). */
+  icon: string;
+  /** Small favicon-sized icon (JSON Feed 1.1 `favicon`). */
+  favicon: string;
   items: JsonFeedItem[];
 }
 
@@ -167,6 +171,8 @@ export function buildJsonFeed(posts: BlogPost[], meta: SiteMeta): JsonFeed {
     feed_url: `${meta.siteUrl}/blog/feed.json`,
     description: meta.description,
     language: meta.language,
+    icon: `${meta.siteUrl}/logo.png`,
+    favicon: `${meta.siteUrl}/icon-48.png`,
     items: posts.slice(0, FEED_MAX_ITEMS).map((post) => {
       const url = `${meta.siteUrl}/blog/${post.slug}`;
       const author: JsonFeedAuthor = post.authorUrl

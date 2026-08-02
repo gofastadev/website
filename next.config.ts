@@ -11,6 +11,7 @@ export default withNextra({
   reactStrictMode: true,
   reactCompiler: true,
   output: "standalone",
+  poweredByHeader: false,
   // ── Canonical host ───────────────────────────────────────────────
   // `www.gofasta.dev` used to serve the entire site with a 200, so
   // every page existed at two URLs. The canonical tag pointed Google
@@ -20,6 +21,19 @@ export default withNextra({
   // still cost crawl budget on a second copy of all 89 URLs. A 308
   // makes the apex the only reachable host. The `has` host condition
   // scopes this to requests that arrive on www, so it can't loop.
+  async headers() {
+    // Baseline hardening headers. HSTS is intentionally absent — Vercel
+    // sets strict-transport-security on custom domains itself.
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       {

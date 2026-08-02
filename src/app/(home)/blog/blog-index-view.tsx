@@ -4,6 +4,7 @@ import { BlogPostCard } from "@/components/molecules/blog-post-card";
 import { BlogPagination } from "@/components/molecules/blog-pagination";
 import { getAllPosts, getAllTags } from "@/lib/blog";
 import { buildBlogIndexJsonLd } from "@/lib/structured-data";
+import { SITE_URL } from "@/lib/seo";
 
 // Shared server-side view for the blog index: `/blog` renders page 1,
 // `/blog/page/[num]` renders the rest. Pagination is PATH-based because
@@ -52,6 +53,9 @@ export function BlogIndexView({ page }: { page: number }) {
             description: post.description,
             publishedAt: post.publishedAt,
             updatedAt: post.updatedAt,
+            image: post.coverUrl.startsWith("http")
+              ? post.coverUrl
+              : `${SITE_URL}${post.coverUrl}`,
           })),
         })
       : null;

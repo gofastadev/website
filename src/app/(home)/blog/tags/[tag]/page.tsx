@@ -5,6 +5,7 @@ import { LandingTemplate } from "@/components/templates";
 import { BlogPostCard } from "@/components/molecules/blog-post-card";
 import { getAllTags, getPostsByTag, slugifyTag } from "@/lib/blog";
 import { SITE_URL, withBaseKeywords } from "@/lib/seo";
+import { buildTagPageJsonLd } from "@/lib/structured-data";
 
 // See the [slug] route for rationale — Pagefind only indexes static
 // routes, and prerendering at build time keeps the tag page on the
@@ -67,31 +68,6 @@ export async function generateMetadata({
   };
 }
 
-function buildTagJsonLd(tag: string, postCount: number) {
-  return {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "CollectionPage",
-        name: `#${tag} — Gofasta Blog`,
-        url: tagUrl(tag),
-        inLanguage: "en",
-        // numberOfItems is a recommended property for CollectionPage —
-        // helps Google understand the size of the collection.
-        numberOfItems: postCount,
-      },
-      {
-        "@type": "BreadcrumbList",
-        itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-          { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE_URL}/blog` },
-          { "@type": "ListItem", position: 3, name: `#${tag}`, item: tagUrl(tag) },
-        ],
-      },
-    ],
-  };
-}
-
 export default async function BlogTagPage({
   params,
 }: {
@@ -102,7 +78,10 @@ export default async function BlogTagPage({
   const posts = getPostsByTag(normalized);
   if (posts.length === 0) notFound();
 
-  const jsonLd = buildTagJsonLd(normalized, posts.length);
+  const jsonLd = buildTagPageJsonLd({
+    tag: normalized,
+    posts: posts.map((p) => ({ slug: p.slug, title: p.title })),
+  });
 
   return (
     <LandingTemplate>

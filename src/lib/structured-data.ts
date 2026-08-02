@@ -291,6 +291,8 @@ export interface BlogIndexSummary {
   publishedAt: string;
   /** ISO 8601 datetime of the most recent edit. Defaults to publishedAt when not given. */
   updatedAt?: string;
+  /** Absolute cover-image URL for the summary node. Omitted when absent. */
+  image?: string;
 }
 
 export interface BlogIndexInput {
@@ -333,7 +335,60 @@ export function buildBlogIndexJsonLd(input: BlogIndexInput) {
           url: `${SITE_URL}/blog/${p.slug}`,
           datePublished: p.publishedAt,
           dateModified: p.updatedAt ?? p.publishedAt,
+          ...(p.image ? { image: p.image } : {}),
         })),
+      },
+    ],
+  };
+}
+
+// ── CollectionPage (for /blog/tags/<tag>) ─────────────────────────────
+
+export interface TagPageInput {
+  /** Normalized tag slug, e.g. "golang". */
+  tag: string;
+  /** Posts carrying the tag, newest first. */
+  posts: ReadonlyArray<{ slug: string; title: string }>;
+}
+
+/**
+ * Build the `@graph` (BreadcrumbList + CollectionPage) payload for a
+ * tag archive. The posts are expressed as a proper `ItemList` under
+ * `mainEntity` — `numberOfItems` is an ItemList property, not a
+ * CollectionPage one (the previous inline schema had it on the wrong
+ * node).
+ */
+export function buildTagPageJsonLd(input: TagPageInput) {
+  const { tag, posts } = input;
+  const url = `${SITE_URL}/blog/tags/${tag}`;
+  const breadcrumb = buildBreadcrumbJsonLd({
+    rootPath: "/blog",
+    rootName: "Blog",
+    segments: ["tags", tag],
+  });
+
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      breadcrumb,
+      {
+        "@type": "CollectionPage",
+        "@id": url,
+        name: `#${tag} — Gofasta Blog`,
+        url,
+        inLanguage: "en",
+        isPartOf: { "@type": "Blog", "@id": `${SITE_URL}/blog` },
+        publisher: buildOrganizationNode(),
+        mainEntity: {
+          "@type": "ItemList",
+          numberOfItems: posts.length,
+          itemListElement: posts.map((p, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            name: p.title,
+            url: `${SITE_URL}/blog/${p.slug}`,
+          })),
+        },
       },
     ],
   };
