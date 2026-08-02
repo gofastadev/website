@@ -2,10 +2,13 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 // Numeric pagination for the blog index. Page 1 lives at `/blog`,
-// every subsequent page lives at `/blog?page=N`. We render page
-// numbers plus prev/next arrows. No ellipsis collapsing for now —
-// at 12 posts/page the toolkit would need 100+ posts before any
-// reasonable layout overflowed, which is years away.
+// every subsequent page lives at `/blog/page/N` — path-based, not
+// `?page=N`, because the index routes are `force-static` and a static
+// route renders with empty searchParams (every query value would serve
+// page-1 HTML). We render page numbers plus prev/next arrows. No
+// ellipsis collapsing for now — at 12 posts/page the toolkit would
+// need 100+ posts before any reasonable layout overflowed, which is
+// years away.
 
 export interface BlogPaginationProps {
   currentPage: number;
@@ -15,7 +18,7 @@ export interface BlogPaginationProps {
 
 function pageHref(base: string, page: number): string {
   if (page <= 1) return base;
-  return `${base}?page=${page}`;
+  return `${base}/page/${page}`;
 }
 
 export function BlogPagination({

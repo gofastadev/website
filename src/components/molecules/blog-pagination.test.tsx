@@ -28,7 +28,7 @@ describe("BlogPagination", () => {
     );
   });
 
-  it("links page 1 to the base path without a ?page param", () => {
+  it("links page 1 to the base path without a page suffix", () => {
     render(<BlogPagination currentPage={2} totalPages={3} />);
     expect(screen.getByRole("link", { name: "1" })).toHaveAttribute(
       "href",
@@ -36,15 +36,15 @@ describe("BlogPagination", () => {
     );
   });
 
-  it("links pages > 1 to the base path with ?page=N", () => {
+  it("links pages > 1 to the path-based /page/N route", () => {
     render(<BlogPagination currentPage={1} totalPages={3} />);
     expect(screen.getByRole("link", { name: "2" })).toHaveAttribute(
       "href",
-      "/blog?page=2",
+      "/blog/page/2",
     );
     expect(screen.getByRole("link", { name: "3" })).toHaveAttribute(
       "href",
-      "/blog?page=3",
+      "/blog/page/3",
     );
   });
 
@@ -53,7 +53,7 @@ describe("BlogPagination", () => {
     expect(screen.queryByRole("link", { name: "Previous" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
       "href",
-      "/blog?page=2",
+      "/blog/page/2",
     );
   });
 
@@ -62,7 +62,7 @@ describe("BlogPagination", () => {
     expect(screen.queryByRole("link", { name: "Next" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Previous" })).toHaveAttribute(
       "href",
-      "/blog?page=2",
+      "/blog/page/2",
     );
   });
 
@@ -74,7 +74,7 @@ describe("BlogPagination", () => {
     );
     expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
       "href",
-      "/blog?page=3",
+      "/blog/page/3",
     );
   });
 
@@ -88,7 +88,7 @@ describe("BlogPagination", () => {
     );
     expect(screen.getByRole("link", { name: "2" })).toHaveAttribute(
       "href",
-      "/blog/tags/go?page=2",
+      "/blog/tags/go/page/2",
     );
   });
 });

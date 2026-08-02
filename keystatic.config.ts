@@ -18,7 +18,12 @@ import { config, fields, collection } from "@keystatic/core";
 // custom components must be passed at render time (see
 // `src/lib/blog-mdx-components.tsx`).
 
-const hasGithubCredentials =
+// Exported so the /keystatic layout and the API route can fail CLOSED
+// in production: without these credentials the config falls back to
+// `local` storage (right for CI/dev/preview builds), but a production
+// deploy that lost its env vars must serve a 404 — not an
+// unauthenticated admin shell.
+export const hasGithubCredentials =
   Boolean(process.env.KEYSTATIC_GITHUB_CLIENT_ID) &&
   Boolean(process.env.KEYSTATIC_GITHUB_CLIENT_SECRET) &&
   Boolean(process.env.KEYSTATIC_SECRET);
