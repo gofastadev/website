@@ -31,7 +31,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex cursor-pointer items-center justify-center rounded-lg font-semibold transition-[background-color]",
+        "inline-flex cursor-pointer items-center justify-center rounded-lg font-semibold transition-[background-color,transform] duration-(--duration-fast) ease-(--ease-brand) active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         variantStyles[variant],
         sizeStyles[size],
         className,
