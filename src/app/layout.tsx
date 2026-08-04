@@ -1,15 +1,25 @@
 import type { Metadata } from "next";
-import { Poppins, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { Head } from "nextra/components";
 import { SiteChrome } from "@/components/organisms";
 import { ConsentProvider } from "@/contexts/consent-context";
 import { AGENT_DOC_ALTERNATES } from "@/lib/seo";
 import "./globals.css";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+const satoshi = localFont({
+  src: [
+    { path: "../fonts/Satoshi-Variable.woff2", weight: "300 900", style: "normal" },
+    { path: "../fonts/Satoshi-VariableItalic.woff2", weight: "300 900", style: "italic" },
+  ],
+  variable: "--font-satoshi",
+  display: "swap",
+});
+
+const cabinetGrotesk = localFont({
+  src: [{ path: "../fonts/CabinetGrotesk-Variable.woff2", weight: "100 900", style: "normal" }],
+  variable: "--font-cabinet",
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -125,7 +135,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`dark ${poppins.variable} ${geistMono.variable}`}
+      className={`dark ${satoshi.variable} ${cabinetGrotesk.variable} ${geistMono.variable}`}
     >
       <Head faviconGlyph="G" />
       <body>

@@ -71,6 +71,28 @@
      "no white" rule because short bursts of selected text need max
      contrast. */
   --on-primary: #ffffff;
+
+  /* Status semantics — terminal/dashboard success/warn/danger states.
+     AA contrast on both surfaces; dark values live in .dark below. */
+  --success: #15803d;  /* green-700 on light surfaces */
+  --warn: #a16207;     /* amber-700 */
+  --danger: #b91c1c;   /* red-700 */
+
+  /* Motion durations — paired with --ease-brand for every transition
+     in the site. */
+  --duration-fast: 150ms;
+  --duration-base: 300ms;
+  --duration-slow: 500ms;
+
+  /* Shiki code-block theming (light) — consumed by the syntax
+     highlighter's css-variables theme. */
+  --shiki-color-text: #1f2937;
+  --shiki-token-keyword: #00728f;      /* primary-700 */
+  --shiki-token-string: #15803d;
+  --shiki-token-function: #06556b;     /* primary-800 */
+  --shiki-token-comment: #6b7280;
+  --shiki-token-constant: #0095ba;     /* primary-600 */
+  --shiki-token-punctuation: #4b5563;
 }
 
 .dark {
@@ -86,6 +108,21 @@
   --muted: var(--neutral-400);
   --code-bg: var(--neutral-800);
   --accent: var(--primary-300);
+
+  /* Status semantics (dark) — brighter tints for AA contrast on dark
+     terminal surfaces. */
+  --success: #4ade80;  /* green-400 on dark terminal surfaces */
+  --warn: #fbbf24;
+  --danger: #f87171;
+
+  /* Shiki code-block theming (dark). */
+  --shiki-color-text: #e5e7eb;
+  --shiki-token-keyword: #4fd1e5;      /* dark primary */
+  --shiki-token-string: #4ade80;
+  --shiki-token-function: #69cbe4;     /* primary-300 */
+  --shiki-token-comment: #6b7280;
+  --shiki-token-constant: #a2dff0;     /* primary-200 */
+  --shiki-token-punctuation: #9ca3af;
 }
 
 @theme inline {
@@ -144,8 +181,28 @@
   --color-neutral-800: var(--neutral-800);
   --color-neutral-900: var(--neutral-900);
 
-  --font-sans: var(--font-poppins);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-satoshi), system-ui, sans-serif;
+  --font-display: var(--font-cabinet), var(--font-satoshi), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Rhythm: three deliberate section-padding steps. */
+  --spacing-section-sm: 4rem;
+  --spacing-section: 6rem;
+  --spacing-section-lg: 8rem;
+
+  /* Elevation: shadows tinted with the brand navy, never raw black. */
+  --shadow-e1: 0 1px 2px rgb(11 56 70 / 0.08);
+  --shadow-e2: 0 4px 12px rgb(11 56 70 / 0.10), 0 1px 3px rgb(11 56 70 / 0.08);
+  --shadow-e3: 0 12px 32px rgb(11 56 70 / 0.14), 0 2px 8px rgb(11 56 70 / 0.10);
+
+  /* Motion */
+  --ease-brand: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* Status (terminal/dashboard semantics; AA on both surfaces) */
+  --color-success: var(--success);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-primary-contrast: #00283a;
 }
 
 html {
@@ -161,7 +218,7 @@ body {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-poppins), system-ui, sans-serif;
+  font-family: var(--font-satoshi), system-ui, sans-serif;
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -225,8 +282,8 @@ body {
 /* ──────────────────────────────────────────────────────────────────────
    Homepage illustrations & ambient motion
    (inspired by next.js and angular.dev — grid backgrounds, floating
-   gradient orbs, headline shimmer, card glow borders, conic-rotating
-   CTA ring). All pure CSS, respects prefers-reduced-motion.
+   gradient orbs, headline shimmer, conic-rotating card glow borders).
+   All pure CSS, respects prefers-reduced-motion.
    ────────────────────────────────────────────────────────────────────── */
 
 @keyframes gofasta-orb-float {
@@ -269,16 +326,6 @@ body {
      ramp wasn't carrying its weight. */
   from { transform: translateY(4px); filter: blur(2px); }
   to   { transform: translateY(0); filter: blur(0); }
-}
-
-@keyframes gofasta-chip-in {
-  from { opacity: 0; transform: translateY(10px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes gofasta-chip-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / 0); }
-  50%      { box-shadow: 0 0 0 6px rgb(var(--primary-rgb) / 0.18); }
 }
 
 @keyframes gofasta-pulse-dot {
@@ -461,35 +508,6 @@ body {
   animation-play-state: running;
 }
 
-/* CTA-section rotating ring — a slow conic gradient around the rounded
-   panel, always on (subtle), amped up on hover. */
-.gofasta-cta-ring {
-  position: relative;
-  isolation: isolate;
-}
-.gofasta-cta-ring::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(
-    from 0deg,
-    rgb(var(--primary-rgb) / 0) 0deg,
-    rgb(var(--primary-rgb) / 0.6) 120deg,
-    rgb(var(--primary-rgb) / 0) 240deg,
-    rgb(var(--primary-rgb) / 0.6) 330deg,
-    rgb(var(--primary-rgb) / 0) 360deg
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  animation: gofasta-conic-spin 22s linear infinite;
-  z-index: -1;
-  pointer-events: none;
-}
-
 /* Scroll-reveal fade-up — runs once on mount. Applied to section headings
    so sections feel alive without heavy JS. */
 .gofasta-fade-up {
@@ -503,22 +521,8 @@ body {
    transparent intermediate frame. */
 .gofasta-term-line {
   display: block;
-  animation: gofasta-term-line-in 450ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: gofasta-term-line-in 450ms var(--ease-brand) both;
   animation-delay: var(--gofasta-term-delay, 0s);
-}
-
-/* Stack-grid chip reveal — staggered fade-up-and-scale-in. Uses
-   --gofasta-chip-delay (inline) so the chips cascade. */
-.gofasta-chip {
-  opacity: 0;
-  animation: gofasta-chip-in 500ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  animation-delay: var(--gofasta-chip-delay, 0s);
-}
-
-/* Stack-grid chip hover — small pulsing ring pulled from the Next.js
-   playbook. Runs only while the mouse is over the chip. */
-.gofasta-chip:hover {
-  animation: gofasta-chip-pulse 1.2s ease-in-out infinite;
 }
 
 /* Live-status dot — pulses on the TypewriterCode label while output is
@@ -538,11 +542,11 @@ body {
    Applied only when the parent card is hovered so the motion feels
    causal. */
 .gofasta-icon-draw svg {
-  transition: transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform 350ms var(--ease-brand);
   transform-origin: center;
 }
 .gofasta-icon-draw:hover svg {
-  animation: gofasta-icon-spin-once 450ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: gofasta-icon-spin-once 450ms var(--ease-brand) both;
 }
 .gofasta-icon-draw svg path,
 .gofasta-icon-draw svg circle,
@@ -553,7 +557,7 @@ body {
 .gofasta-icon-draw svg line {
   stroke-dasharray: 140;
   stroke-dashoffset: 0;
-  transition: stroke-dashoffset 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: stroke-dashoffset 600ms var(--ease-brand);
 }
 .gofasta-icon-draw:hover svg path,
 .gofasta-icon-draw:hover svg circle,
@@ -563,7 +567,7 @@ body {
 .gofasta-icon-draw:hover svg ellipse,
 .gofasta-icon-draw:hover svg line {
   stroke-dashoffset: 140;
-  animation: gofasta-draw-in 700ms cubic-bezier(0.22, 0.61, 0.36, 1) 50ms forwards;
+  animation: gofasta-draw-in 700ms var(--ease-brand) 50ms forwards;
 }
 
 /* QuickStart flow connector — a horizontal (desktop) or vertical
@@ -667,10 +671,8 @@ body {
   .gofasta-headline-shimmer,
   .gofasta-cursor,
   .gofasta-card-glow::before,
-  .gofasta-cta-ring::before,
   .gofasta-fade-up,
   .gofasta-term-line,
-  .gofasta-chip,
   .gofasta-pulse-dot,
   .gofasta-number-float,
   .gofasta-flow-bar,
@@ -693,9 +695,6 @@ body {
     /* keep opacity at the low base so the fragments don't suddenly
        pop to fully visible for reduced-motion users. */
     opacity: 0.09 !important;
-  }
-  .gofasta-chip:hover {
-    animation: none !important;
   }
   .gofasta-card-glow:hover::before {
     opacity: 0;

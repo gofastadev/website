@@ -10,8 +10,8 @@ describe("Button", () => {
     expect(button.className).toContain("bg-primary");
     // Dark navy text on Go cyan satisfies WCAG AAA (~6:1) — the
     // earlier `text-white` only reached 2.3:1 and failed Lighthouse's
-    // color-contrast audit. Hex matches the gopher's outline color.
-    expect(button.className).toContain("text-[#00283A]");
+    // color-contrast audit. Uses the token-based contrast color.
+    expect(button.className).toContain("text-primary-contrast");
   });
 
   it("renders with secondary variant", () => {
@@ -52,5 +52,14 @@ describe("Button", () => {
     render(<Button disabled>Disabled</Button>);
     const button = screen.getByRole("button", { name: "Disabled" });
     expect(button).toBeDisabled();
+  });
+
+  it("uses the token-based contrast color and press feedback", () => {
+    render(<Button>Get started</Button>);
+    const btn = screen.getByRole("button", { name: "Get started" });
+    expect(btn.className).toContain("text-primary-contrast");
+    expect(btn.className).toContain("active:scale-[0.98]");
+    expect(btn.className).toContain("focus-visible:ring-2");
+    expect(btn.className).not.toContain("#00283A");
   });
 });
