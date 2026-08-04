@@ -56,6 +56,13 @@ describe("SectionHeading", () => {
     expect(container.firstChild).toHaveClass("text-left");
   });
 
+  it("uses center-aligned classes when align=center is passed", () => {
+    const { container } = render(<SectionHeading title="Centered" align="center" />);
+    expect(container.firstChild).toHaveClass("mx-auto");
+    expect(container.firstChild).toHaveClass("items-center");
+    expect(container.firstChild).toHaveClass("text-center");
+  });
+
   it("applies a custom className to the root element", () => {
     const { container } = render(
       <SectionHeading title="Customised" className="my-custom-class" />

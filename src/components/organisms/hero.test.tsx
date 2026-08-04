@@ -18,50 +18,54 @@ vi.mock("@/lib/analytics", () => ({
 describe("Hero", () => {
   it("renders the headline", () => {
     render(<Hero />);
-    expect(screen.getByText("scaffolded.")).toBeInTheDocument();
-  });
-
-  it("renders the subtitle", () => {
-    render(<Hero />);
     expect(
-      screen.getByText(/Gofasta is a CLI and library for Go backend services/)
+      screen.getByText("A production Go backend in one command"),
     ).toBeInTheDocument();
   });
 
-  it("renders the Get Started CTA and navigates on click", () => {
+  it("renders the subtext", () => {
     render(<Hero />);
-    const cta = screen.getByText("Get Started");
+    expect(
+      screen.getByText(
+        /gofasta scaffolds plain, idiomatic Go and generates the repetitive/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the Get started CTA and navigates on click", () => {
+    render(<Hero />);
+    const cta = screen.getByText("Get started");
     expect(cta).toBeInTheDocument();
     expect(cta.tagName).toBe("BUTTON");
     fireEvent.click(cta);
     expect(mockPush).toHaveBeenCalledWith("/docs/getting-started/introduction");
   });
 
-  it("renders the View on GitHub CTA and opens in new tab on click", () => {
+  it("renders the Read the docs CTA", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     render(<Hero />);
-    const github = screen.getByText("View on GitHub");
-    expect(github).toBeInTheDocument();
-    expect(github.tagName).toBe("BUTTON");
-    fireEvent.click(github);
+    const docs = screen.getByText("Read the docs");
+    expect(docs).toBeInTheDocument();
+    expect(docs.tagName).toBe("BUTTON");
+    fireEvent.click(docs);
     expect(openSpy).toHaveBeenCalledWith(
       "https://github.com/gofastadev/cli",
       "_blank",
-      "noopener,noreferrer"
+      "noopener,noreferrer",
     );
     openSpy.mockRestore();
   });
 
-  it("renders the terminal block with gofasta command", () => {
+  it("renders the terminal block titled ~/projects", () => {
     render(<Hero />);
-    expect(screen.getByText("Terminal")).toBeInTheDocument();
+    expect(screen.getByText("~/projects")).toBeInTheDocument();
     expect(screen.getAllByText(/gofasta/).length).toBeGreaterThan(0);
   });
 
   it("renders the success message in terminal", () => {
     render(<Hero />);
     expect(
-      screen.getByText(/Project myapp created successfully!/)
+      screen.getByText(/Project myapp created successfully!/),
     ).toBeInTheDocument();
   });
 
@@ -73,14 +77,14 @@ describe("Hero", () => {
   it("renders the actual dev startup message", () => {
     render(<Hero />);
     expect(
-      screen.getByText(/Starting gofasta development server.../)
+      screen.getByText(/Starting gofasta development server.../),
     ).toBeInTheDocument();
   });
 
   it("fires cta_get_started when the primary CTA is clicked", () => {
     trackEventSpy.mockReset();
     render(<Hero />);
-    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Get started"));
     expect(trackEventSpy).toHaveBeenCalledWith("cta_get_started", {
       location: "hero",
       destination: "/docs/getting-started/introduction",
@@ -91,10 +95,21 @@ describe("Hero", () => {
     trackEventSpy.mockReset();
     vi.spyOn(window, "open").mockImplementation(() => null);
     render(<Hero />);
-    fireEvent.click(screen.getByText("View on GitHub"));
+    fireEvent.click(screen.getByText("Read the docs"));
     expect(trackEventSpy).toHaveBeenCalledWith("cta_view_github", {
       location: "hero",
       repo: "gofastadev/cli",
     });
+  });
+
+  it("does not render any ambient orb or grid-bg elements", () => {
+    const { container } = render(<Hero />);
+    expect(container.querySelector('[class*="gofasta-orb"]')).toBeNull();
+    expect(container.querySelector('[class*="gofasta-grid-bg"]')).toBeNull();
+  });
+
+  it("contains no emoji characters", () => {
+    const { container } = render(<Hero />);
+    expect(container.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
   });
 });

@@ -98,7 +98,7 @@ export function CopyableCommand({
         onClick={handleCopy}
         aria-label={copied ? "Copied to clipboard" : "Copy command to clipboard"}
         className={cn(
-          "flex flex-shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+          "flex flex-shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-[background-color,color,transform] duration-(--duration-fast) ease-(--ease-brand) active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           copied
             ? "text-primary"
             : "text-gray-400 hover:bg-gray-700/50 hover:text-gray-100"

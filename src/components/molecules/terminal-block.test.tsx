@@ -8,16 +8,21 @@ describe("TerminalBlock", () => {
     expect(screen.getByText("gofasta new myapp")).toBeInTheDocument();
   });
 
-  it("renders the Terminal label", () => {
+  it("renders the default title", () => {
     render(<TerminalBlock>content</TerminalBlock>);
-    expect(screen.getByText("Terminal")).toBeInTheDocument();
+    expect(screen.getByText("~/dev")).toBeInTheDocument();
   });
 
-  it("renders the three window dots", () => {
+  it("renders a custom title when provided", () => {
+    render(<TerminalBlock title="~/projects/myapp">content</TerminalBlock>);
+    expect(screen.getByText("~/projects/myapp")).toBeInTheDocument();
+  });
+
+  it("does not render traffic-light dots", () => {
     const { container } = render(<TerminalBlock>content</TerminalBlock>);
-    expect(container.querySelector(".bg-red-500")).toBeInTheDocument();
-    expect(container.querySelector(".bg-yellow-500")).toBeInTheDocument();
-    expect(container.querySelector(".bg-green-500")).toBeInTheDocument();
+    expect(container.querySelector(".bg-red-500")).not.toBeInTheDocument();
+    expect(container.querySelector(".bg-yellow-500")).not.toBeInTheDocument();
+    expect(container.querySelector(".bg-green-500")).not.toBeInTheDocument();
   });
 
   it("applies custom className", () => {
