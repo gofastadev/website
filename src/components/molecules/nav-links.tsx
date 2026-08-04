@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
+import { AGENT_DOC_FILES } from "@/lib/seo";
 
 interface NavLinksProps {
   variant?: "header" | "footer";
@@ -29,7 +30,17 @@ function trackFooterClick(label: string, href: string) {
 export function NavLinks({ variant = "header", className }: NavLinksProps) {
   const isHeader = variant === "header";
   return (
-    <div className={cn("flex items-center gap-3 sm:gap-6", className)}>
+    // flex-wrap + justify-center: the footer variant now carries nine
+    // links, which is wider than a 430px phone viewport. Without
+    // wrapping the row overflows its container in BOTH directions —
+    // "Docs" gets clipped off the left edge and the last link runs past
+    // the right — instead of breaking onto a second line.
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-center gap-3 sm:gap-6",
+        className,
+      )}
+    >
       <Link
         href="/docs/getting-started/introduction"
         className={linkStyles[variant]}
@@ -96,6 +107,28 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
           >
             Cookies
           </Link>
+          {/* llms.txt / llms-full.txt. These sit in the footer rather
+              than a single deep docs page on purpose: the footer
+              renders on every landing-side page, so it is the strongest
+              internal link the site can give them. They previously had
+              ZERO inbound links anywhere — only prose mentions — which
+              is why crawlers never picked them up.
+
+              prefetch={false}: these are static files in public/, not
+              routes. next/link's default prefetch would fire a useless
+              RSC request for a payload that doesn't exist. */}
+          {AGENT_DOC_FILES.map((file) => (
+            <Link
+              key={file.path}
+              href={file.path}
+              prefetch={false}
+              title={file.title}
+              className={linkStyles[variant]}
+              onClick={() => trackFooterClick(file.label, file.path)}
+            >
+              {file.label}
+            </Link>
+          ))}
           <Link
             href="https://github.com/gofastadev/gofasta/blob/main/LICENSE"
             target="_blank"

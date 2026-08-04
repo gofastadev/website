@@ -3,6 +3,7 @@ import { Poppins, Geist_Mono } from "next/font/google";
 import { Head } from "nextra/components";
 import { SiteChrome } from "@/components/organisms";
 import { ConsentProvider } from "@/contexts/consent-context";
+import { AGENT_DOC_ALTERNATES } from "@/lib/seo";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -99,9 +100,14 @@ export const metadata: Metadata = {
     // NetNewsWire, Inoreader) advertise these so a reader can "follow"
     // the blog without us shipping a sidebar widget. RSS is the broad
     // compat target; JSON Feed is the modern alternative.
+    // "text/plain" advertises the llmstxt.org files. An agent that
+    // fetches the homepage HTML finds them in the <head> without
+    // having to guess the well-known path, and a crawler gets a
+    // machine-readable pointer alongside the visible footer links.
     types: {
       "application/rss+xml": "/blog/rss.xml",
       "application/feed+json": "/blog/feed.json",
+      "text/plain": AGENT_DOC_ALTERNATES,
     },
   },
   other: {

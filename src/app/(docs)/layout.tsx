@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Footer, Layout, Navbar } from "nextra-theme-docs";
 import { getPageMap } from "nextra/page-map";
+import { AGENT_DOC_FILES } from "@/lib/seo";
 import "nextra-theme-docs/style.css";
 
 export default async function DocsLayout({
@@ -67,6 +68,27 @@ export default async function DocsLayout({
               Sitemap
             </Link>
             <span aria-hidden="true">·</span>
+            {/* The llmstxt.org files, linked from every docs page.
+                An agent reading the docs is the exact audience for
+                them, and the repetition across ~90 docs pages is what
+                gives crawlers a link graph to follow — see
+                AGENT_DOC_FILES in src/lib/seo.ts.
+
+                prefetch={false}: static files under public/, not
+                routes, so there is no RSC payload worth prefetching. */}
+            {AGENT_DOC_FILES.map((file) => (
+              <span key={file.path} className="flex items-center gap-3">
+                <Link
+                  href={file.path}
+                  prefetch={false}
+                  title={file.title}
+                  className="text-sm underline-offset-4 hover:underline"
+                >
+                  {file.label}
+                </Link>
+                <span aria-hidden="true">·</span>
+              </span>
+            ))}
             {/* "Manage cookies" lives in the docs footer too so EU/CA
                 visitors who land directly on a docs page have the
                 same revoke-consent path as landing-page visitors. */}

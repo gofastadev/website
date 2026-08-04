@@ -1,6 +1,6 @@
 import { generateStaticParamsFor, importPage } from "nextra/pages";
 import { useMDXComponents as getMDXComponents } from "../../../../../mdx-components";
-import { SITE_URL, withBaseKeywords } from "@/lib/seo";
+import { AGENT_DOC_ALTERNATES, SITE_URL, withBaseKeywords } from "@/lib/seo";
 import { buildTechArticleJsonLd } from "@/lib/structured-data";
 
 export const generateStaticParams = generateStaticParamsFor("mdxPath");
@@ -55,6 +55,14 @@ export async function generateMetadata(props: {
     },
     alternates: {
       canonical: fullUrl,
+      // Next merges metadata per top-level field, so this object
+      // REPLACES the root layout's `alternates` rather than extending
+      // it. Without repeating the alternate types here, every docs page
+      // — the pages an agent is most likely to land on — would ship a
+      // <head> with no pointer to the llms.txt files.
+      types: {
+        "text/plain": AGENT_DOC_ALTERNATES,
+      },
     },
   };
 }

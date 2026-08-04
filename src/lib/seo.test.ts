@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { BASE_KEYWORDS, SITE_NAME, SITE_URL, withBaseKeywords } from "./seo";
+import {
+  AGENT_DOC_ALTERNATES,
+  AGENT_DOC_FILES,
+  BASE_KEYWORDS,
+  SITE_NAME,
+  SITE_URL,
+  withBaseKeywords,
+} from "./seo";
 
 describe("seo primitives", () => {
   it("exports the canonical site URL and name", () => {
@@ -11,6 +18,39 @@ describe("seo primitives", () => {
     expect(BASE_KEYWORDS).toContain("Go");
     expect(BASE_KEYWORDS).toContain("Golang");
     expect(BASE_KEYWORDS).toContain("Gofasta");
+  });
+});
+
+describe("AGENT_DOC_FILES", () => {
+  it("lists both llmstxt.org surfaces", () => {
+    expect(AGENT_DOC_FILES.map((f) => f.path)).toEqual([
+      "/llms.txt",
+      "/llms-full.txt",
+    ]);
+  });
+
+  // Root-relative paths only. These get concatenated onto SITE_URL by
+  // sitemap.ts and robots.txt/route.ts, and passed straight to next/link
+  // by the footer — an absolute URL here would produce a doubled origin
+  // in the first two and an external link in the third.
+  it("uses root-relative paths", () => {
+    for (const file of AGENT_DOC_FILES) {
+      expect(file.path.startsWith("/")).toBe(true);
+      expect(file.path).not.toContain(SITE_URL);
+    }
+  });
+
+  it("gives every file a visible label and a descriptive title", () => {
+    for (const file of AGENT_DOC_FILES) {
+      expect(file.label.length).toBeGreaterThan(0);
+      expect(file.title.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("AGENT_DOC_ALTERNATES mirrors the files in Metadata shape", () => {
+    expect(AGENT_DOC_ALTERNATES).toEqual(
+      AGENT_DOC_FILES.map((f) => ({ url: f.path, title: f.title }))
+    );
   });
 });
 

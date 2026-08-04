@@ -61,3 +61,18 @@ Every package is independent — import only what you need. Reference for `githu
 - **[Middleware](/docs/api-reference/middleware)** — HTTP middleware collection
 - **[Cache](/docs/api-reference/cache)** — In-memory and Redis caching
 - [View all packages →](/docs/api-reference/config)
+
+## For AI Agents
+
+This documentation is published in the [llmstxt.org](https://llmstxt.org) format so
+an AI coding agent can load current, version-matched docs instead of relying on
+training-set recall:
+
+- **[llms.txt](/llms.txt)** — A structured index of every documentation page, with a
+  one-line description and absolute URL for each. Start here to find the right page.
+- **[llms-full.txt](/llms-full.txt)** — The entire documentation concatenated into a
+  single file, for agents that prefer loading everything in one shot.
+
+Both are regenerated on every deploy from the same MDX sources as this site, so they
+never drift from the pages above. A scaffolded project also ships an `AGENTS.md`
+briefing — see [gofasta ai](/docs/cli-reference/ai) for per-agent setup.

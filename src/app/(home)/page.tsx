@@ -12,7 +12,7 @@ import {
   CtaSection,
 } from "@/components/organisms";
 import { ScrollDepthTracker, SectionTracker } from "@/components/atoms";
-import { SITE_URL, withBaseKeywords } from "@/lib/seo";
+import { AGENT_DOC_ALTERNATES, SITE_URL, withBaseKeywords } from "@/lib/seo";
 
 export const metadata: Metadata = {
   keywords: withBaseKeywords(
@@ -35,6 +35,17 @@ export const metadata: Metadata = {
   ),
   alternates: {
     canonical: SITE_URL,
+    // These `types` are NOT redundant with the root layout's. Next
+    // merges metadata per top-level field, so this `alternates` object
+    // replaces the layout's entirely — declaring only `canonical` here
+    // was silently stripping the blog feed <link>s from the homepage,
+    // the one page most likely to be handed to a feed reader. Restated
+    // here so the homepage advertises the feeds AND the llms files.
+    types: {
+      "application/rss+xml": "/blog/rss.xml",
+      "application/feed+json": "/blog/feed.json",
+      "text/plain": AGENT_DOC_ALTERNATES,
+    },
   },
 };
 

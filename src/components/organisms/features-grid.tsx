@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FeatureCard, SectionHeading } from "@/components/molecules";
 
 const iconProps = {
@@ -25,8 +26,25 @@ const features = [
   },
   {
     title: "Agent-native tooling",
-    description:
-      "Scaffolded AGENTS.md, llms.txt for the docs, editor rules for Claude / Cursor / Codex / Aider / Windsurf, and --json on every command.",
+    // "llms.txt" is a real link, not prose. The homepage is the most
+    // crawled page on the site, so this is the single highest-value
+    // inbound link the file can get — for years it was named here in
+    // plain text, which gave crawlers nothing to follow.
+    description: (
+      <>
+        Scaffolded AGENTS.md,{" "}
+        <Link
+          href="/llms.txt"
+          prefetch={false}
+          title="Gofasta documentation index for LLMs"
+          className="underline decoration-dotted underline-offset-4 hover:text-foreground dark:hover:text-white"
+        >
+          llms.txt
+        </Link>{" "}
+        for the docs, editor rules for Claude / Cursor / Codex / Aider /
+        Windsurf, and --json on every command.
+      </>
+    ),
     icon: (
       <svg {...iconProps}>
         <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />

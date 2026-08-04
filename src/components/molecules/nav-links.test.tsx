@@ -155,6 +155,43 @@ describe("NavLinks", () => {
     });
   });
 
+  // llms.txt / llms-full.txt in the footer. These are the site-wide
+  // inbound links that make the files crawlable at all — before them
+  // the files had no hyperlink anywhere and stayed out of every search
+  // index despite returning HTTP 200.
+
+  it("renders both llms files in footer variant only", () => {
+    const { unmount } = render(<NavLinks variant="footer" />);
+    expect(screen.getByText("llms.txt")).toHaveAttribute("href", "/llms.txt");
+    expect(screen.getByText("llms-full.txt")).toHaveAttribute(
+      "href",
+      "/llms-full.txt"
+    );
+    unmount();
+
+    render(<NavLinks variant="header" />);
+    expect(screen.queryByText("llms.txt")).not.toBeInTheDocument();
+    expect(screen.queryByText("llms-full.txt")).not.toBeInTheDocument();
+  });
+
+  it("footer llms.txt click fires footer_link_click", () => {
+    render(<NavLinks variant="footer" />);
+    fireEvent.click(screen.getByText("llms.txt"));
+    expect(trackEventSpy).toHaveBeenCalledWith("footer_link_click", {
+      label: "llms.txt",
+      destination: "/llms.txt",
+    });
+  });
+
+  it("footer llms-full.txt click fires footer_link_click", () => {
+    render(<NavLinks variant="footer" />);
+    fireEvent.click(screen.getByText("llms-full.txt"));
+    expect(trackEventSpy).toHaveBeenCalledWith("footer_link_click", {
+      label: "llms-full.txt",
+      destination: "/llms-full.txt",
+    });
+  });
+
   it("footer License click fires footer_link_click", () => {
     render(<NavLinks variant="footer" />);
     fireEvent.click(screen.getByText("License"));

@@ -33,8 +33,12 @@ describe("FeaturesGrid", () => {
     expect(
       screen.getByText(/gofasta g scaffold spins up a full CRUD resource/)
     ).toBeInTheDocument();
+    // The agent-native description embeds a link, so its text is split
+    // across nodes — match the fragments either side of the anchor
+    // rather than the whole sentence.
+    expect(screen.getByText(/Scaffolded AGENTS.md,/)).toBeInTheDocument();
     expect(
-      screen.getByText(/Scaffolded AGENTS.md, llms.txt for the docs/)
+      screen.getByText(/editor rules for Claude \/ Cursor \/ Codex/)
     ).toBeInTheDocument();
     expect(
       screen.getByText(/JWT \(access \+ refresh\), role-based access control/)
@@ -48,5 +52,13 @@ describe("FeaturesGrid", () => {
     expect(
       screen.getByText(/Prometheus metrics at \/metrics/)
     ).toBeInTheDocument();
+  });
+
+  // The homepage is the most-crawled page on the site, so this anchor
+  // is llms.txt's strongest inbound link. Regressing it back to plain
+  // prose would silently undo the discovery fix — hence the assertion.
+  it("links llms.txt from the agent-native card", () => {
+    render(<FeaturesGrid />);
+    expect(screen.getByText("llms.txt")).toHaveAttribute("href", "/llms.txt");
   });
 });

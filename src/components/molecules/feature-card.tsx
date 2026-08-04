@@ -3,7 +3,10 @@ import { FeatureIcon } from "@/components/atoms";
 interface FeatureCardProps {
   icon: React.ReactNode;
   title: string;
-  description: string;
+  // ReactNode, not string: a description may embed a link (the
+  // agent-native card links llms.txt) or inline code. Plain strings
+  // still work unchanged — every other card passes one.
+  description: React.ReactNode;
 }
 
 export function FeatureCard({ icon, title, description }: FeatureCardProps) {
