@@ -108,6 +108,49 @@ describe("DashboardPreview", () => {
     expect(container.querySelector(".term-ok")).toBeInTheDocument();
   });
 
+  it("renders a .term-warn tone for the seeded 4xx (401) row", () => {
+    render(<DashboardPreview />);
+    // Seeded row s5 is GET /api/v1/admin -> 401. The status cell's own
+    // text node is "401", and that span carries the tone class directly
+    // (see RequestLine), so getByText resolves to the toned element.
+    expect(screen.getByText("401")).toHaveClass("term-warn");
+  });
+
+  it("renders a .term-err tone for a ticked 5xx (503) row", async () => {
+    // Switch to the firing observer so the ticker's visible gate opens.
+    vi.stubGlobal(
+      "IntersectionObserver",
+      FiringIntersectionObserver as unknown as typeof IntersectionObserver
+    );
+    vi.useFakeTimers();
+    // requestPool has 13 entries; index 11 is the seeded 5xx sample
+    // (POST /api/v1/reports -> 503). Math.floor(r * 13) === 11 for any
+    // r in [11/13, 12/13) — pin Math.random so the tick deterministically
+    // draws that entry instead of leaving it to chance.
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.85);
+
+    const { container } = render(<DashboardPreview />);
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Fast-forward one request-ticker interval (2500ms) so the mocked
+    // draw actually prepends the 503 row.
+    await act(async () => {
+      vi.advanceTimersByTime(2600);
+    });
+
+    const errEl = container.querySelector(".term-err");
+    expect(errEl).toBeInTheDocument();
+    expect(errEl).toHaveTextContent("503");
+    expect(screen.getByText("/api/v1/reports")).toBeInTheDocument();
+
+    randomSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
   it("advances the visible-gated ticker: the oldest seeded row is evicted once a tick actually fires", async () => {
     // Switch to the firing observer so the ticker's visible gate opens.
     vi.stubGlobal(
