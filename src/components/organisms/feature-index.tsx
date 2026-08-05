@@ -65,13 +65,13 @@ const FEATURES = [
 
 export function FeatureIndex() {
   return (
-    <section className="px-6 py-section">
+    <section className="section-reveal px-6 py-section">
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           title="Everything a production backend needs"
           description="Generated into your project as plain Go, backed by independent packages you can swap out."
         />
-        <ul className="mt-12 grid gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-200 sm:grid-cols-2 lg:grid-cols-3 dark:border-gray-800 dark:bg-gray-800">
+        <ul className="mt-12 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-200 sm:grid-cols-2 lg:grid-cols-3 dark:border-gray-800 dark:bg-gray-800">
           {FEATURES.map((f) => (
             <li
               key={f.keyword}

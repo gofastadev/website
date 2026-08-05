@@ -10,7 +10,7 @@ export function Hero() {
 
   return (
     <section className="px-6 pt-24 pb-section-sm sm:pb-section">
-      <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1fr_1.1fr]">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-[1fr_1.1fr]">
         <div className="flex flex-col items-start text-left">
           <h1 className="font-display text-5xl font-extrabold leading-[1.02] tracking-tight text-balance text-foreground sm:text-6xl lg:text-5xl">
             A production Go backend in one command

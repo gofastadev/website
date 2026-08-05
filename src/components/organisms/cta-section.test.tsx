@@ -24,15 +24,15 @@ describe("CtaSection", () => {
     expect(screen.getByText("Gofasta")).toBeInTheDocument();
   });
 
-  it("renders the Get Started CTA and navigates to docs", () => {
+  it("renders the Get started CTA and navigates to docs", () => {
     render(<CtaSection />);
-    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Get started"));
     expect(mockPush).toHaveBeenCalledWith("/docs/getting-started/introduction");
   });
 
-  it("fires cta_get_started with location=cta_section when Get Started is clicked", () => {
+  it("fires cta_get_started with location=cta_section when Get started is clicked", () => {
     render(<CtaSection />);
-    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Get started"));
     expect(trackEventSpy).toHaveBeenCalledWith("cta_get_started", {
       location: "cta_section",
       destination: "/docs/getting-started/introduction",

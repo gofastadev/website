@@ -13,7 +13,9 @@ export function Logo({ className }: LogoProps) {
           beside it provides the same name to assistive tech, and
           Lighthouse axe-core flags duplicate alt+text as redundant. */}
       <Image src="/logo.png" alt="" width={32} height={32} className="rounded-lg" />
-      <span className="text-xl font-bold text-gray-900 dark:text-white">Gofasta</span>
+      <span className="hidden text-xl font-bold text-gray-900 sm:inline dark:text-white">
+        Gofasta
+      </span>
     </Link>
   );
 }

@@ -55,14 +55,14 @@ const checkIconProps = {
 
 export function AgentSpotlight() {
   return (
-    <section className="px-6 py-section">
+    <section className="section-reveal px-6 py-section">
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           title="A Go toolkit built for humans and AI agents."
           description="AI coding agents aren't afterthoughts; they're first-class users. Every surface of Gofasta is machine-readable so agents can scaffold, verify, inspect, and ship alongside you without losing context."
         />
 
-        <div className="mt-14 grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
+        <div className="mt-14 grid grid-cols-1 gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
           <ul className="space-y-6">
             {capabilities.map((c) => (
               <li key={c.title} className="flex gap-4">

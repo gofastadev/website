@@ -125,7 +125,7 @@ export function DashboardPreview() {
   }, [visible]);
 
   return (
-    <section ref={ref} className="px-6 py-section">
+    <section ref={ref} className="section-reveal px-6 py-section">
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           title="See every request while you develop"

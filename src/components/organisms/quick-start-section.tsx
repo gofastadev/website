@@ -33,7 +33,7 @@ const commands = [
 
 export function QuickStartSection() {
   return (
-    <section className="px-6 py-section">
+    <section className="section-reveal px-6 py-section">
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           title="Three commands to a running backend"

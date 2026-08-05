@@ -35,15 +35,15 @@ const AUDIENCES = [
 
 export function AudienceTiles() {
   return (
-    <section className="px-6 py-section">
-      <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1fr_1.6fr]">
+    <section className="section-reveal px-6 py-section">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 lg:grid-cols-[1fr_1.6fr]">
         <div className="lg:sticky lg:top-28 lg:self-start">
           <SectionHeading
             title="Built for people who ship"
             description="From a side project to a team codebase, the workflow stays the same."
           />
         </div>
-        <ul className="grid gap-x-10 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
           {AUDIENCES.map((a) => (
             <li key={a.title} className="border-t border-gray-200 py-6 dark:border-gray-800">
               <h3 className="font-semibold">{a.title}</h3>

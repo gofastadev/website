@@ -18,10 +18,10 @@ const PILLARS = [
 
 export function ValuePillars() {
   return (
-    <section className="px-6 py-section-lg">
+    <section className="section-reveal px-6 py-section-lg">
       <div className="mx-auto max-w-4xl divide-y divide-gray-200 dark:divide-gray-800">
         {PILLARS.map((p) => (
-          <div key={p.title} className="grid gap-3 py-10 sm:grid-cols-[1fr_1.2fr] sm:gap-10 first:pt-0 last:pb-0">
+          <div key={p.title} className="grid grid-cols-1 gap-3 py-10 sm:grid-cols-[1fr_1.2fr] sm:gap-10 first:pt-0 last:pb-0">
             <h3 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{p.title}</h3>
             <p className="max-w-[55ch] self-center leading-relaxed text-gray-600 dark:text-gray-400">{p.description}</p>
           </div>

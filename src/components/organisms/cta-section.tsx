@@ -9,7 +9,7 @@ export function CtaSection() {
   const router = useRouter();
 
   return (
-    <section className="border-t border-gray-200 px-6 py-section-lg dark:border-gray-800">
+    <section className="section-reveal border-t border-gray-200 px-6 py-section-lg dark:border-gray-800">
       <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
         <h2 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
           Try <span className="text-primary">Gofasta</span>
@@ -34,7 +34,7 @@ export function CtaSection() {
             router.push("/docs/getting-started/introduction");
           }}
         >
-          Get Started
+          Get started
         </Button>
         <CopyableCommand
           className="mt-8 max-w-xl"
