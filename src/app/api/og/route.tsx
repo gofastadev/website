@@ -37,7 +37,11 @@ function clampParam(
 // Long titles must not overflow the 1200x630 card. Rather than a fixed
 // size, scale down as the (already-clamped, <=120 char) title grows,
 // and let `WebkitLineClamp` below act as a hard backstop against any
-// combination of long words that still wraps past the budget.
+// combination of long words that still wraps past the budget. Satori's
+// clamp resolver only activates `WebkitLineClamp` when `textOverflow:
+// "ellipsis"` is also set on the same element (undocumented in
+// Satori's README, confirmed empirically below) — without it the
+// effective line limit is unbounded.
 function titleFontSize(title: string): number {
   const len = title.length;
   if (len <= 30) return 68;
@@ -137,6 +141,7 @@ export async function GET(request: NextRequest) {
             WebkitBoxOrient: "vertical",
             WebkitLineClamp: 3,
             overflow: "hidden",
+            textOverflow: "ellipsis",
             fontFamily: "Cabinet Grotesk Extrabold",
             fontWeight: 800,
             color: "#ffffff",

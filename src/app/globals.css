@@ -280,6 +280,91 @@ body {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
+   Docs (Nextra) chrome — safe-layer theming only.
+
+   nextra-theme-docs ships its OWN precompiled Tailwind build (see
+   node_modules/nextra-theme-docs/dist/style.css — a separate
+   `@layer theme, base, components, utilities` with its own baked-in
+   oklch palette), so this site's `--color-gray-*` / `--color-neutral-*`
+   overrides in `@theme inline` above do NOT reach it. The only safe
+   customization surfaces are the ones Nextra documents: its `--nextra-*`
+   CSS variables and stable, non-hash class names (`.nextra-navbar`,
+   `.nextra-navbar-blur`, `.nextra-code`, `article`). Nothing below
+   touches an internal `_hash`-suffixed class or relies on DOM order.
+
+   Scoped to docs pages only via `body:has(.nextra-navbar)` — the
+   marketing/blog `<article>` (src/app/(home)/blog/[slug]/page.tsx)
+   renders its own navbar-landing component and never mounts
+   `.nextra-navbar`, so this selector can't leak into blog styling.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* Headings — Cabinet Grotesk, matching the rest of the site's display
+   type. `article` is Nextra's stable MDX content wrapper. */
+body:has(.nextra-navbar) article h1,
+body:has(.nextra-navbar) article h2,
+body:has(.nextra-navbar) article h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Navbar — `--nextra-bg` is Nextra's own documented background
+   variable: an RGB triplet consumed via `rgb(var(--nextra-bg))` /
+   `color-mix()` inside its compiled stylesheet, backing the
+   `bg-nextra-bg` utility applied to the navbar-blur layer, the mobile
+   nav overlay, and the sidebar footer. Its shipped default
+   (250,250,250 light / 17,17,17 dark) is flat near-white/near-black,
+   which doesn't match this site's tinted surfaces — point it at the
+   same tokens the landing navbar uses (`.gofasta-navbar-surface`:
+   --surface in light, --background in dark) so the whole docs chrome
+   reads as the same brand, not just the navbar bar itself.
+
+   --nextra-navbar-height already defaults to 64px (see
+   node_modules/nextra-theme-docs/dist/style.css), which already
+   matches the landing navbar's `h-16` — verified, no override needed.
+
+   `.nextra-navbar-blur` carries the navbar's `border-b`. Its
+   border-color is overridden directly (not the generic `.nextra-border`
+   class, which also styles TOC dividers, code-block rings, and table
+   borders site-wide) to match the landing navbar's `border-gray-200` /
+   `dark:border-gray-800`, which resolve to this site's --neutral-200 /
+   --neutral-800 via the --color-gray-* overrides above. */
+:root {
+  --nextra-bg: 237 246 248; /* --neutral-50 (--surface, light) */
+}
+.dark {
+  --nextra-bg: var(--background-rgb); /* --neutral-900 (--background, dark) */
+}
+.nextra-navbar-blur {
+  border-color: var(--neutral-200);
+}
+.dark .nextra-navbar-blur {
+  border-color: var(--neutral-800);
+}
+
+/* Code blocks — verified against the live Shiki output (curl a docs
+   page with a code sample, inspect the `.nextra-code span` inline
+   styles). Nextra 4 renders syntax highlighting with its OWN
+   dual-theme Shiki variables, `--shiki-light` / `--shiki-dark` (text)
+   and `--shiki-light-bg` / `--shiki-dark-bg` (line-highlight
+   background only), consumed by:
+
+     .nextra-code span {
+       background-color: var(--shiki-light-bg);
+       color: var(--shiki-light);
+       &:where(.dark *) { background-color: var(--shiki-dark-bg); color: var(--shiki-dark); }
+     }
+
+   These are DIFFERENT variables from this file's `--shiki-color-text` /
+   `--shiki-token-*` (the fixed suffixes `shiki`'s `createCssVariablesTheme()`
+   emits — used only by the blog's own rehype-pretty-code pipeline, see
+   src/app/(home)/blog/[slug]/code-theme.css). Left untouched per the
+   task brief. See the skipped-overrides list in the task report for
+   why token-category remapping isn't reachable from this file. Sampled
+   spans in both themes (e.g. #6F42C1/#B392F0, #032F62/#9ECBFF against
+   white/black) — both themes read with solid contrast, no change
+   needed for readability. */
+
+/* ──────────────────────────────────────────────────────────────────────
    Homepage illustrations & ambient motion
    (inspired by next.js and angular.dev — grid backgrounds, floating
    gradient orbs, headline shimmer, conic-rotating card glow borders).

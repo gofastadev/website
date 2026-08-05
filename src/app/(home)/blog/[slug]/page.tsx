@@ -20,6 +20,24 @@ import {
 import { SITE_URL, withBaseKeywords } from "@/lib/seo";
 import { buildBlogPostingJsonLd, humanize } from "@/lib/structured-data";
 import { getLocalImageDim } from "@/lib/image-dim";
+import "./code-theme.css";
+
+// Shiki's `createCssVariablesTheme()` emits a theme whose token colors
+// are `var(--shiki-token-*)` references instead of literal hex values,
+// so the SAME highlighted HTML repaints correctly in both light and
+// dark mode purely via CSS custom-property cascade — no `data-theme`
+// attribute or duplicate highlight pass needed. The `--shiki-token-*`
+// variables (keyword/string/function/comment/constant/punctuation) are
+// defined for :root and .dark in globals.css (Task 2). Shiki's own
+// fixed names for the base text/background pair (`--shiki-foreground`
+// / `--shiki-background`) don't match this site's `--shiki-color-text`
+// / `--code-bg` tokens, so `code-theme.css` aliases them — see that
+// file for the full explanation.
+const shikiTheme = createCssVariablesTheme({
+  name: "gofasta-css-variables",
+  variablePrefix: "--shiki-",
+  fontStyle: true,
+});
 
 // `force-static` + `generateStaticParams` + `dynamicParams = false`
 // guarantees each post is prerendered to flat HTML at build time —
@@ -207,15 +225,13 @@ export default async function BlogPostPage({
         data-pagefind-body
       >
         <BlogArticleHeader post={post} />
-        <div className="prose max-w-none prose-headings:scroll-mt-24 prose-a:text-primary prose-pre:rounded-lg prose-pre:border prose-pre:border-gray-200 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none dark:prose-invert dark:prose-pre:border-white/10 dark:prose-code:bg-white/[0.08]">
+        <div className="prose max-w-none prose-headings:font-display prose-headings:scroll-mt-24 prose-headings:tracking-tight prose-a:text-primary prose-a:underline prose-pre:rounded-xl prose-pre:border prose-pre:border-gray-200 prose-pre:bg-code-bg prose-code:rounded prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none dark:prose-invert dark:prose-pre:border-gray-800 dark:prose-code:bg-white/[0.08]">
           <MDXRemote
             source={stripTitleH1(post.body, post.title)}
             components={blogMdxComponents}
             options={{
               mdxOptions: {
-                rehypePlugins: [
-                  [rehypePrettyCode, { theme: "github-dark" }],
-                ],
+                rehypePlugins: [[rehypePrettyCode, { theme: shikiTheme }]],
               },
             }}
           />

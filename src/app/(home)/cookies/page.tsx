@@ -79,7 +79,7 @@ export default function CookiesPage() {
             </p>
           </section>
 
-          <section className="rounded-lg border border-gray-200 p-6 dark:border-gray-800">
+          <section>
             <h2 className="text-lg font-semibold text-foreground">
               Your choice
             </h2>
