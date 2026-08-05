@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { AGENT_DOC_FILES } from "@/lib/seo";
@@ -10,12 +11,16 @@ interface NavLinksProps {
   className?: string;
 }
 
-const linkStyles = {
-  header:
-    "text-sm font-medium text-gray-700 hover:text-foreground dark:text-gray-300 dark:hover:text-white transition-colors",
-  footer:
-    "text-sm text-gray-600 hover:text-foreground dark:text-gray-400 dark:hover:text-white transition-colors",
+// Typography differs by variant (header reads at text-sm, footer sits
+// smaller in font-mono text-xs); active/inactive color is decided per
+// link below via usePathname(), so it's shared across both variants.
+const variantTextStyles = {
+  header: "text-sm transition-colors",
+  footer: "font-mono text-xs transition-colors",
 };
+
+const activeLinkStyles = "text-foreground font-medium";
+const inactiveLinkStyles = "text-gray-600 dark:text-gray-400 hover:text-foreground";
 
 // Footer links share a single `footer_link_click` event with the
 // label + destination as params — the GA4 dashboard slices on those
@@ -29,6 +34,36 @@ function trackFooterClick(label: string, href: string) {
 
 export function NavLinks({ variant = "header", className }: NavLinksProps) {
   const isHeader = variant === "header";
+  const pathname = usePathname();
+
+  // Exact-match by default: several footer links share the /docs prefix
+  // (Docs itself, White Paper), so a startsWith() rule there would mark
+  // more than one link active at once. Exact match keeps "active"
+  // meaning "this is the current page's own link," which is
+  // unambiguous for /docs.
+  //
+  // /blog is the one deliberate exception: the landing navbar/footer
+  // also render on /blog/[slug] and /blog/tags/[tag] post pages, so
+  // Blog needs prefix matching there or it never highlights outside
+  // the bare /blog index. No other link shares this ambiguity.
+  function isActive(href: string): boolean {
+    if (href === "/blog") {
+      return pathname === "/blog" || (pathname?.startsWith("/blog/") ?? false);
+    }
+    return pathname === href;
+  }
+
+  function linkClassName(href: string) {
+    return cn(
+      variantTextStyles[variant],
+      isActive(href) ? activeLinkStyles : inactiveLinkStyles,
+    );
+  }
+
+  function ariaCurrent(href: string): "page" | undefined {
+    return isActive(href) ? "page" : undefined;
+  }
+
   return (
     // flex-wrap + justify-center: the footer variant now carries nine
     // links, which is wider than a 430px phone viewport. Without
@@ -43,7 +78,8 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
     >
       <Link
         href="/docs/getting-started/introduction"
-        className={linkStyles[variant]}
+        className={linkClassName("/docs/getting-started/introduction")}
+        aria-current={ariaCurrent("/docs/getting-started/introduction")}
         onClick={() =>
           isHeader
             ? trackEvent("nav_to_docs", {
@@ -56,7 +92,8 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
       </Link>
       <Link
         href="/blog"
-        className={linkStyles[variant]}
+        className={linkClassName("/blog")}
+        aria-current={ariaCurrent("/blog")}
         onClick={() =>
           isHeader
             ? trackEvent("nav_to_blog", { destination: "/blog" })
@@ -69,7 +106,7 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
         href="https://github.com/gofastadev/gofasta"
         target="_blank"
         rel="noopener noreferrer"
-        className={linkStyles[variant]}
+        className={linkClassName("https://github.com/gofastadev/gofasta")}
         onClick={() =>
           isHeader
             ? trackEvent("nav_to_github_library", {
@@ -84,14 +121,16 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
         <>
           <Link
             href="/docs/white-paper"
-            className={linkStyles[variant]}
+            className={linkClassName("/docs/white-paper")}
+            aria-current={ariaCurrent("/docs/white-paper")}
             onClick={() => trackFooterClick("White Paper", "/docs/white-paper")}
           >
             White Paper
           </Link>
           <Link
             href="/sitemap"
-            className={linkStyles[variant]}
+            className={linkClassName("/sitemap")}
+            aria-current={ariaCurrent("/sitemap")}
             onClick={() => trackFooterClick("Sitemap", "/sitemap")}
           >
             Sitemap
@@ -102,7 +141,8 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
               Doubles as the CPRA "Do Not Sell or Share" link. */}
           <Link
             href="/cookies"
-            className={linkStyles[variant]}
+            className={linkClassName("/cookies")}
+            aria-current={ariaCurrent("/cookies")}
             onClick={() => trackFooterClick("Cookies", "/cookies")}
           >
             Cookies
@@ -123,7 +163,8 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
               href={file.path}
               prefetch={false}
               title={file.title}
-              className={linkStyles[variant]}
+              className={linkClassName(file.path)}
+              aria-current={ariaCurrent(file.path)}
               onClick={() => trackFooterClick(file.label, file.path)}
             >
               {file.label}
@@ -133,7 +174,9 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
             href="https://github.com/gofastadev/gofasta/blob/main/LICENSE"
             target="_blank"
             rel="noopener noreferrer"
-            className={linkStyles[variant]}
+            className={linkClassName(
+              "https://github.com/gofastadev/gofasta/blob/main/LICENSE",
+            )}
             onClick={() =>
               trackFooterClick(
                 "License",

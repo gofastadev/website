@@ -30,12 +30,6 @@ describe("CtaSection", () => {
     expect(mockPush).toHaveBeenCalledWith("/docs/getting-started/introduction");
   });
 
-  it("renders the Whitepaper CTA and navigates to whitepaper", () => {
-    render(<CtaSection />);
-    fireEvent.click(screen.getByText("Read the Whitepaper"));
-    expect(mockPush).toHaveBeenCalledWith("/docs/white-paper");
-  });
-
   it("fires cta_get_started with location=cta_section when Get Started is clicked", () => {
     render(<CtaSection />);
     fireEvent.click(screen.getByText("Get Started"));
@@ -45,11 +39,23 @@ describe("CtaSection", () => {
     });
   });
 
-  it("fires cta_read_white_paper when the secondary CTA is clicked", () => {
+  // The old secondary "Read the Whitepaper" button pointed at
+  // /docs/white-paper — a docs destination, which duplicates the hero's
+  // "Read the docs" intent. It was removed so this section carries
+  // exactly one primary CTA.
+  it("renders exactly one primary CTA button (no duplicate docs-intent secondary)", () => {
     render(<CtaSection />);
-    fireEvent.click(screen.getByText("Read the Whitepaper"));
-    expect(trackEventSpy).toHaveBeenCalledWith("cta_read_white_paper", {
-      location: "cta_section",
-    });
+    expect(
+      screen.queryAllByRole("button", { name: /get started/i }),
+    ).toHaveLength(1);
+    expect(screen.queryByText("Read the Whitepaper")).not.toBeInTheDocument();
+    expect(screen.queryByText(/whitepaper/i)).not.toBeInTheDocument();
+  });
+
+  it("renders the install command snippet below the CTA", () => {
+    render(<CtaSection />);
+    expect(
+      screen.getByText("go install github.com/gofastadev/cli/cmd/gofasta@latest"),
+    ).toBeInTheDocument();
   });
 });
