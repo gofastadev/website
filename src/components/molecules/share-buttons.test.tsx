@@ -46,6 +46,7 @@ describe("ShareButtons", () => {
     ).toBeInTheDocument();
     for (const label of [
       "Share on X",
+      "Share on Facebook",
       "Share on LinkedIn",
       "Submit to Hacker News",
       "Share on Reddit",
@@ -65,6 +66,16 @@ describe("ShareButtons", () => {
     expect(href).toContain(`text=${encodeURIComponent(TITLE)}`);
     expect(target).toBe("_blank");
     expect(features).toBe(POPUP_FEATURES);
+  });
+
+  it("opens the Facebook sharer URL with just the u param", () => {
+    renderButtons();
+    fireEvent.click(screen.getByRole("button", { name: "Share on Facebook" }));
+    expect(openSpy).toHaveBeenCalledWith(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(URL)}`,
+      "_blank",
+      POPUP_FEATURES,
+    );
   });
 
   it("opens the LinkedIn share URL with just the url param", () => {
