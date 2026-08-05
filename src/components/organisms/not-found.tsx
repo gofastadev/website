@@ -24,7 +24,7 @@ const destinations: Destination[] = [
   },
   {
     label: "API Reference",
-    description: "All 27 packages under pkg/* documented.",
+    description: "Every package under pkg/* documented.",
     href: "/docs/api-reference",
   },
   {
