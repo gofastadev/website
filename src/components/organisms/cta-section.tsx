@@ -22,20 +22,31 @@ export function CtaSection() {
           Run with{" "}
           <span className="font-mono text-sm text-foreground">gofasta dev</span>.
         </p>
-        <Button
-          variant="primary"
-          size="lg"
-          className="mt-10"
-          onClick={() => {
-            trackEvent("cta_get_started", {
-              location: "cta_section",
-              destination: "/docs/getting-started/introduction",
-            });
-            router.push("/docs/getting-started/introduction");
-          }}
-        >
-          Get started
-        </Button>
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={() => {
+              trackEvent("cta_get_started", {
+                location: "cta_section",
+                destination: "/docs/getting-started/introduction",
+              });
+              router.push("/docs/getting-started/introduction");
+            }}
+          >
+            Get started
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={() => {
+              trackEvent("cta_read_white_paper", { location: "cta_section" });
+              router.push("/docs/white-paper");
+            }}
+          >
+            Read the white paper
+          </Button>
+        </div>
         <CopyableCommand
           className="mt-8 max-w-xl"
           size="sm"

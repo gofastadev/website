@@ -34,7 +34,7 @@ export function CookiePreferences() {
             Last updated:{" "}
             {consent.decidedAt
               ? new Date(consent.decidedAt).toLocaleString()
-              : "—"}
+              : "Not recorded"}
           </p>
         </div>
         <div className="p-6">
@@ -61,7 +61,7 @@ export function CookiePreferences() {
             Last updated:{" "}
             {consent.decidedAt
               ? new Date(consent.decidedAt).toLocaleString()
-              : "—"}
+              : "Not recorded"}
           </p>
         </div>
         <div className="p-6">

@@ -365,40 +365,15 @@ body:has(.nextra-navbar) article h3 {
    needed for readability. */
 
 /* ──────────────────────────────────────────────────────────────────────
-   Homepage illustrations & ambient motion
-   (inspired by next.js and angular.dev — grid backgrounds, floating
-   gradient orbs, headline shimmer, conic-rotating card glow borders).
-   All pure CSS, respects prefers-reduced-motion.
+   Homepage illustrations & ambient motion — terminal cursor blink,
+   line-by-line terminal reveal, live-status pulse dots, feature-card
+   icon draw-in, and dashboard row/pulse animations. All pure CSS,
+   respects prefers-reduced-motion.
    ────────────────────────────────────────────────────────────────────── */
-
-@keyframes gofasta-orb-float {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50%      { transform: translate3d(0, -24px, 0) scale(1.04); }
-}
-
-@keyframes gofasta-orb-float-slow {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50%      { transform: translate3d(0, 18px, 0) scale(0.96); }
-}
-
-@keyframes gofasta-headline-shimmer {
-  0%   { background-position:   0% 50%; }
-  100% { background-position: 200% 50%; }
-}
 
 @keyframes gofasta-cursor-blink {
   0%, 49%  { opacity: 1; }
   50%, 100% { opacity: 0; }
-}
-
-@keyframes gofasta-conic-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-@keyframes gofasta-fade-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes gofasta-term-line-in {
@@ -427,15 +402,6 @@ body:has(.nextra-navbar) article h3 {
   to   { transform: rotate(0deg) scale(1); }
 }
 
-/* Hero ambient code — Go snippets scattered through the hero
-   background, each slowly fading in and out so the scene feels
-   alive without distracting. Opacity range intentionally low so the
-   text never competes with the headline / CTAs / terminal. */
-@keyframes gofasta-code-breath {
-  0%, 100% { opacity: 0.05; transform: translateY(0); }
-  50%      { opacity: 0.14; transform: translateY(-2px); }
-}
-
 /* Dashboard mockup — small animated details that make the preview
    feel live without being distracting. The pulse runs on the status
    dots next to "healthy" / "ok"; the timestamp line does a subtle
@@ -444,10 +410,6 @@ body:has(.nextra-navbar) article h3 {
 @keyframes gofasta-dashboard-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%      { opacity: 0.55; transform: scale(1.35); }
-}
-@keyframes gofasta-dashboard-refresh {
-  0%, 92%, 100% { opacity: 1; }
-  96%           { opacity: 0.45; }
 }
 @keyframes gofasta-dashboard-row-in {
   0%   {
@@ -468,36 +430,6 @@ body:has(.nextra-navbar) article h3 {
 }
 
 
-/* Headline gradient shimmer — animates the gradient position so the
-   gradient-clipped text appears to "shine". */
-.gofasta-headline-shimmer {
-  background-size: 200% 100%;
-  animation: gofasta-headline-shimmer 6s linear infinite;
-}
-
-/* Floating orb — big soft radial-gradient disc positioned absolutely
-   by its container. `.gofasta-orb-slow` uses a different phase. */
-.gofasta-orb {
-  animation: gofasta-orb-float 9s ease-in-out infinite;
-}
-.gofasta-orb-slow {
-  animation: gofasta-orb-float-slow 13s ease-in-out infinite;
-}
-
-/* Dotted grid background — a repeating radial-gradient of small dots,
-   masked by a soft radial fade so it dissolves toward the edges. The
-   primary colour channel auto-themes via --primary-rgb. */
-.gofasta-grid-bg {
-  background-image: radial-gradient(
-    circle at center,
-    rgb(var(--primary-rgb) / 0.18) 1px,
-    transparent 1.5px
-  );
-  background-size: 28px 28px;
-  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 40%, transparent 75%);
-          mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 40%, transparent 75%);
-}
-
 /* Terminal cursor — solid block that blinks. Used after the last line
    of the hero terminal to suggest the project's still running. */
 .gofasta-cursor {
@@ -507,49 +439,6 @@ body:has(.nextra-navbar) article h3 {
   vertical-align: -0.12em;
   background: var(--terminal-accent);
   animation: gofasta-cursor-blink 1s steps(1, end) infinite;
-}
-
-/* Card gradient-border-on-hover — a conic gradient rotates slowly
-   behind the card, revealed only on hover by fading in the ::before
-   pseudo-element. Inspired by next.js feature cards. */
-.gofasta-card-glow {
-  position: relative;
-  isolation: isolate;
-}
-.gofasta-card-glow::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    rgb(var(--primary-rgb) / 0.55) 90deg,
-    transparent 180deg,
-    rgb(var(--primary-rgb) / 0.55) 270deg,
-    transparent 360deg
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 300ms ease;
-  animation: gofasta-conic-spin 6s linear infinite;
-  animation-play-state: paused;
-  z-index: -1;
-  pointer-events: none;
-}
-.gofasta-card-glow:hover::before {
-  opacity: 1;
-  animation-play-state: running;
-}
-
-/* Scroll-reveal fade-up — runs once on mount. Applied to section headings
-   so sections feel alive without heavy JS. */
-.gofasta-fade-up {
-  animation: gofasta-fade-up 700ms ease-out both;
 }
 
 /* Terminal line-by-line reveal — each `.gofasta-term-line` slides
@@ -602,26 +491,10 @@ body:has(.nextra-navbar) article h3 {
   animation: gofasta-draw-in 700ms var(--ease-brand) 50ms forwards;
 }
 
-/* Hero code fragments — gentle breath (opacity 0.12 → 0.28). Base
-   opacity kept far below the foreground text so the snippets never
-   compete with anything the reader actually needs to read. The
-   animation-delay is set inline per fragment so each breathes on its
-   own timing. */
-.gofasta-code-breath {
-  opacity: 0.05;
-  animation: gofasta-code-breath 9s ease-in-out infinite;
-}
-
 /* Dashboard live-status dot — pulses continuously like a real
    heartbeat on the healthy services. */
 .gofasta-dashboard-pulse {
   animation: gofasta-dashboard-pulse 1.6s ease-in-out infinite;
-}
-
-/* Dashboard "updated" timestamp — fades briefly every 5s, matching
-   the cadence of the real dashboard's SSE refresh. */
-.gofasta-dashboard-updated {
-  animation: gofasta-dashboard-refresh 5s ease-in-out infinite;
 }
 
 /* Dashboard row slide-in — every row in the Recent-Requests and
@@ -663,31 +536,15 @@ body:has(.nextra-navbar) article h3 {
 .term-err { color: #f87171; }
 
 @media (prefers-reduced-motion: reduce) {
-  .gofasta-orb,
-  .gofasta-orb-slow,
-  .gofasta-headline-shimmer,
   .gofasta-cursor,
-  .gofasta-card-glow::before,
-  .gofasta-fade-up,
   .gofasta-term-line,
   .gofasta-pulse-dot,
   .gofasta-dashboard-pulse,
-  .gofasta-dashboard-updated,
   .gofasta-dashboard-row {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
     filter: none !important;
-  }
-  .gofasta-code-breath {
-    animation: none !important;
-    transform: none !important;
-    /* keep opacity at the low base so the fragments don't suddenly
-       pop to fully visible for reduced-motion users. */
-    opacity: 0.09 !important;
-  }
-  .gofasta-card-glow:hover::before {
-    opacity: 0;
   }
   .gofasta-icon-draw:hover svg,
   .gofasta-icon-draw:hover svg path,

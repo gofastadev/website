@@ -23,7 +23,7 @@ export default function CookiesPage() {
   return (
     <LandingTemplate>
       <section className="mx-auto max-w-3xl px-6 pt-32 pb-20">
-        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+        <h1 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
           Cookie preferences
         </h1>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">

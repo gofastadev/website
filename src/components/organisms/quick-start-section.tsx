@@ -47,7 +47,7 @@ export function QuickStartSection() {
                 <div key={item.command} className="flex flex-col gap-1.5">
                   <CopyableCommand command={item.command} size="sm" />
                   {item.output.map((line) => (
-                    <span key={line} className="pl-1 text-gray-500">
+                    <span key={line} className="pl-1 text-gray-400">
                       {line}
                     </span>
                   ))}

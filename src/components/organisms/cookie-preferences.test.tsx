@@ -123,7 +123,7 @@ describe("CookiePreferences", () => {
 
   // Edge cases: a record without `decidedAt` (e.g. corrupted
   // storage) renders without crashing — both branches (accepted and
-  // rejected) have their own null-fallback to the em-dash, so we
+  // rejected) have their own null-fallback to "Not recorded", so we
   // exercise both.
   it("renders a placeholder timestamp on an accepted record without decidedAt", () => {
     window.localStorage.setItem(
@@ -139,7 +139,7 @@ describe("CookiePreferences", () => {
         <CookiePreferences />
       </ConsentProvider>,
     );
-    expect(screen.getByText(/Last updated:/i).textContent).toContain("—");
+    expect(screen.getByText(/Last updated:/i).textContent).toContain("Not recorded");
   });
 
   it("renders a placeholder timestamp on a rejected record without decidedAt", () => {
@@ -156,7 +156,7 @@ describe("CookiePreferences", () => {
         <CookiePreferences />
       </ConsentProvider>,
     );
-    expect(screen.getByText(/Last updated:/i).textContent).toContain("—");
+    expect(screen.getByText(/Last updated:/i).textContent).toContain("Not recorded");
   });
 
   // Opaque, tokened surface (task 19): the dialog card uses bg-surface +

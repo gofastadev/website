@@ -73,7 +73,7 @@ function RequestLine({ request }: { request: RenderedRequest }) {
   const tone = statusTone(request.status);
   return (
     <span className="gofasta-dashboard-row grid grid-cols-[64px_44px_1fr_40px_48px] items-center gap-3 border-b border-white/5 py-1.5 last:border-0">
-      <span className="text-gray-500">{request.time}</span>
+      <span className="text-gray-400">{request.time}</span>
       <span className="text-terminal-accent">{request.method}</span>
       <span className="truncate text-gray-100">{request.path}</span>
       <span className={cn("flex items-center gap-1.5", tone)}>
@@ -83,7 +83,7 @@ function RequestLine({ request }: { request: RenderedRequest }) {
         />
         {request.status}
       </span>
-      <span className="text-right text-gray-500">{request.duration}ms</span>
+      <span className="text-right text-gray-400">{request.duration}ms</span>
     </span>
   );
 }
@@ -135,7 +135,7 @@ export function DashboardPreview() {
         <div className="mx-auto mt-12 max-w-5xl">
           <TerminalBlock title="gofasta debug watch">
             <span
-              className="mb-3 flex items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-gray-500"
+              className="mb-3 flex items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-gray-400"
               aria-hidden="true"
             >
               <span className="gofasta-dashboard-pulse h-1.5 w-1.5 rounded-full bg-primary" />

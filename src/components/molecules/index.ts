@@ -1,7 +1,6 @@
 export { NavLinks } from "./nav-links";
 export { TerminalBlock } from "./terminal-block";
 export { SectionHeading } from "./section-heading";
-export { CodePreview } from "./code-preview";
 export { TypewriterCode } from "./typewriter-code";
 export { CopyableCommand } from "./copyable-command";
 

@@ -33,7 +33,7 @@ export function TerminalBlock({
       )}
     >
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
-        <span className="font-mono text-xs text-gray-500">{title}</span>
+        <span className="font-mono text-xs text-gray-400">{title}</span>
       </div>
       {bodyAs === "div" ? (
         <div className={bodyClassName}>{children}</div>
