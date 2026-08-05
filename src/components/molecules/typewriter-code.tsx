@@ -58,7 +58,7 @@ export function TypewriterCode({
     <div
       ref={ref}
       className={cn(
-        "w-full overflow-hidden rounded-xl border border-gray-200 bg-terminal-surface shadow-xl dark:border-gray-800",
+        "w-full overflow-hidden rounded-xl border border-gray-800 bg-terminal-surface shadow-e3",
         className
       )}
     >
@@ -70,8 +70,8 @@ export function TypewriterCode({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "inline-block h-1.5 w-1.5 rounded-full",
-                    done ? "bg-green-400" : "bg-amber-400 gofasta-pulse-dot"
+                    "inline-block h-1.5 w-1.5 rounded-full bg-current",
+                    done ? "term-ok" : "term-warn gofasta-pulse-dot"
                   )}
                 />
               </span>

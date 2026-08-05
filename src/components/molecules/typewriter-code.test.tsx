@@ -115,4 +115,20 @@ describe("TypewriterCode", () => {
 
     vi.useRealTimers();
   });
+
+  it("uses TerminalBlock-aligned chrome (rounded-xl border-gray-800 shadow-e3)", () => {
+    const { container } = render(<TypewriterCode code="{}" />);
+    const root = container.firstChild as HTMLElement;
+    expect(root.className).toContain("rounded-xl");
+    expect(root.className).toContain("border-gray-800");
+    expect(root.className).toContain("shadow-e3");
+    expect(root.className).not.toContain("shadow-xl");
+    expect(root.className).not.toContain("border-gray-200");
+  });
+
+  it("does not use hardcoded green-400/amber-400 status dot colors", () => {
+    const { container } = render(<TypewriterCode label="status" code="ok" />);
+    expect(container.innerHTML).not.toContain("bg-green-400");
+    expect(container.innerHTML).not.toContain("bg-amber-400");
+  });
 });
