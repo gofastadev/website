@@ -41,19 +41,13 @@ describe("Hero", () => {
     expect(mockPush).toHaveBeenCalledWith("/docs/getting-started/introduction");
   });
 
-  it("renders the Read the docs CTA", () => {
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+  it("renders the Read the docs CTA and navigates on click", () => {
     render(<Hero />);
     const docs = screen.getByText("Read the docs");
     expect(docs).toBeInTheDocument();
     expect(docs.tagName).toBe("BUTTON");
     fireEvent.click(docs);
-    expect(openSpy).toHaveBeenCalledWith(
-      "https://github.com/gofastadev/cli",
-      "_blank",
-      "noopener,noreferrer",
-    );
-    openSpy.mockRestore();
+    expect(mockPush).toHaveBeenCalledWith("/docs");
   });
 
   it("renders the terminal block titled ~/projects", () => {
@@ -91,14 +85,13 @@ describe("Hero", () => {
     });
   });
 
-  it("fires cta_view_github when the secondary CTA is clicked", () => {
+  it("fires cta_read_docs when the secondary CTA is clicked", () => {
     trackEventSpy.mockReset();
-    vi.spyOn(window, "open").mockImplementation(() => null);
     render(<Hero />);
     fireEvent.click(screen.getByText("Read the docs"));
-    expect(trackEventSpy).toHaveBeenCalledWith("cta_view_github", {
+    expect(trackEventSpy).toHaveBeenCalledWith("cta_read_docs", {
       location: "hero",
-      repo: "gofastadev/cli",
+      destination: "/docs",
     });
   });
 

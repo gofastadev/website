@@ -12,7 +12,7 @@ export function Hero() {
     <section className="px-6 pt-24 pb-section-sm sm:pb-section">
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1fr_1.1fr]">
         <div className="flex flex-col items-start text-left">
-          <h1 className="font-display text-5xl font-extrabold leading-[1.02] tracking-tight text-balance text-foreground sm:text-6xl">
+          <h1 className="font-display text-5xl font-extrabold leading-[1.02] tracking-tight text-balance text-foreground sm:text-6xl lg:text-5xl">
             A production Go backend in one command
           </h1>
           <p className="mt-5 max-w-[46ch] text-lg leading-relaxed text-gray-600 dark:text-gray-400">
@@ -36,15 +36,11 @@ export function Hero() {
               size="lg"
               variant="secondary"
               onClick={() => {
-                trackEvent("cta_view_github", {
+                trackEvent("cta_read_docs", {
                   location: "hero",
-                  repo: "gofastadev/cli",
+                  destination: "/docs",
                 });
-                window.open(
-                  "https://github.com/gofastadev/cli",
-                  "_blank",
-                  "noopener,noreferrer",
-                );
+                router.push("/docs");
               }}
             >
               Read the docs
@@ -52,7 +48,7 @@ export function Hero() {
           </div>
         </div>
 
-        <TerminalBlock title="~/projects">
+        <TerminalBlock title="~/projects" className="min-w-0">
           <span
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "0s" } as React.CSSProperties}
