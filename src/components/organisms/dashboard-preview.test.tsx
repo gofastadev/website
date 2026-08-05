@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act, fireEvent } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { DashboardPreview } from "./dashboard-preview";
-
-const trackEventSpy = vi.fn();
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: (...args: unknown[]) => trackEventSpy(...args),
-}));
 
 // FiringIntersectionObserver reports the target as intersecting on the
 // next microtask. Used in the ticker test so useOnScreen flips to
@@ -64,107 +59,56 @@ describe("DashboardPreview", () => {
   it("renders the section heading", () => {
     render(<DashboardPreview />);
     expect(
-      screen.getByText("Debug visually, not through log greps.")
+      screen.getByText("See every request while you develop")
     ).toBeInTheDocument();
   });
 
-  it("renders the eyebrow", () => {
+  it("does not render an eyebrow", () => {
     render(<DashboardPreview />);
-    expect(screen.getByText("Local dev dashboard")).toBeInTheDocument();
+    expect(screen.queryByText("Local dev dashboard")).not.toBeInTheDocument();
   });
 
-  it("renders every capability title in the grid", () => {
+  it("renders the terminal block with the gofasta debug watch title", () => {
     render(<DashboardPreview />);
-    expect(screen.getByText("Trace waterfall")).toBeInTheDocument();
-    expect(screen.getByText("N+1 detection")).toBeInTheDocument();
-    expect(screen.getByText("Edit & replay")).toBeInTheDocument();
-    expect(screen.getByText("Per-request logs")).toBeInTheDocument();
-    expect(screen.getByText("Profiles + goroutines")).toBeInTheDocument();
-    expect(screen.getByText("Zero production cost")).toBeInTheDocument();
-  });
-
-  it("links to the debugging guide", () => {
-    render(<DashboardPreview />);
-    const link = screen.getByRole("link", {
-      name: /Read the debugging guide/i,
-    });
-    expect(link).toHaveAttribute("href", "/docs/guides/debugging/overview");
-  });
-
-  it("fires read_debugging_guide when the debugging-guide link is clicked", () => {
-    trackEventSpy.mockReset();
-    render(<DashboardPreview />);
-    fireEvent.click(
-      screen.getByRole("link", { name: /Read the debugging guide/i }),
-    );
-    expect(trackEventSpy).toHaveBeenCalledWith("read_debugging_guide", {
-      location: "dashboard_preview_footnote",
-    });
-  });
-
-  it("renders the mockup browser url bar pointing at localhost:9090", () => {
-    render(<DashboardPreview />);
-    expect(screen.getByText("localhost:9090")).toBeInTheDocument();
-  });
-
-  it("renders the devtools-enabled pill in the mockup", () => {
-    render(<DashboardPreview />);
-    expect(screen.getByText("devtools:enabled")).toBeInTheDocument();
-  });
-
-  it("renders the three metrics cards with labels", () => {
-    render(<DashboardPreview />);
-    expect(screen.getByText("Requests")).toBeInTheDocument();
-    expect(screen.getByText("In-flight")).toBeInTheDocument();
-    expect(screen.getByText("Avg latency")).toBeInTheDocument();
-  });
-
-  it("renders both the Recent requests and Recent SQL section labels", () => {
-    render(<DashboardPreview />);
-    expect(screen.getByText("Recent requests")).toBeInTheDocument();
-    expect(screen.getByText("Recent SQL")).toBeInTheDocument();
+    expect(screen.getByText("gofasta debug watch")).toBeInTheDocument();
   });
 
   it("renders the seeded request rows with recognizable paths", () => {
     render(<DashboardPreview />);
-    // Seed data uses /api/v1/users and /api/v1/users/42 among others.
-    // At least one request row must be present from the SSR seed.
     expect(screen.getAllByText(/\/api\/v1\/users/).length).toBeGreaterThan(0);
   });
 
-  it("renders the seeded SQL rows", () => {
-    render(<DashboardPreview />);
-    // The seed query "SELECT * FROM users ORDER BY created_at DESC LIMIT 20"
-    // is one of the topmost SQL rows.
-    expect(screen.getByText(/SELECT \* FROM users ORDER BY/)).toBeInTheDocument();
+  it("does not render the fake browser traffic-light chrome", () => {
+    const { container } = render(<DashboardPreview />);
+    expect(container.querySelector(".bg-red-500")).not.toBeInTheDocument();
+    expect(container.querySelector(".bg-yellow-500")).not.toBeInTheDocument();
+    expect(container.querySelector(".bg-green-500")).not.toBeInTheDocument();
+    expect(screen.queryByText("localhost:9090")).not.toBeInTheDocument();
   });
 
-  it("renders the SSE refresh footer", () => {
+  it("does not render the capability FeatureCard tiles", () => {
     render(<DashboardPreview />);
-    expect(
-      screen.getByText(/refreshes every 5s via SSE/)
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Trace waterfall")).not.toBeInTheDocument();
+    expect(screen.queryByText("N+1 detection")).not.toBeInTheDocument();
+    expect(screen.queryByText("Zero production cost")).not.toBeInTheDocument();
   });
 
-  it("renders status pills covering every status tier in the mockup", () => {
-    render(<DashboardPreview />);
-    // Seeded request rows include 200, 201, 401 from the seed indices —
-    // the StatusPill renders a method-colored pill for each.
-    const pills = screen.getAllByText(/\b(200|201|204|401|500)\b/);
-    expect(pills.length).toBeGreaterThan(0);
+  it("does not use hardcoded status-tier color classes", () => {
+    const { container } = render(<DashboardPreview />);
+    expect(container.querySelector(".text-green-400")).not.toBeInTheDocument();
+    expect(container.querySelector(".text-amber-400")).not.toBeInTheDocument();
+    expect(container.querySelector(".text-red-400")).not.toBeInTheDocument();
+    expect(container.querySelector(".bg-green-500")).not.toBeInTheDocument();
+    expect(container.querySelector(".bg-amber-500")).not.toBeInTheDocument();
+    expect(container.querySelector(".bg-red-500")).not.toBeInTheDocument();
   });
 
-  it("renders method badges for GET, POST, PATCH, DELETE", () => {
-    render(<DashboardPreview />);
-    // Seed-rendered rows plus the table headers. Use getAllByText since
-    // method names can appear in multiple badges.
-    expect(screen.getAllByText("GET").length).toBeGreaterThan(0);
-    // Other methods may or may not be seed-rendered depending on pool
-    // index; the full pool rotates on the client ticker. Just GET is
-    // enough here.
+  it("renders at least one .term-ok status row from the seeded data", () => {
+    const { container } = render(<DashboardPreview />);
+    expect(container.querySelector(".term-ok")).toBeInTheDocument();
   });
 
-  it("starts the visible-gated ticker and prepends a new request row", async () => {
+  it("advances the visible-gated ticker: the oldest seeded row is evicted once a tick actually fires", async () => {
     // Switch to the firing observer so the ticker's visible gate opens.
     vi.stubGlobal(
       "IntersectionObserver",
@@ -172,7 +116,7 @@ describe("DashboardPreview", () => {
     );
     vi.useFakeTimers();
 
-    render(<DashboardPreview />);
+    const { container } = render(<DashboardPreview />);
 
     // Let the intersection microtask fire + the useEffect register.
     await act(async () => {
@@ -180,52 +124,29 @@ describe("DashboardPreview", () => {
       await Promise.resolve();
     });
 
-    // Snapshot the request-total counter value before the first tick.
-    const before = parseInt(
-      screen.getAllByText(/^\d{2,}$/)[0].textContent || "0",
-      10
-    );
+    // The row list is seeded with exactly 5 rows and the ticker prepends
+    // a fresh row then slices back to 5 (`[fresh, ...prev].slice(0, 5)`).
+    // The oldest seeded row — s5, timestamped "12:34:42", the one and
+    // only row carrying that exact fixed timestamp string — is
+    // therefore the row evicted by the first tick. If setInterval never
+    // fired, this timestamp would remain in the document forever, so
+    // its disappearance is direct proof the ticker ran (not just that
+    // the row count stayed non-decreasing, which holds trivially at a
+    // constant cap of 5 either way).
+    expect(screen.getByText("12:34:42")).toBeInTheDocument();
 
     // Fast-forward one request-ticker interval (2500ms).
     await act(async () => {
       vi.advanceTimersByTime(2600);
     });
 
-    // Counter should have incremented by 1–3 (rand 1..3 inside the tick).
-    const nums = screen.getAllByText(/^\d{2,}$/).map((el) =>
-      parseInt(el.textContent || "0", 10)
+    expect(screen.queryByText("12:34:42")).not.toBeInTheDocument();
+    // The list stays capped at 5 rows — a genuine prepend+slice, not a
+    // growing list.
+    expect(container.querySelectorAll(".gofasta-dashboard-row").length).toBe(
+      5
     );
-    const bumped = nums.some((n) => n > before);
-    expect(bumped).toBe(true);
-
-    vi.useRealTimers();
-  });
-
-  it("advances the SQL ticker and prepends a new query row", async () => {
-    vi.stubGlobal(
-      "IntersectionObserver",
-      FiringIntersectionObserver as unknown as typeof IntersectionObserver
-    );
-    vi.useFakeTimers();
-
-    render(<DashboardPreview />);
-
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    // Fast-forward one SQL-ticker interval (4000ms) + a buffer — this
-    // exercises the query-timer branch and prepend+slice path.
-    await act(async () => {
-      vi.advanceTimersByTime(4100);
-    });
-
-    // The SQL table should still render one of the pool entries. We
-    // can't predict which due to Math.random, so assert the presence
-    // of a known SQL keyword that appears in every entry.
-    const sqlTokens = screen.getAllByText(/SELECT|INSERT|UPDATE|DELETE/);
-    expect(sqlTokens.length).toBeGreaterThan(0);
+    expect(container.querySelector(".term-ok")).toBeInTheDocument();
 
     vi.useRealTimers();
   });
