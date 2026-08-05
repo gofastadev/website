@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { BlogArticleHeader } from "./blog-article-header";
 import type { BlogPost } from "@/lib/blog";
 
+const SHARE_URL = "https://gofasta.dev/blog/hello";
+
 function post(overrides: Partial<BlogPost> = {}): BlogPost {
   return {
     slug: "hello",
@@ -21,7 +23,7 @@ function post(overrides: Partial<BlogPost> = {}): BlogPost {
 
 describe("BlogArticleHeader", () => {
   it("renders the title, description, and reading time", () => {
-    render(<BlogArticleHeader post={post()} />);
+    render(<BlogArticleHeader post={post()} shareUrl={SHARE_URL} />);
     expect(
       screen.getByRole("heading", { level: 1, name: "Hello, World" }),
     ).toBeInTheDocument();
@@ -30,7 +32,7 @@ describe("BlogArticleHeader", () => {
   });
 
   it("renders the author as plain text when authorUrl is missing", () => {
-    render(<BlogArticleHeader post={post()} />);
+    render(<BlogArticleHeader post={post()} shareUrl={SHARE_URL} />);
     expect(
       screen.queryByRole("link", { name: "Test Author" }),
     ).not.toBeInTheDocument();
@@ -41,6 +43,7 @@ describe("BlogArticleHeader", () => {
     render(
       <BlogArticleHeader
         post={post({ authorUrl: "https://author.example" })}
+        shareUrl={SHARE_URL}
       />,
     );
     const link = screen.getByRole("link", { name: "Test Author" });
@@ -50,7 +53,12 @@ describe("BlogArticleHeader", () => {
   });
 
   it("renders one tag pill per tag", () => {
-    render(<BlogArticleHeader post={post({ tags: ["a", "b", "c"] })} />);
+    render(
+      <BlogArticleHeader
+        post={post({ tags: ["a", "b", "c"] })}
+        shareUrl={SHARE_URL}
+      />,
+    );
     expect(screen.getByRole("link", { name: "#a" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "#b" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "#c" })).toBeInTheDocument();
@@ -58,17 +66,18 @@ describe("BlogArticleHeader", () => {
 
   it("omits the tag row entirely when the post has no tags", () => {
     const { container } = render(
-      <BlogArticleHeader post={post({ tags: [] })} />,
+      <BlogArticleHeader post={post({ tags: [] })} shareUrl={SHARE_URL} />,
     );
     expect(container.querySelectorAll('a[href^="/blog/tags/"]')).toHaveLength(0);
   });
 
   it("renders an 'Updated' timestamp only when updatedAt is set", () => {
-    const { rerender } = render(<BlogArticleHeader post={post()} />);
+    const { rerender } = render(<BlogArticleHeader post={post()} shareUrl={SHARE_URL} />);
     expect(screen.queryByText(/Updated/)).not.toBeInTheDocument();
     rerender(
       <BlogArticleHeader
         post={post({ updatedAt: "2026-06-01T10:00:00.000Z" })}
+        shareUrl={SHARE_URL}
       />,
     );
     expect(screen.getByText(/Updated/)).toBeInTheDocument();
@@ -76,19 +85,29 @@ describe("BlogArticleHeader", () => {
   });
 
   it("formats the publish date in long form", () => {
-    render(<BlogArticleHeader post={post()} />);
+    render(<BlogArticleHeader post={post()} shareUrl={SHARE_URL} />);
     expect(screen.getByText("May 1, 2026")).toBeInTheDocument();
   });
 
   it("renders the cover image with empty alt (decorative)", () => {
-    const { container } = render(<BlogArticleHeader post={post()} />);
+    const { container } = render(<BlogArticleHeader post={post()} shareUrl={SHARE_URL} />);
     const img = container.querySelector("img");
     expect(img).toHaveAttribute("src", "/blog/covers/hello.svg");
     expect(img).toHaveAttribute("alt", "");
   });
 
   it("shows a Draft badge when the post is a draft (previews/dev only)", () => {
-    render(<BlogArticleHeader post={post({ draft: true })} />);
+    render(<BlogArticleHeader post={post({ draft: true })} shareUrl={SHARE_URL} />);
     expect(screen.getByText("Draft")).toBeInTheDocument();
+  });
+
+  it("renders the share buttons beside the byline", () => {
+    render(<BlogArticleHeader post={post()} shareUrl={SHARE_URL} />);
+    expect(
+      screen.getByRole("group", { name: "Share this post" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Share on X" }),
+    ).toBeInTheDocument();
   });
 });

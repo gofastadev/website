@@ -224,7 +224,7 @@ export default async function BlogPostPage({
         className="mx-auto max-w-3xl px-6 pt-28 pb-24"
         data-pagefind-body
       >
-        <BlogArticleHeader post={post} />
+        <BlogArticleHeader post={post} shareUrl={postUrl(slug)} />
         <div className="prose max-w-none prose-headings:font-display prose-headings:scroll-mt-24 prose-headings:tracking-tight prose-a:text-primary prose-a:underline prose-pre:rounded-xl prose-pre:border prose-pre:border-gray-200 prose-pre:bg-code-bg prose-code:rounded prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none dark:prose-invert dark:prose-pre:border-gray-800 dark:prose-code:bg-white/[0.08]">
           <MDXRemote
             source={stripTitleH1(post.body, post.title)}
@@ -236,7 +236,11 @@ export default async function BlogPostPage({
             }}
           />
         </div>
-        <ShareButtons url={postUrl(slug)} title={post.title} />
+        <ShareButtons
+          url={postUrl(slug)}
+          title={post.title}
+          placement="footer"
+        />
         <BlogPrevNext prev={prev} next={next} />
         <BlogRelatedPosts currentSlug={slug} allPosts={allPosts} />
         <Comments />

@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { BlogTagPill } from "@/components/atoms/blog-tag-pill";
+import { ShareButtons } from "@/components/molecules/share-buttons";
 import type { BlogPost } from "@/lib/blog";
 
 // Top-of-article header: tag pills, title, byline (author + date +
-// reading time), and cover image. Renders on the post detail route
-// and stays in document order so a print stylesheet or RSS preview
-// gets the same surface a reader sees.
+// reading time) with share buttons on the right, and cover image.
+// Renders on the post detail route and stays in document order so a
+// print stylesheet or RSS preview gets the same surface a reader sees.
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -18,9 +19,11 @@ function formatDate(iso: string): string {
 
 export interface BlogArticleHeaderProps {
   post: BlogPost;
+  /** Canonical absolute URL of the post, shared by the header's share buttons. */
+  shareUrl: string;
 }
 
-export function BlogArticleHeader({ post }: BlogArticleHeaderProps) {
+export function BlogArticleHeader({ post, shareUrl }: BlogArticleHeaderProps) {
   return (
     <header className="mb-10 flex flex-col gap-6">
       {post.tags.length > 0 ? (
@@ -44,39 +47,48 @@ export function BlogArticleHeader({ post }: BlogArticleHeaderProps) {
         {post.description}
       </p>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-xs text-gray-700 dark:text-gray-400">
-        {post.authorUrl ? (
-          <Link
-            href={post.authorUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-gray-900 hover:text-primary dark:text-gray-200"
-          >
-            {post.author}
-          </Link>
-        ) : (
-          <span className="font-medium text-gray-900 dark:text-gray-200">
-            {post.author}
-          </span>
-        )}
-        <span aria-hidden>·</span>
-{post.draft ? (
-          <span className="rounded-full border border-amber-400/60 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-            Draft
-          </span>
-        ) : null}
-        <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
-        <span aria-hidden>·</span>
-        <span>{post.readingTime.text}</span>
-        {post.updatedAt ? (
-          <>
-            <span aria-hidden>·</span>
-            <span>
-              Updated{" "}
-              <time dateTime={post.updatedAt}>{formatDate(post.updatedAt)}</time>
+      {/* Byline left, share icons right — stacked on mobile, one row
+          from md up, mirroring the editorial header pattern where the
+          share actions sit level with the author metadata. */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-xs text-gray-700 dark:text-gray-400">
+          {post.authorUrl ? (
+            <Link
+              href={post.authorUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-gray-900 hover:text-primary dark:text-gray-200"
+            >
+              {post.author}
+            </Link>
+          ) : (
+            <span className="font-medium text-gray-900 dark:text-gray-200">
+              {post.author}
             </span>
-          </>
-        ) : null}
+          )}
+          <span aria-hidden>·</span>
+          {post.draft ? (
+            <span className="rounded-full border border-amber-400/60 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+              Draft
+            </span>
+          ) : null}
+          <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+          <span aria-hidden>·</span>
+          <span>{post.readingTime.text}</span>
+          {post.updatedAt ? (
+            <>
+              <span aria-hidden>·</span>
+              <span>
+                Updated{" "}
+                <time dateTime={post.updatedAt}>
+                  {formatDate(post.updatedAt)}
+                </time>
+              </span>
+            </>
+          ) : null}
+        </div>
+
+        <ShareButtons url={shareUrl} title={post.title} placement="header" />
       </div>
 
       <div className="relative aspect-[1200/630] w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-100 dark:border-white/10 dark:bg-black/40">
