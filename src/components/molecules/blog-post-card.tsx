@@ -32,7 +32,7 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
   return (
     <article
       className={cn(
-        "group overflow-hidden rounded-xl border border-gray-200 bg-white transition-colors hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.02]",
+        "group overflow-hidden rounded-xl border border-gray-200 bg-surface shadow-e1 transition-shadow duration-(--duration-base) ease-(--ease-brand) hover:shadow-e2 dark:border-gray-800",
         className,
       )}
     >
@@ -51,7 +51,7 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
           />
         </div>
         <div className="flex flex-1 flex-col gap-3 p-5">
-          <div className="flex items-center gap-3 text-xs text-gray-700 dark:text-gray-400">
+          <div className="flex items-center gap-3 font-mono text-xs text-gray-700 dark:text-gray-400">
             {post.draft ? (
               <span className="rounded-full border border-amber-400/60 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
                 Draft
@@ -61,7 +61,7 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
             <span aria-hidden>·</span>
             <span>{post.readingTime.text}</span>
           </div>
-          <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">
+          <h3 className="font-display text-lg font-bold tracking-tight text-foreground group-hover:text-primary">
             {post.title}
           </h3>
           <p className="line-clamp-2 text-sm text-gray-700 dark:text-gray-400">

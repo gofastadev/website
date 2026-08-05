@@ -22,7 +22,7 @@ export function BlogIndexHero({ post }: BlogIndexHeroProps) {
   return (
     <section
       aria-label="Featured post"
-      className="mb-12 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-white/[0.02]"
+      className="mb-12 overflow-hidden rounded-xl border border-gray-200 bg-surface shadow-e1 transition-shadow duration-(--duration-base) ease-(--ease-brand) hover:shadow-e2 dark:border-gray-800"
     >
       <Link
         href={`/blog/${encodeURIComponent(post.slug)}`}
@@ -39,16 +39,16 @@ export function BlogIndexHero({ post }: BlogIndexHeroProps) {
           />
         </div>
         <div className="flex flex-col justify-center gap-4 p-8">
-          <div className="text-xs font-medium uppercase tracking-widest text-primary">
+          <div className="font-mono text-xs uppercase tracking-widest text-primary">
             Latest post
           </div>
-          <h2 className="text-3xl font-bold leading-tight text-foreground group-hover:text-primary sm:text-4xl">
+          <h2 className="font-display text-3xl font-bold leading-tight tracking-tight text-foreground group-hover:text-primary sm:text-4xl">
             {post.title}
           </h2>
           <p className="text-base text-gray-800 dark:text-gray-300">
             {post.description}
           </p>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-700 dark:text-gray-400">
+          <div className="flex flex-wrap items-center gap-3 font-mono text-xs text-gray-700 dark:text-gray-400">
             <span className="font-medium text-gray-900 dark:text-gray-200">
               {post.author}
             </span>

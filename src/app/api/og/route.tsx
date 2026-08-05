@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 import { buildOgFooterUrl } from "@/lib/og-footer";
@@ -32,11 +34,74 @@ function clampParam(
   return cleaned.slice(0, maxLength - 1).trimEnd() + "…";
 }
 
+// Long titles must not overflow the 1200x630 card. Rather than a fixed
+// size, scale down as the (already-clamped, <=120 char) title grows,
+// and let `WebkitLineClamp` below act as a hard backstop against any
+// combination of long words that still wraps past the budget.
+function titleFontSize(title: string): number {
+  const len = title.length;
+  if (len <= 30) return 68;
+  if (len <= 50) return 56;
+  if (len <= 80) return 46;
+  if (len <= 110) return 38;
+  return 32;
+}
+
+// Font files are the static TTF cuts vendored in Task 1 (Satori/next/og
+// requires ttf/otf — the woff2 variable fonts used elsewhere on the
+// site won't load here). Cached at module scope so the file read only
+// happens once per server process, not once per request.
+let fontsPromise: Promise<
+  { cabinetGroteskExtrabold: ArrayBuffer; satoshiMedium: ArrayBuffer }
+> | null = null;
+
+function loadFonts() {
+  if (!fontsPromise) {
+    fontsPromise = Promise.all([
+      readFile(
+        join(process.cwd(), "src/fonts/og/CabinetGrotesk-Extrabold.ttf"),
+      ),
+      readFile(join(process.cwd(), "src/fonts/og/Satoshi-Medium.ttf")),
+    ]).then(([cabinetGrotesk, satoshi]) => ({
+      cabinetGroteskExtrabold: cabinetGrotesk.buffer.slice(
+        cabinetGrotesk.byteOffset,
+        cabinetGrotesk.byteOffset + cabinetGrotesk.byteLength,
+      ) as ArrayBuffer,
+      satoshiMedium: satoshi.buffer.slice(
+        satoshi.byteOffset,
+        satoshi.byteOffset + satoshi.byteLength,
+      ) as ArrayBuffer,
+    }));
+  }
+  return fontsPromise;
+}
+
+// The gopher logo mark (public/logo.png) is embedded as a base64 data
+// URI. `public/` is served statically and isn't reachable via a
+// `fetch(new URL(..., import.meta.url))` relative import like the
+// fonts above (it sits outside the module graph route.tsx belongs
+// to), so it's read from disk instead — the same `process.cwd()` +
+// `fs` pattern already used by `src/app/sitemap.ts` in this repo.
+// Cached at module scope for the same reason as the fonts.
+let logoDataUriPromise: Promise<string> | null = null;
+
+function loadLogoDataUri() {
+  if (!logoDataUriPromise) {
+    logoDataUriPromise = readFile(join(process.cwd(), "public/logo.png")).then(
+      (buffer) => `data:image/png;base64,${buffer.toString("base64")}`,
+    );
+  }
+  return logoDataUriPromise;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const title = clampParam(searchParams.get("title"), "Documentation", MAX_TITLE_LENGTH);
   const section = clampParam(searchParams.get("section"), "Docs", MAX_SECTION_LENGTH);
   const footerUrl = buildOgFooterUrl(section);
+
+  const [{ cabinetGroteskExtrabold, satoshiMedium }, logoDataUri] =
+    await Promise.all([loadFonts(), loadLogoDataUri()]);
 
   return new ImageResponse(
     (
@@ -47,80 +112,109 @@ export async function GET(request: NextRequest) {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background:
-            "linear-gradient(135deg, #00283A 0%, #0d1117 50%, #001a2c 100%)",
-          fontFamily: "system-ui, sans-serif",
-          padding: "60px",
+          backgroundColor: "#0b3846",
+          fontFamily: "Satoshi Medium",
+          padding: "72px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <div
-            style={{
-              width: "52px",
-              height: "52px",
-              borderRadius: "12px",
-              background: "#00ADD8",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "28px",
-              fontWeight: 700,
-              color: "#ffffff",
-            }}
-          >
-            G
-          </div>
-          <span
-            style={{ fontSize: "28px", fontWeight: 600, color: "#94a3b8" }}
-          >
-            Gofasta
-          </span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <div
-            style={{
-              fontSize: "18px",
-              fontWeight: 500,
-              color: "#00ADD8",
-              textTransform: "uppercase",
-              letterSpacing: "2px",
-            }}
-          >
-            {section}
-          </div>
-          <div
-            style={{
-              fontSize: "52px",
-              fontWeight: 700,
-              color: "#ffffff",
-              lineHeight: 1.2,
-              maxWidth: "900px",
-            }}
-          >
-            {title}
-          </div>
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Satoshi Medium",
+            fontSize: "22px",
+            fontWeight: 500,
+            color: "#4fd1e5",
+            textTransform: "uppercase",
+            letterSpacing: "4px",
+          }}
+        >
+          {section}
         </div>
 
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+            WebkitLineClamp: 3,
+            overflow: "hidden",
+            fontFamily: "Cabinet Grotesk Extrabold",
+            fontWeight: 800,
+            color: "#ffffff",
+            fontSize: `${titleFontSize(title)}px`,
+            lineHeight: 1.2,
+            maxWidth: "1020px",
           }}
         >
-          <span style={{ fontSize: "18px", color: "#64748b" }}>
-            {footerUrl}
-          </span>
-          <span style={{ fontSize: "16px", color: "#475569" }}>
-            Go Backend Toolkit
-          </span>
+          {title}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+          <div
+            style={{
+              display: "flex",
+              width: "100%",
+              height: "2px",
+              backgroundColor: "#4fd1e5",
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- next/og's ImageResponse renders via Satori, not the DOM; <img> is the required element here, next/image is unsupported. */}
+              <img
+                src={logoDataUri}
+                width={48}
+                height={48}
+                alt=""
+                style={{ borderRadius: "10px" }}
+              />
+              <span
+                style={{
+                  fontFamily: "Satoshi Medium",
+                  fontSize: "24px",
+                  fontWeight: 500,
+                  color: "#ffffff",
+                }}
+              >
+                Gofasta
+              </span>
+            </div>
+            <span
+              style={{
+                fontFamily: "Satoshi Medium",
+                fontSize: "20px",
+                fontWeight: 500,
+                color: "#7fb8c4",
+              }}
+            >
+              {footerUrl}
+            </span>
+          </div>
         </div>
       </div>
     ),
     {
       width: 1200,
       height: 630,
+      fonts: [
+        {
+          name: "Cabinet Grotesk Extrabold",
+          data: cabinetGroteskExtrabold,
+          weight: 800,
+          style: "normal",
+        },
+        {
+          name: "Satoshi Medium",
+          data: satoshiMedium,
+          weight: 500,
+          style: "normal",
+        },
+      ],
       headers: { "Cache-Control": OG_CACHE_HEADER },
     },
   );

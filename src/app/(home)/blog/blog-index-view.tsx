@@ -70,11 +70,11 @@ export function BlogIndexView({ page }: { page: number }) {
       ) : null}
       <main className="mx-auto max-w-6xl px-6 pt-32 pb-24" data-pagefind-body>
         <header className="mb-10">
-          <h1 className="text-4xl font-bold text-foreground sm:text-5xl">
+          <h1 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
             Blog
           </h1>
           <p className="mt-3 max-w-2xl text-lg text-gray-800 dark:text-gray-300">
-            Engineering notes on the Gofasta toolkit — CLI changes, library
+            Engineering notes on the Gofasta toolkit: CLI changes, library
             updates, and longer-form posts on Go backend topics.
           </p>
         </header>
@@ -88,7 +88,7 @@ export function BlogIndexView({ page }: { page: number }) {
             ))}
           </div>
         ) : !featured ? (
-          <p className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-700 dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-400">
+          <p className="rounded-lg border border-gray-200 bg-surface p-8 text-center text-gray-700 dark:border-gray-800 dark:text-gray-400">
             No posts yet. The first one is on its way.
           </p>
         ) : null}

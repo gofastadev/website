@@ -158,4 +158,48 @@ describe("CookiePreferences", () => {
     );
     expect(screen.getByText(/Last updated:/i).textContent).toContain("—");
   });
+
+  // Opaque, tokened surface (task 19): the dialog card uses bg-surface +
+  // shadow-e3 + rounded-xl, with toggle rows separated by divide-y.
+  it("wraps the accepted state in a tokened dialog surface with divided rows", () => {
+    seedStorage(true);
+    const { container } = render(
+      <ConsentProvider>
+        <CookiePreferences />
+      </ConsentProvider>,
+    );
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).toContain("bg-surface");
+    expect(card.className).toContain("shadow-e3");
+    expect(card.className).toContain("rounded-xl");
+    expect(card.className).toContain("divide-y");
+    expect(card.className).toContain("divide-gray-200");
+  });
+
+  it("wraps the rejected state in a tokened dialog surface with divided rows", () => {
+    seedStorage(false);
+    const { container } = render(
+      <ConsentProvider>
+        <CookiePreferences />
+      </ConsentProvider>,
+    );
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).toContain("bg-surface");
+    expect(card.className).toContain("shadow-e3");
+    expect(card.className).toContain("rounded-xl");
+    expect(card.className).toContain("divide-y");
+    expect(card.className).toContain("divide-gray-200");
+  });
+
+  it("wraps the undecided state in a tokened dialog surface", () => {
+    const { container } = render(
+      <ConsentProvider>
+        <CookiePreferences />
+      </ConsentProvider>,
+    );
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).toContain("bg-surface");
+    expect(card.className).toContain("shadow-e3");
+    expect(card.className).toContain("rounded-xl");
+  });
 });

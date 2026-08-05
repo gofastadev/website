@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import rehypePrettyCode from "rehype-pretty-code";
+import { createCssVariablesTheme } from "shiki";
 import { LandingTemplate } from "@/components/templates";
 import { ReadingProgressBar } from "@/components/atoms/reading-progress-bar";
 import { BlogArticleHeader } from "@/components/molecules/blog-article-header";

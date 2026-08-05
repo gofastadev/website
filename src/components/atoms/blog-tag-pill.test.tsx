@@ -20,6 +20,6 @@ describe("BlogTagPill", () => {
     render(<BlogTagPill tag="cli" className="extra-pill-class" />);
     const link = screen.getByRole("link", { name: "#cli" });
     expect(link.className).toMatch(/extra-pill-class/);
-    expect(link.className).toMatch(/rounded-full/);
+    expect(link.className).toMatch(/rounded-lg/);
   });
 });

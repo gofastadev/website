@@ -18,7 +18,7 @@ export function BlogTagPill({ tag, href, className }: BlogTagPillProps) {
     <Link
       href={target}
       className={cn(
-        "inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary transition-colors hover:border-primary/60 hover:bg-primary/10",
+        "inline-flex items-center rounded-lg border border-gray-200 px-3 py-1 font-mono text-xs text-primary transition-colors duration-(--duration-base) ease-(--ease-brand) hover:border-primary-800 hover:bg-primary-800 hover:text-white dark:border-gray-800",
         className,
       )}
     >

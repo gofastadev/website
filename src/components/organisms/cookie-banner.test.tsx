@@ -108,6 +108,22 @@ describe("CookieBanner", () => {
     ).not.toBeInTheDocument();
   });
 
+  // Opaque, tokened surface (task 19): the glassmorphism/backdrop-blur
+  // stack is gone in favor of bg-surface + shadow-e3, and the
+  // nonexistent dark:bg-gray-950 token is removed.
+  it("uses an opaque tokened surface (bg-surface, shadow-e3, no backdrop-blur)", () => {
+    render(
+      <ConsentProvider>
+        <CookieBanner />
+      </ConsentProvider>,
+    );
+    const region = screen.getByRole("region", { name: "Cookie consent" });
+    expect(region.className).toContain("bg-surface");
+    expect(region.className).toContain("shadow-e3");
+    expect(region.className).not.toContain("backdrop-blur");
+    expect(region.className).not.toContain("dark:bg-gray-950");
+  });
+
   it("does not render on nested Keystatic paths", () => {
     mockPathname = "/keystatic/collection/posts";
     render(
