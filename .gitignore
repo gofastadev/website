@@ -50,3 +50,4 @@ lighthouse-*.json
 *.tsbuildinfo
 next-env.d.ts
 .superpowers
+lh-*.json
