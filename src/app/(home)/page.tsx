@@ -6,7 +6,7 @@ import {
   ValuePillars,
   AgentSpotlight,
   DashboardPreview,
-  FeaturesGrid,
+  FeatureIndex,
   ArchitectureStrip,
   QuickStartSection,
   CtaSection,
@@ -131,7 +131,7 @@ export default function HomePage() {
         <DashboardPreview />
       </SectionTracker>
       <SectionTracker name="features_grid">
-        <FeaturesGrid />
+        <FeatureIndex />
       </SectionTracker>
       <SectionTracker name="architecture_strip">
         <ArchitectureStrip />

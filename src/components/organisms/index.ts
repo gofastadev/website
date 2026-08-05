@@ -5,6 +5,7 @@ export { ValuePillars } from "./value-pillars";
 export { AgentSpotlight } from "./agent-spotlight";
 export { DashboardPreview } from "./dashboard-preview";
 export { FeaturesGrid } from "./features-grid";
+export { FeatureIndex } from "./feature-index";
 export { ArchitectureStrip } from "./architecture-strip";
 export { QuickStartSection } from "./quick-start-section";
 export { CtaSection } from "./cta-section";

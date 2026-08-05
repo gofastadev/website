@@ -49,6 +49,7 @@
 export type EventName =
   | "cta_get_started"
   | "cta_view_github"
+  | "cta_read_docs"
   | "cta_read_white_paper"
   | "nav_to_docs"
   | "nav_to_blog"
