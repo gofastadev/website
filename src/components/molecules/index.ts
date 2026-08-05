@@ -4,7 +4,6 @@ export { StepCard } from "./step-card";
 export { FeatureCard } from "./feature-card";
 export { SectionHeading } from "./section-heading";
 export { AudienceCard } from "./audience-card";
-export { PillarCard } from "./pillar-card";
 export { CodePreview } from "./code-preview";
 export { TypewriterCode } from "./typewriter-code";
 export { CopyableCommand } from "./copyable-command";
