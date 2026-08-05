@@ -1,4 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
+import { AnchoredHeading } from "@/components/atoms/anchored-heading";
+import { MdxPre } from "@/components/molecules/mdx-pre";
 import { getLocalImageDim } from "./image-dim";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -100,7 +102,20 @@ export function BlogImage({ src, alt, title }: BlogImageProps) {
   );
 }
 
+// h2–h6 render through AnchoredHeading so every section gets the
+// hover-revealed "#" fragment link; rehype-slug (registered in the
+// [slug] route's pipeline) supplies the `id` prop. h1 is intentionally
+// absent — the article header owns the title and stripTitleH1 removes
+// body H1s.
+type HeadingProps = React.ComponentPropsWithoutRef<"h2">;
+
 export const blogMdxComponents = {
   Callout,
   img: BlogImage,
+  pre: MdxPre,
+  h2: (props: HeadingProps) => <AnchoredHeading as="h2" {...props} />,
+  h3: (props: HeadingProps) => <AnchoredHeading as="h3" {...props} />,
+  h4: (props: HeadingProps) => <AnchoredHeading as="h4" {...props} />,
+  h5: (props: HeadingProps) => <AnchoredHeading as="h5" {...props} />,
+  h6: (props: HeadingProps) => <AnchoredHeading as="h6" {...props} />,
 };

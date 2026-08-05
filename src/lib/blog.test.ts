@@ -662,3 +662,91 @@ describe("draft flag surfaced on parsed posts", () => {
     expect(service.getPost("plain")?.draft).toBe(false);
   });
 });
+
+describe("series", () => {
+  it("parses a valid series + seriesPart pair", () => {
+    writePost(
+      "part-two",
+      validFrontmatter(['series: "Deploy Anywhere"', "seriesPart: 2"]),
+    );
+    const post = service.getPost("part-two");
+    expect(post?.series).toBe("Deploy Anywhere");
+    expect(post?.seriesPart).toBe(2);
+  });
+
+  it("treats an empty-string series (Keystatic's untouched field) as no series", () => {
+    writePost("no-series", validFrontmatter(['series: ""']));
+    const post = service.getPost("no-series");
+    expect(post).not.toBeNull();
+    expect(post?.series).toBeUndefined();
+  });
+
+  it.each([
+    ["zero", "seriesPart: 0"],
+    ["negative", "seriesPart: -1"],
+    ["fractional", "seriesPart: 1.5"],
+    ["non-numeric", 'seriesPart: "two"'],
+  ])("rejects the post when seriesPart is %s", (_label, line) => {
+    writePost(
+      "bad-part",
+      validFrontmatter(['series: "Deploy Anywhere"', line]),
+    );
+    expect(service.getPost("bad-part")).toBeNull();
+  });
+
+  it("rejects a seriesPart without a series name", () => {
+    writePost("orphan-part", validFrontmatter(["seriesPart: 1"]));
+    expect(service.getPost("orphan-part")).toBeNull();
+  });
+
+  it("rejects a non-string series value", () => {
+    writePost("bad-series", validFrontmatter(["series: 7", "seriesPart: 1"]));
+    expect(service.getPost("bad-series")).toBeNull();
+  });
+
+  it("getSeriesPosts orders by part number regardless of publish date", () => {
+    const seriesPost = (title: string, publishedAt: string, part: number) =>
+      [
+        "---",
+        `title: "${title}"`,
+        'description: "A series part used in ordering tests."',
+        `publishedAt: ${publishedAt}`,
+        'author: "Test Author"',
+        "tags: []",
+        'cover: "c.jpg"',
+        'series: "Deploy Anywhere"',
+        `seriesPart: ${part}`,
+        "---",
+        "",
+        "Body text here.",
+        "",
+      ].join("\n");
+    // Part 1 published AFTER part 2 — explicit numbering must win.
+    writePost(
+      "later-but-first",
+      seriesPost("Part One", "2026-04-20T10:00:00.000Z", 1),
+    );
+    writePost(
+      "earlier-but-second",
+      seriesPost("Part Two", "2026-04-10T10:00:00.000Z", 2),
+    );
+    writePost("unrelated", validFrontmatter());
+    expect(
+      service.getSeriesPosts("Deploy Anywhere").map((p) => p.slug),
+    ).toEqual(["later-but-first", "earlier-but-second"]);
+  });
+
+  it("getSeriesPosts excludes drafts under production semantics", () => {
+    writePost(
+      "published-part",
+      validFrontmatter(['series: "S"', "seriesPart: 1"]),
+    );
+    writePost(
+      "draft-part",
+      validFrontmatter(['series: "S"', "seriesPart: 2", "draft: true"]),
+    );
+    expect(service.getSeriesPosts("S").map((p) => p.slug)).toEqual([
+      "published-part",
+    ]);
+  });
+});

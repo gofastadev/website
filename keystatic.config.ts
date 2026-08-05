@@ -93,6 +93,17 @@ export default config({
             itemLabel: (props) => props.value || "Tag",
           },
         ),
+        series: fields.text({
+          label: "Series (optional)",
+          description:
+            "Name of the multi-part series this post belongs to. Posts sharing the exact name are linked together on every part's page.",
+        }),
+        seriesPart: fields.integer({
+          label: "Series part (optional)",
+          description:
+            "1-based position within the series. Required when Series is set — a part number without a series name fails the build.",
+          validation: { min: 1 },
+        }),
         cover: fields.image({
           label: "Cover image",
           description: "1200×630 recommended. Saved under public/blog/covers/.",

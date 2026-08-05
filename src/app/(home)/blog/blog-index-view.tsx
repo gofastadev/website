@@ -1,5 +1,10 @@
 import { LandingTemplate } from "@/components/templates";
-import { BlogIndexHero, BlogTagCloud } from "@/components/organisms";
+import {
+  BlogIndexHero,
+  BlogSearch,
+  BlogTagCloud,
+  NewsletterSignup,
+} from "@/components/organisms";
 import { BlogPostCard } from "@/components/molecules/blog-post-card";
 import { BlogPagination } from "@/components/molecules/blog-pagination";
 import { getAllPosts, getAllTags } from "@/lib/blog";
@@ -79,6 +84,8 @@ export function BlogIndexView({ page }: { page: number }) {
           </p>
         </header>
 
+        <BlogSearch />
+
         {featured ? <BlogIndexHero post={featured} /> : null}
 
         {gridPosts.length > 0 ? (
@@ -94,6 +101,8 @@ export function BlogIndexView({ page }: { page: number }) {
         ) : null}
 
         <BlogPagination currentPage={clampedPage} totalPages={totalPages} />
+
+        <NewsletterSignup location="blog_index" />
 
         <div className="mt-16">
           <BlogTagCloud tags={allTags} />

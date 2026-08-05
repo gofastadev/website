@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import rehypePrettyCode from "rehype-pretty-code";
+import rehypeSlug from "rehype-slug";
 import { createCssVariablesTheme } from "shiki";
 import { LandingTemplate } from "@/components/templates";
 import { ReadingProgressBar } from "@/components/atoms/reading-progress-bar";
@@ -10,13 +11,22 @@ import { BlogPrevNext } from "@/components/molecules/blog-prev-next";
 import { ShareButtons } from "@/components/molecules/share-buttons";
 import { BlogRelatedPosts } from "@/components/molecules/blog-related-posts";
 import { Comments } from "@/components/molecules/comments";
+import { TableOfContents } from "@/components/molecules/table-of-contents";
+import { NewsletterSignup } from "@/components/organisms/newsletter-signup";
 import { blogMdxComponents } from "@/lib/blog-mdx-components";
+import { extractToc } from "@/lib/toc";
 import {
   getAllPosts,
   getAdjacentPosts,
   getPost,
+  getSeriesPosts,
   type BlogPost,
 } from "@/lib/blog";
+import {
+  SeriesNavCard,
+  type SeriesNavItem,
+} from "@/components/molecules/series-nav-card";
+import { SeriesNextLink } from "@/components/molecules/series-next-link";
 import { SITE_URL, withBaseKeywords } from "@/lib/seo";
 import { buildBlogPostingJsonLd, humanize } from "@/lib/structured-data";
 import { getLocalImageDim } from "@/lib/image-dim";
@@ -197,6 +207,8 @@ function buildPostJsonLd(post: BlogPost) {
     wordCount: post.readingTime.words,
     timeRequired: `PT${minutes}M`,
     articleSection: post.tags[0] ? humanize(post.tags[0]) : "Blog",
+    seriesName: post.series,
+    seriesPosition: post.seriesPart,
   });
 }
 
@@ -212,6 +224,25 @@ export default async function BlogPostPage({
   const { prev, next } = getAdjacentPosts(slug);
   const allPosts = getAllPosts();
   const jsonLd = buildPostJsonLd(post);
+  const toc = extractToc(post.body);
+
+  // Series context, mapped down to plain prop shapes: the nav
+  // components are presentational and never touch the server-only
+  // blog service themselves.
+  const seriesItems: SeriesNavItem[] = post.series
+    ? getSeriesPosts(post.series).map((p, index) => ({
+        slug: p.slug,
+        title: p.title,
+        part: p.seriesPart ?? index + 1,
+      }))
+    : [];
+  const currentSeriesIndex = seriesItems.findIndex(
+    (item) => item.slug === slug,
+  );
+  const nextInSeries =
+    currentSeriesIndex >= 0
+      ? (seriesItems[currentSeriesIndex + 1] ?? null)
+      : null;
 
   return (
     <LandingTemplate>
@@ -220,31 +251,62 @@ export default async function BlogPostPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <article
-        className="mx-auto max-w-3xl px-6 pt-28 pb-24"
-        data-pagefind-body
-      >
-        <BlogArticleHeader post={post} shareUrl={postUrl(slug)} />
-        <div className="prose max-w-none prose-headings:font-display prose-headings:scroll-mt-24 prose-headings:tracking-tight prose-a:text-primary prose-a:underline prose-pre:rounded-xl prose-pre:border prose-pre:border-gray-200 prose-pre:bg-code-bg prose-code:rounded prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none dark:prose-invert dark:prose-pre:border-gray-800 dark:prose-code:bg-white/[0.08]">
-          <MDXRemote
-            source={stripTitleH1(post.body, post.title)}
-            components={blogMdxComponents}
-            options={{
-              mdxOptions: {
-                rehypePlugins: [[rehypePrettyCode, { theme: shikiTheme }]],
-              },
-            }}
+      {/* On xl the article gets a companion sticky TOC rail; the grid
+          wrapper is page-local so LandingTemplate (shared by the blog
+          index, tags, cookies, …) stays full-bleed. data-pagefind-body
+          stays on the article — the aside is navigation, not content. */}
+      <div className="mx-auto max-w-6xl xl:grid xl:grid-cols-[minmax(0,1fr)_16rem] xl:gap-12">
+        <article
+          className="mx-auto w-full max-w-3xl px-6 pt-28 pb-24"
+          data-pagefind-body
+        >
+          <BlogArticleHeader post={post} shareUrl={postUrl(slug)} />
+          {post.series ? (
+            <SeriesNavCard
+              seriesName={post.series}
+              items={seriesItems}
+              currentSlug={slug}
+            />
+          ) : null}
+          <TableOfContents items={toc} variant="inline" />
+          <div className="prose max-w-none prose-headings:font-display prose-headings:scroll-mt-24 prose-headings:tracking-tight prose-a:text-primary prose-a:underline prose-pre:rounded-xl prose-pre:border prose-pre:border-gray-200 prose-pre:bg-code-bg prose-code:rounded prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none dark:prose-invert dark:prose-pre:border-gray-800 dark:prose-code:bg-white/[0.08]">
+            <MDXRemote
+              source={stripTitleH1(post.body, post.title)}
+              components={blogMdxComponents}
+              options={{
+                mdxOptions: {
+                  rehypePlugins: [
+                    rehypeSlug,
+                    [rehypePrettyCode, { theme: shikiTheme }],
+                  ],
+                },
+              }}
+            />
+          </div>
+          <ShareButtons
+            url={postUrl(slug)}
+            title={post.title}
+            placement="footer"
           />
-        </div>
-        <ShareButtons
-          url={postUrl(slug)}
-          title={post.title}
-          placement="footer"
-        />
-        <BlogPrevNext prev={prev} next={next} />
-        <BlogRelatedPosts currentSlug={slug} allPosts={allPosts} />
-        <Comments />
-      </article>
+          {post.series && nextInSeries ? (
+            <SeriesNextLink
+              seriesName={post.series}
+              title={nextInSeries.title}
+              slug={nextInSeries.slug}
+            />
+          ) : null}
+          <BlogPrevNext prev={prev} next={next} />
+          <NewsletterSignup location="article_footer" />
+          <BlogRelatedPosts currentSlug={slug} allPosts={allPosts} />
+          <Comments />
+        </article>
+        <aside
+          className="hidden xl:block sticky top-28 self-start pt-28 pr-6"
+          data-pagefind-ignore
+        >
+          <TableOfContents items={toc} variant="sidebar" />
+        </aside>
+      </div>
     </LandingTemplate>
   );
 }

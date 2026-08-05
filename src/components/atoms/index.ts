@@ -1,4 +1,6 @@
+export { AnchoredHeading } from "./anchored-heading";
 export { Button } from "./button";
+export { Input } from "./input";
 export { Logo } from "./logo";
 export { ThemeToggle } from "./theme-toggle";
 export { Analytics } from "./analytics";

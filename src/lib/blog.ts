@@ -46,6 +46,19 @@ export interface BlogPostFrontmatter {
    * re-edit.
    */
   draft?: boolean;
+  /**
+   * Name of the multi-part series this post belongs to, e.g.
+   * "Deploy Anywhere". Posts sharing the exact name form one series;
+   * `seriesPart` orders them. Keystatic emits "" for the untouched
+   * optional field — treated as "no series", not an error.
+   */
+  series?: string;
+  /**
+   * 1-based position within `series`. Explicit rather than derived
+   * from publishedAt so parts can be backfilled or reordered without
+   * renumbering every sibling. Requires `series` to be set.
+   */
+  seriesPart?: number;
 }
 
 export interface BlogPost extends BlogPostFrontmatter {
@@ -154,6 +167,32 @@ function parsePost(
       ? fm.authorUrl
       : undefined;
 
+  // Series: absent or empty string (Keystatic's untouched text field)
+  // means "not in a series"; any other non-string is invalid input and
+  // rejects the post, same strictness as updatedAt above.
+  let series: string | undefined;
+  if (fm.series !== undefined) {
+    if (typeof fm.series !== "string") return null;
+    const trimmed = fm.series.trim();
+    if (trimmed.length > 0) series = trimmed;
+  }
+
+  // seriesPart must be a 1-based integer and is meaningless without a
+  // series name — both violations reject the post so a half-filled
+  // Keystatic form surfaces at build time, not as a broken nav.
+  let seriesPart: number | undefined;
+  if (fm.seriesPart !== undefined && fm.seriesPart !== null) {
+    if (
+      typeof fm.seriesPart !== "number" ||
+      !Number.isInteger(fm.seriesPart) ||
+      fm.seriesPart < 1
+    ) {
+      return null;
+    }
+    if (!series) return null;
+    seriesPart = fm.seriesPart;
+  }
+
   // The slug is interpolated into hrefs, canonical URLs, RSS links, and
   // JSON-LD across the site. Constrain it to a strict kebab-case charset
   // at this single boundary so no downstream consumer has to reason
@@ -180,6 +219,8 @@ function parsePost(
     // Surfaced so the UI can badge draft posts on previews/dev — the
     // only contexts where a draft is ever rendered.
     draft: fm.draft === true,
+    series,
+    seriesPart,
   };
 }
 
@@ -202,6 +243,7 @@ export interface BlogService {
   getPostsByTag(tag: string): BlogPost[];
   getAdjacentPosts(slug: string): AdjacentPosts;
   getAllTags(): TagSummary[];
+  getSeriesPosts(series: string): BlogPost[];
 }
 
 export function createBlogService(
@@ -262,6 +304,19 @@ export function createBlogService(
         .map(([tag, count]) => ({ tag, count }))
         .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
     },
+    getSeriesPosts(series: string) {
+      // Parts ordered by their explicit number; publishedAt breaks the
+      // tie if two posts ever claim the same part. Posts with a series
+      // name but no part sort last, in publish order.
+      return loadAll()
+        .filter((p) => p.series === series)
+        .sort(
+          (a, b) =>
+            (a.seriesPart ?? Number.MAX_SAFE_INTEGER) -
+              (b.seriesPart ?? Number.MAX_SAFE_INTEGER) ||
+            Date.parse(a.publishedAt) - Date.parse(b.publishedAt),
+        );
+    },
   };
 }
 
@@ -292,4 +347,7 @@ export function getAdjacentPosts(slug: string): AdjacentPosts {
 }
 export function getAllTags(): TagSummary[] {
   return getDefaultService().getAllTags();
+}
+export function getSeriesPosts(series: string): BlogPost[] {
+  return getDefaultService().getSeriesPosts(series);
 }

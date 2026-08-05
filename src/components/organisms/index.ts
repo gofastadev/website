@@ -15,3 +15,5 @@ export { CookiePreferences } from "./cookie-preferences";
 export { BlogIndexHero } from "./blog-index-hero";
 export { BlogTagCloud } from "./blog-tag-cloud";
 export { SiteChrome } from "./site-chrome";
+export { NewsletterSignup } from "./newsletter-signup";
+export { BlogSearch } from "./blog-search";

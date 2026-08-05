@@ -298,6 +298,33 @@ describe("buildBlogPostingJsonLd", () => {
     expect(post.wordCount).toBeUndefined();
     expect(post.timeRequired).toBeUndefined();
     expect(post.articleSection).toBeUndefined();
+    // No series → isPartOf stays the single Blog node and position is
+    // absent (the pre-series shape, pinned so series posts can't
+    // change it for everyone).
+    expect(post.isPartOf).toMatchObject({
+      "@type": "Blog",
+      "@id": "https://gofasta.dev/blog",
+    });
+    expect(post.position).toBeUndefined();
+  });
+
+  it("adds a CreativeWorkSeries to isPartOf and a position for series posts", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "deploy-2",
+      title: "First deploy",
+      description: "Part two of the deploy series.",
+      authorName: "Gofasta Team",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=x&section=Blog",
+      seriesName: "Deploy Anywhere",
+      seriesPosition: 2,
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.isPartOf).toEqual([
+      { "@type": "Blog", "@id": "https://gofasta.dev/blog" },
+      { "@type": "CreativeWorkSeries", name: "Deploy Anywhere" },
+    ]);
+    expect(post.position).toBe(2);
   });
 });
 

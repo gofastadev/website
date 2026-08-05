@@ -55,6 +55,8 @@ export type EventName =
   | "nav_to_github_library"
   | "footer_link_click"
   | "copy_install_command"
+  | "copy_code"
+  | "newsletter_subscribe"
   | "section_view"
   | "scroll_depth"
   | "share_click";

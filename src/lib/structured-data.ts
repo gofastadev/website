@@ -196,6 +196,10 @@ export interface BlogPostingInput {
   timeRequired?: string;
   /** Section / category label for the post (typically a humanized first tag). Omitted when undefined. */
   articleSection?: string;
+  /** Multi-part series name — adds a CreativeWorkSeries to isPartOf. Omitted when undefined. */
+  seriesName?: string;
+  /** 1-based position within the series — emitted as `position`. Omitted when undefined. */
+  seriesPosition?: number;
 }
 
 /**
@@ -219,6 +223,8 @@ export function buildBlogPostingJsonLd(input: BlogPostingInput) {
     wordCount,
     timeRequired,
     articleSection,
+    seriesName,
+    seriesPosition,
   } = input;
   const fullUrl = `${SITE_URL}/blog/${slug}`;
 
@@ -268,7 +274,16 @@ export function buildBlogPostingJsonLd(input: BlogPostingInput) {
         wordCount,
         timeRequired,
         articleSection,
-        isPartOf: { "@type": "Blog", "@id": `${SITE_URL}/blog` },
+        // A series post belongs to both the blog and its
+        // CreativeWorkSeries; `position` is the schema.org signal for
+        // "Part N".
+        isPartOf: seriesName
+          ? [
+              { "@type": "Blog", "@id": `${SITE_URL}/blog` },
+              { "@type": "CreativeWorkSeries", name: seriesName },
+            ]
+          : { "@type": "Blog", "@id": `${SITE_URL}/blog` },
+        position: seriesPosition,
         mainEntityOfPage: {
           "@type": "WebPage",
           "@id": fullUrl,
