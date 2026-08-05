@@ -31,4 +31,18 @@ describe("TerminalBlock", () => {
     );
     expect(container.firstChild).toHaveClass("max-w-2xl");
   });
+
+  it("renders a pre>code body by default", () => {
+    const { container } = render(<TerminalBlock>content</TerminalBlock>);
+    expect(container.querySelector("pre > code")).toBeInTheDocument();
+  });
+
+  it("renders no pre/code wrapper when bodyAs is div", () => {
+    const { container } = render(
+      <TerminalBlock bodyAs="div">content</TerminalBlock>
+    );
+    expect(container.querySelector("pre")).not.toBeInTheDocument();
+    expect(container.querySelector("code")).not.toBeInTheDocument();
+    expect(screen.getByText("content")).toBeInTheDocument();
+  });
 });
