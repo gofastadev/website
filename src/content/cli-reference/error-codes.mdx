@@ -57,7 +57,7 @@ Unregistered codes still produce usable errors, just without a hint or docs link
 |---|---|---|
 | `GO_MOD_INIT_FAILED` | make sure Go 1.25.0 or later is installed and on $PATH; run `go version` to check | [docs](/docs/getting-started/installation) |
 | `GO_MOD_TIDY_FAILED` | run `go mod tidy` manually and inspect the output; a transitive dep may be unavailable or the module proxy may be unreachable | [docs](/docs/getting-started/installation) |
-| `GOFASTA_INSTALL_FAILED` | wait 5–30 minutes for sum.golang.org to index a freshly-published release and retry, or run `go get github.com/gofastadev/gofasta@latest` inside the generated project once the sum DB catches up | [docs](/docs/cli-reference/new) |
+| `GOFASTA_INSTALL_FAILED` | wait 5–30 minutes for sum.golang.org to index a freshly-published release and re-run `gofasta new`; the CLI installs the exact gofasta library version it was tested against, so no manual `go get` is needed | [docs](/docs/cli-reference/new) |
 | `GO_BUILD_FAILED` | the generated or edited Go code does not compile; fix the error above and re-run | — |
 | `GO_TEST_FAILED` | one or more tests failed; inspect the output above for the specific failure | [docs](/docs/guides/testing) |
 | `GO_VET_FAILED` | `go vet` flagged a static issue; address the warnings above and re-run | — |
