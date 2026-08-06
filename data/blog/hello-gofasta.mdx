@@ -49,9 +49,9 @@ And it isn't lock-in. The scaffold imports `pkg/*` packages as opt-out defaults,
 
 That's the pattern everywhere: the CLI runs, writes files, and gets out of the way. No daemon, no hidden state.
 
-## Agents are users too
+## Built for your agent too
 
-Most backend tooling treats AI coding agents as an afterthought. We treat them as a user with specific needs: structured output, stable identifiers, and current documentation.
+Most backend tooling treats AI coding agents as an afterthought. We treat your agent as a first-class consumer of the CLI, with specific needs: structured output, stable identifiers, and current documentation.
 
 So every command takes a global `--json` flag for machine-readable output. Errors carry a stable machine-readable code, a one-line message, a remediation hint, and in most cases a link into the docs. `gofasta inspect` describes any resource in your project as structured data instead of making an agent grep for it. And `gofasta ai <agent>` installs tuned configuration — permission allowlists, hooks, agent briefings — for Claude Code, Cursor, OpenAI Codex, Aider, or Windsurf, without cluttering projects that don't use that particular agent.
 
