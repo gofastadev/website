@@ -51,15 +51,19 @@ export function scopeToBlogPosts(
     .slice(0, limit);
 }
 
-async function defaultLoadPagefind(): Promise<Pagefind> {
-  // The specifier is passed through a variable so neither bundler
-  // (Turbopack building the site, Vite running vitest) tries to
-  // resolve a /public asset at compile time — it's fetched by the
-  // browser at runtime, after the postbuild step has produced it.
-  const assetPath = "/_pagefind/pagefind.js";
-  const pagefind = (await import(
-    /* webpackIgnore: true */ /* @vite-ignore */ assetPath
-  )) as Pagefind & { options?: (opts: object) => Promise<void> };
+// Exported for tests. The specifier is passed through a variable so
+// neither bundler (Turbopack building the site, Vite running vitest)
+// tries to resolve a /public asset at compile time — it's fetched by
+// the browser at runtime, after the postbuild step has produced it.
+// The importer is injectable so the baseUrl/options contract is
+// testable without a real asset on disk.
+export async function defaultLoadPagefind(
+  importAsset: (specifier: string) => Promise<unknown> = (specifier) =>
+    import(/* webpackIgnore: true */ /* @vite-ignore */ specifier),
+): Promise<Pagefind> {
+  const pagefind = (await importAsset("/_pagefind/pagefind.js")) as Pagefind & {
+    options?: (opts: object) => Promise<void>;
+  };
   await pagefind.options?.({ baseUrl: "/" });
   return pagefind;
 }

@@ -67,6 +67,55 @@ describe("MdxPre", () => {
     ).toBeInTheDocument();
   });
 
+  it("falls back to a hidden textarea + execCommand without the Clipboard API", async () => {
+    // No async Clipboard API at all — the legacy path selects the code
+    // in an off-screen textarea and issues execCommand("copy").
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+    });
+    const execCommand = vi.fn().mockReturnValue(true);
+    document.execCommand = execCommand;
+
+    render(
+      <MdxPre>
+        <code>gofasta dev</code>
+      </MdxPre>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy code" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(execCommand).toHaveBeenCalledWith("copy");
+    // The temporary textarea is removed again after the copy.
+    expect(document.querySelector("textarea")).toBeNull();
+    expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
+    // No data-language attribute → the event reports an empty language.
+    expect(trackEventMock).toHaveBeenCalledWith("copy_code", { language: "" });
+
+    // A second copy while "Copied" is showing restarts the revert timer
+    // instead of stacking a stale one.
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Copied" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(
+      screen.getByRole("button", { name: "Copy code" }),
+    ).toBeInTheDocument();
+  });
+
   it("does nothing when the pre contains no code element", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     stubClipboard(writeText);

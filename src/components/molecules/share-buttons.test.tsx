@@ -184,6 +184,37 @@ describe("ShareButtons", () => {
       ).toBeInTheDocument();
     });
 
+    it("restarts the revert timer when copy is clicked again", async () => {
+      stubClipboard(vi.fn().mockResolvedValue(undefined));
+      renderButtons();
+
+      fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Copied" }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      // 1800ms after the FIRST click — a stale timer would revert here.
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(
+        screen.getByRole("button", { name: "Copied" }),
+      ).toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(800);
+      });
+      expect(
+        screen.getByRole("button", { name: "Copy link" }),
+      ).toBeInTheDocument();
+    });
+
     it("stays quiet when the clipboard write rejects", async () => {
       stubClipboard(vi.fn().mockRejectedValue(new Error("denied")));
       renderButtons();

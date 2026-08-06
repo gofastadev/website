@@ -568,6 +568,9 @@ describe("default service exports", () => {
       prev: null,
       next: null,
     });
+    expect(Array.isArray(blog.getSeriesPosts("__no_such_series__"))).toBe(
+      true,
+    );
   });
 });
 
@@ -734,6 +737,49 @@ describe("series", () => {
     expect(
       service.getSeriesPosts("Deploy Anywhere").map((p) => p.slug),
     ).toEqual(["later-but-first", "earlier-but-second"]);
+  });
+
+  it("getSeriesPosts sorts unnumbered parts last and breaks part ties by date", () => {
+    const seriesPost = (title: string, publishedAt: string, part?: number) =>
+      [
+        "---",
+        `title: "${title}"`,
+        'description: "A series part used in ordering tests."',
+        `publishedAt: ${publishedAt}`,
+        'author: "Test Author"',
+        "tags: []",
+        'cover: "c.jpg"',
+        'series: "Deploy Anywhere"',
+        ...(part === undefined ? [] : [`seriesPart: ${part}`]),
+        "---",
+        "",
+        "Body text here.",
+        "",
+      ].join("\n");
+    writePost(
+      "part-one-late",
+      seriesPost("Part One (revised)", "2026-04-05T10:00:00.000Z", 1),
+    );
+    writePost(
+      "part-one-early",
+      seriesPost("Part One", "2026-04-01T10:00:00.000Z", 1),
+    );
+    writePost(
+      "epilogue-late",
+      seriesPost("Late Epilogue", "2026-04-08T10:00:00.000Z"),
+    );
+    writePost(
+      "epilogue-early",
+      seriesPost("Early Epilogue", "2026-04-02T10:00:00.000Z"),
+    );
+    expect(
+      service.getSeriesPosts("Deploy Anywhere").map((p) => p.slug),
+    ).toEqual([
+      "part-one-early",
+      "part-one-late",
+      "epilogue-early",
+      "epilogue-late",
+    ]);
   });
 
   it("getSeriesPosts excludes drafts under production semantics", () => {

@@ -82,6 +82,15 @@ describe("extractToc", () => {
     );
   });
 
+  it("skips headings whose visible text strips to nothing", () => {
+    // An image-only heading has no rendered text for github-slugger to
+    // slug — emitting it would produce an empty, dead TOC entry.
+    const toc = extractToc("## ![](/diagram.png)\n\n## Real heading");
+    expect(toc).toEqual([
+      { id: "real-heading", text: "Real heading", depth: 2 },
+    ]);
+  });
+
   it("ignores trailing closing hashes in ATX headings", () => {
     expect(extractToc("## Closed heading ##")).toEqual([
       { id: "closed-heading", text: "Closed heading", depth: 2 },

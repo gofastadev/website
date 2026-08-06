@@ -113,4 +113,22 @@ describe("blogMdxComponents map", () => {
     expect(blogMdxComponents.Callout).toBe(Callout);
     expect(blogMdxComponents.img).toBe(BlogImage);
   });
+
+  it.each([
+    ["h2", 2],
+    ["h3", 3],
+    ["h4", 4],
+    ["h5", 5],
+    ["h6", 6],
+  ] as const)("%s renders an anchored heading at level %d", (tag, level) => {
+    const Heading = blogMdxComponents[tag];
+    render(<Heading id={`${tag}-slug`}>Section title</Heading>);
+    const heading = screen.getByRole("heading", { level });
+    expect(heading).toHaveTextContent("Section title");
+    expect(heading).toHaveAttribute("id", `${tag}-slug`);
+    // rehype-slug's id feeds the hover anchor link.
+    expect(
+      screen.getByRole("link", { name: "Link to this section" }),
+    ).toHaveAttribute("href", `#${tag}-slug`);
+  });
 });

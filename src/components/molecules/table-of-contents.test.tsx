@@ -98,6 +98,45 @@ describe("TableOfContents", () => {
     ).not.toHaveAttribute("aria-current");
   });
 
+  it("keeps the previous highlight while the reader is between headings", () => {
+    mountHeadings();
+    render(<TableOfContents items={ITEMS} variant="sidebar" />);
+    const io = CapturingIO.instance!;
+    act(() => {
+      io.callback(
+        [
+          {
+            target: document.getElementById("configure")!,
+            isIntersecting: true,
+          } as unknown as IntersectionObserverEntry,
+        ],
+        io as unknown as IntersectionObserver,
+      );
+    });
+    expect(screen.getByRole("link", { name: "Configure" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+
+    // The heading scrolls out of the active band with nothing replacing
+    // it — the highlight must stay put rather than clearing.
+    act(() => {
+      io.callback(
+        [
+          {
+            target: document.getElementById("configure")!,
+            isIntersecting: false,
+          } as unknown as IntersectionObserverEntry,
+        ],
+        io as unknown as IntersectionObserver,
+      );
+    });
+    expect(screen.getByRole("link", { name: "Configure" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+  });
+
   it("prefers the first document-order heading when several intersect", () => {
     mountHeadings();
     render(<TableOfContents items={ITEMS} variant="sidebar" />);
@@ -118,6 +157,21 @@ describe("TableOfContents", () => {
       "aria-current",
       "true",
     );
+  });
+
+  it("skips observing TOC entries whose headings are not in the document", () => {
+    // Only two of the three headings exist — the id extracted from the
+    // MDX body can diverge from the rendered DOM (JSX in a heading).
+    for (const item of ITEMS.slice(0, 2)) {
+      const h = document.createElement("h2");
+      h.id = item.id;
+      document.body.appendChild(h);
+    }
+    render(<TableOfContents items={ITEMS} variant="sidebar" />);
+    expect(CapturingIO.instance!.observed.map((el) => el.id)).toEqual([
+      "install",
+      "configure",
+    ]);
   });
 
   it("inline renders a details/summary box hidden at xl, without an observer", () => {
