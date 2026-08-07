@@ -1,0 +1,116 @@
+---
+draft: true
+title: 'Go scaffolding tools compared: gonew, go-blueprint, Autostrada, and gofasta'
+description: >-
+  A fair look at four ways to start a Go backend — gonew, go-blueprint,
+  Autostrada, and gofasta — and what each one does for you after day zero.
+publishedAt: 2026-07-10T10:00:00.000Z
+author: Gofasta Team
+authorUrl: https://gofasta.dev
+tags:
+  - golang
+  - tooling
+  - comparison
+cover: /blog/covers/go-scaffolding-tools-compared/cover.png
+---
+## The scaffold is the easy part
+
+Starting a Go backend involves a stack of decisions that have nothing to do with your product: router, database client, migration tool, config loading, logging, project layout. Answer them well and you've spent a week. Answer them badly and you'll spend that week later, with interest.
+
+Scaffolding tools exist to hand you a good set of answers up front. The Go ecosystem has several, and they're genuinely different from each other — not in quality, but in philosophy. We build one of them, so you should read this with that in mind. But we've used all four, and each one is the right choice for somebody. The most useful way we can spend your next ten minutes is to be precise about who.
+
+The real axis of comparison isn't the feature list. It's time. Every tool here can produce a working project on day zero. The interesting question is what happens on day two, day thirty, and day three hundred — when you're adding your fourteenth resource, renaming a field that's referenced in nine files, or handing the codebase to an AI agent and hoping it doesn't hallucinate your directory structure.
+
+## gonew: the official minimum
+
+[`gonew`](https://go.dev/blog/gonew) comes from the Go team itself, lives in `golang.org/x/tools`, and does exactly one thing: it copies a template module and rewrites the module path.
+
+```bash
+go install golang.org/x/tools/cmd/gonew@latest
+gonew golang.org/x/example/helloserver example.com/myserver
+```
+
+That's the entire interface. Templates are ordinary Go modules, distributed through the module proxy and verified by the checksum database, which is a quietly clever design — your project template gets the same supply-chain guarantees as your dependencies.
+
+The Go team is explicit that `gonew` is an experiment: "an extremely limited prototype meant to provide a base from which we can gather feedback and community direction," in their own words. It ships with two starter templates (a CLI tool and an HTTP server), and the expectation is that teams and communities publish their own.
+
+**Where it shines:** you're a team with strong existing conventions. You've already decided your router, your layout, your logging. Encode those decisions once in a template module, and `gonew` stamps out consistent services forever, with zero new tooling to learn. For a company platform team maintaining internal templates, it's arguably the *correct* choice — boring, official, and built on infrastructure you already trust.
+
+**Where it stops:** everywhere else. `gonew` has no opinions to offer if you don't bring your own, no flags, no feature selection, and nothing to say after the copy finishes. It is deliberately not trying to be more than that.
+
+## go-blueprint: pick your stack, get a repo
+
+[go-blueprint](https://github.com/Melkeydev/go-blueprint) is the community's favorite mix-and-match scaffolder — around 8,900 GitHub stars, MIT licensed, installable with `go install`. You run `go-blueprint create`, answer a few prompts (or pass `--framework`, `--driver`, `--feature` flags), and get a project wired for your choices.
+
+The breadth is the selling point. Six routers and web frameworks: chi, Gin, Fiber, Echo, gorilla/mux, HttpRouter. Six storage options: MySQL, Postgres, SQLite, MongoDB, Redis, ScyllaDB. And an `--advanced` mode that layers on HTMX with Templ, Tailwind, a React + TypeScript frontend, Docker config, GitHub Actions workflows, and WebSocket support. There's even a web UI at go-blueprint.dev that previews the generated tree before you commit to it.
+
+**Where it shines:** you know which framework you want — maybe your team has Gin muscle memory, maybe you're betting on Fiber's performance — and you want scaffolding that respects that choice instead of overriding it. It's also the only tool here that will hand you a frontend in the same command, which makes it a strong pick for full-stack side projects and hackathons.
+
+**Where it stops:** the moment after generation. go-blueprint is scaffold-only by design — it doesn't generate CRUD layers for new resources, doesn't patch existing files, and has no ongoing relationship with your project. Day two is entirely on you. That's a legitimate design choice (less machinery, nothing to learn beyond the first command), but it's worth knowing before you pick it for a project that will grow twenty resources.
+
+## Autostrada: lean, curated, yours
+
+[Autostrada](https://autostrada.dev) is Alex Edwards' generator — the same Alex Edwards who wrote *Let's Go* and *Let's Go Further*, which for a lot of us were the books that taught us how production Go services actually fit together. That pedigree shows in the output.
+
+It works differently from the others: it's a website, not a CLI. You click through three steps — application type (server-rendered web app or JSON API), database (none, SQLite, Postgres, MySQL), router (`http.ServeMux`, Flow, chi, gorilla/mux, HttpRouter) — plus options for config style, log format, migrations, sessions, basic auth. Then you download a ZIP. Some features (automatic HTTPS, user accounts, email, error notifications, test coverage) sit behind a paid tier.
+
+The code you get is the leanest of the four: stdlib-first, minimal dependencies, the kind of Go you'd write after reading Alex's books twice. And the site is emphatic that the generated code *is your application* — MIT licensed, no runtime attachment to anything.
+
+**Where it shines:** small-to-medium services where you want maximum understanding per line of code. If your ideal is a backend you can hold entirely in your head, with every abstraction earning its place, this is the taste you want. It's also the gentlest starting point for developers who learned Go from Alex's books, because the output reads like their chapters.
+
+**Where it stops:** same place as go-blueprint — after the download. There's no CLI to run on day two, and the leanness cuts both ways: things like job queues, WebSockets, RBAC, and observability are yours to add by hand.
+
+## gofasta: the scaffold is where it starts
+
+[Gofasta](https://gofasta.dev) is our entry, so we'll describe it the way we'd want a competitor to describe us: accurately, including the parts that might put you off.
+
+`gofasta new myapp` scaffolds roughly 80 files of plain Go — a stdlib `http.Server` behind a [chi](https://github.com/go-chi/chi) router, GORM models, [golang-migrate](https://github.com/golang-migrate/migrate) migrations, JWT auth with Casbin RBAC, `slog` logging, Swagger generation, Docker setup. `--driver` picks Postgres, MySQL, SQLite, SQL Server, or ClickHouse; `--graphql` wires up gqlgen alongside REST; `--layout` chooses between layered and feature-based organization. The scaffold imports packages from our companion library as opt-out defaults — delete `pkg/auth`, `go get` your preferred JWT library, and nothing else changes.
+
+The honest difference from the other three isn't the scaffold. It's that the CLI keeps being useful afterward:
+
+* `gofasta g scaffold Article title:string body:text` generates a model, migration, repository, service, DTOs, controller, route registration, a Wire provider, and tests — one resource, one command, on day two hundred as easily as day two.
+* Modify-aware generators patch code you've already written: `g field` adds a column through every layer, `g endpoint` adds a route, `g relation` wires an association, `g rename` renames a field across the project — idempotently, with `--dry-run`.
+* [`gofasta dev`](/docs/cli-reference/dev) runs the whole local loop: Docker services up, migrations applied, hot reload via Air.
+* [`gofasta deploy`](/docs/cli-reference/deploy) ships to a plain VPS over SSH with health checks and automatic rollback.
+* Every command takes `--json`, errors carry stable machine-readable codes, and `gofasta inspect` describes your resources as structured data — because in 2026 the second consumer of your CLI is somebody's coding agent, and we treat it as a [first-class consumer](/blog/agent-friendly-cli-design).
+
+**Where it stops:** we're the heaviest option on this page. If you want six routers to choose from, we offer one, chosen for you. If you want a stdlib-only tree with a dozen dependencies, our scaffold will feel opinionated and full. And the generators are a real surface area to learn — worth it if you'll use them weekly, overhead if you never touch the CLI again after `new`.
+
+## Side by side
+
+| | gonew | go-blueprint | Autostrada | gofasta |
+|---|---|---|---|---|
+| Interface | CLI (template copy) | CLI + web preview | Website, ZIP download | CLI |
+| Router choice | whatever your template uses | 6 options | 5 options | chi (opt-out default) |
+| Databases | template-defined | 6 options | 4 options | 5 drivers via `--driver` |
+| Post-scaffold generation | none | none | none | CRUD scaffold + modify-aware generators |
+| Dev workflow tooling | none | none | none | `gofasta dev`, `migrate`, `test`, `routes` |
+| Deployment tooling | none | Docker files | none | Docker + `gofasta deploy` (VPS, rollback) |
+| Agent/machine output | none | none | none | `--json` everywhere, `inspect`, llms.txt |
+| Cost | free | free | free core, paid tier | free, MIT |
+| Maintainer | Go team (experimental) | community (~8.9k stars) | Alex Edwards | us |
+
+## Day two is the real test
+
+Here's the thing the table can't show. A scaffold's value depreciates from the moment it lands — every commit you make takes the project further from the template, and within a month the scaffold is archaeology. That's fine, and it's the deal all four tools offer on day zero.
+
+The question we'd ask before choosing is: *what does your next year look like?* If it's one service that grows slowly, the scaffold quality matters most, and any of these four will serve you well. If it's a resource-heavy API where the team adds models weekly — or where an AI agent does, guided by [structured CLI output](/docs/cli-reference/index) — then the tooling that survives past day zero starts to dominate the math. Generating a full CRUD layer by hand takes us about an hour of careful work. `g scaffold` takes seconds and produces [the code we'd have written anyway](/blog/hello-gofasta).
+
+## What all four get right
+
+It's worth pausing on the consensus, because it's not obvious — other language ecosystems settled elsewhere. All four tools generate code and then *relinquish it*. No runtime dependency on the generator, no hidden reconciliation, no upgrade treadmill where the tool rewrites your files under you. The ZIP from Autostrada, the module copy from `gonew`, the repo from go-blueprint, the 80 files from `gofasta new` — each is plain Go the moment it lands, buildable with `go build`, debuggable with Delve, greppable by the newest person on the team.
+
+That consensus is a Go-culture thing, and it's the reason this comparison can stay friendly. We're not competing to own your project; we're competing on the quality of the code we leave behind and on how much of the surrounding toil we absorb. Different tools draw the toil line in different places — that's really the whole comparison in one sentence.
+
+It also means the switching costs are close to nil. Scaffold with go-blueprint today and adopt a different tool for your next service; nothing about the first project cares. The tools are doors, not buildings.
+
+## Which one should you pick?
+
+Our honest routing table:
+
+* **Your team maintains its own conventions and templates** → `gonew`. Official, minimal, supply-chain-verified. Encode your taste once.
+* **You've already chosen your framework, or you want a frontend in the same command** → go-blueprint. Widest menu, biggest community, zero lock-in to any tooling.
+* **You want the leanest possible codebase and you trust Alex Edwards' taste** (you should) → Autostrada. The output is a pleasure to read.
+* **You want the scaffold plus a CLI that keeps generating, migrating, and deploying for the life of the project** → that's the job [gofasta](/docs/getting-started/quick-start) was built for.
+
+And if you're still torn: all four produce plain Go you own outright. The cost of choosing wrong is a weekend, not a rewrite. That's the quiet virtue of this whole category — none of these tools follow you home.

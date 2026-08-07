@@ -1,0 +1,120 @@
+---
+draft: true
+title: 'Background jobs in Go: cron scheduling and async queues with asynq'
+description: >-
+  Cron jobs and task queues solve different problems. How gofasta wires
+  robfig/cron and asynq into one project, plus the patterns that keep
+  background work reliable.
+publishedAt: 2026-07-31T10:00:00.000Z
+author: Gofasta Team
+authorUrl: https://gofasta.dev
+tags:
+  - golang
+  - background-jobs
+  - asynq
+cover: /blog/covers/background-jobs-go-cron-asynq/cover.png
+---
+## Two shapes of background work
+
+Every backend eventually grows work that doesn't belong in a request handler. Send the welcome email. Rebuild the search index nightly. Retry the webhook that a partner's server rejected. Expire stale sessions. Generate the monthly invoice PDFs.
+
+Look closely and this work comes in exactly two shapes, and they are not interchangeable:
+
+- **Scheduled work** runs because a clock said so. Nightly cleanup, hourly aggregation, the report that goes out at 6am. The trigger is time; the work is usually a sweep over whatever accumulated.
+- **Queued work** runs because an event happened. A user signed up, so an email must go out. An order landed, so a PDF must render. The trigger is a specific occurrence; the work is about that one occurrence, and there's one unit of it per event.
+
+Teams get into trouble by forcing one shape through the other's tooling. The classic in one direction: a cron job that polls a database table every minute looking for rows marked `pending` — a hand-rolled queue with sixty-second latency, no retry semantics, and a race condition waiting for its second worker. In the other direction: enqueueing a task with a 24-hour delay to fake a daily schedule, then discovering that "daily" drifts, that a Redis flush ate the schedule, and that nobody can answer "when does this run next?"
+
+Go gives you excellent primitives for both shapes. This post walks through how we wired them into gofasta projects — [robfig/cron](https://github.com/robfig/cron) for schedules, [asynq](https://github.com/hibiken/asynq) for queues — and the operational patterns that matter more than the library choice.
+
+## The goroutine honesty section
+
+First, the objection every Go developer raises, because we raised it too: *why do I need any of this? I have goroutines.*
+
+```go
+go func() {
+    if err := sendWelcomeEmail(user); err != nil {
+        slog.Error("welcome email failed", "err", err)
+    }
+}()
+```
+
+For a genuinely fire-and-forget action in a long-lived process, this is fine, and we'd defend it. Go's concurrency story is the reason plenty of us are here. But walk through what happens as the stakes rise:
+
+- **Deploys.** You ship five times a day. Every deploy kills the process, and every in-flight goroutine dies with it. That welcome email is just... gone, and nothing knows it's gone.
+- **Retries.** The SMTP server had a bad moment. Who retries? With what backoff? The goroutine logged and exited; the failure is a line in your logs that nobody will read until a customer asks why they never got the email.
+- **Visibility.** How many emails are waiting right now? What's failing repeatedly? With bare goroutines the answer lives nowhere.
+- **Backpressure.** A traffic spike spawns fifty thousand goroutines all hammering the same third-party API, which rate-limits you, which makes everything slower, which spawns more goroutines.
+
+None of these are exotic. They're week-two-in-production problems. The honest summary: goroutines are a concurrency primitive, not a background-work system. The system needs persistence, retries, visibility, and concurrency control — which is precisely the checklist a Redis-backed queue satisfies.
+
+## Scheduled jobs: pkg/scheduler
+
+For clock-triggered work, gofasta projects use [`pkg/scheduler`](/docs/api-reference/scheduler), a thin, readable layer over robfig/cron. One deliberate choice worth flagging: the schedule format is **6-field cron, with seconds** — `0 0 3 * * *` is 3:00:00 every morning. The extra field trips up people arriving from 5-field crontabs, but it buys sub-minute schedules when you need them and makes every expression explicit about seconds instead of implicitly zero. We think that trade reads well six months later.
+
+You could register jobs by hand, but the CLI will do the ceremony for you:
+
+```bash
+gofasta g job cleanup-sessions "0 0 3 * * *"
+```
+
+That generates the job file with its schedule, wires the registration, and leaves you a function body to fill in — plain Go, yours to edit, like everything else the [generators](/docs/guides/code-generation) produce. When you come back in six months and can't remember what's scheduled where:
+
+```bash
+gofasta inspect-jobs
+```
+
+lists every job and its schedule as structured data (add `--json` and it's parseable, which your coding agent will appreciate — we wrote about that design philosophy in [Making a CLI agent-friendly](/blog/agent-friendly-cli-design)).
+
+A scheduling rule of thumb we enforce on ourselves: **cron jobs should be sweeps, not deliveries.** A nightly job that processes "everything unprocessed" recovers automatically after a bad night — the next run picks up the backlog. A cron job that assumes exactly-once execution at exactly its scheduled moment is fragile in a way no scheduler can fix for you, because processes restart and clocks are only mostly honest.
+
+## Queued tasks: pkg/queue and asynq
+
+For event-triggered work, [`pkg/queue`](/docs/api-reference/queue) wraps [asynq](https://github.com/hibiken/asynq), the Redis-backed task queue from Ken Hibino. If you haven't met asynq: tasks are typed payloads pushed to Redis; worker processes pull and execute them with configurable concurrency; failed tasks are retried with exponential backoff until a max-retry ceiling, after which they land in a dead-letter set you can inspect and re-run. Which is to say — persistence, retries, visibility, and backpressure, the exact four things the goroutine version lacked.
+
+The generator symmetry mirrors the conceptual split:
+
+```bash
+gofasta g task send-welcome-email
+```
+
+gives you a task definition — payload struct, handler, registration — and `gofasta inspect-tasks` gives you the census, same as jobs. Enqueueing from a service is one call with the typed payload; the worker picks it up whether it was enqueued a millisecond or an hour ago, on this deploy or the last one. That last clause is the whole point: **the queue outlives the process.** A deploy mid-send means the task simply runs on the new code.
+
+Concurrency is a config knob, not an accident of load. Ten workers means at most ten simultaneous executions, and the spike that would have spawned fifty thousand goroutines instead becomes a deep queue draining at a rate your downstream dependencies can survive.
+
+## Retries are a policy, not a hope
+
+Retries deserve their own section, because "asynq retries failed tasks" is true but incomplete — the queue retries the *task*, and that's the right layer for whole-unit failure. But inside a task handler you often make several outbound calls, and re-running the entire task because the third call flaked means repeating the first two.
+
+For call-level resilience, gofasta projects lean on [`pkg/resilience`](/docs/api-reference/resilience), which provides retry policies with exponential backoff (built on failsafe-go). The layering that has served us well:
+
+- **Task-level retries (asynq):** the whole unit failed — the process died, the handler panicked, a dependency was down long enough that giving up and re-running later is correct.
+- **Call-level retries (resilience policies):** one outbound call inside the handler hit a transient blip and a 200ms-backoff retry will probably clear it, without abandoning the work already done.
+
+Both layers, and this becomes non-negotiable: **handlers must be idempotent.** Any retry system is an at-least-once system, full stop. The welcome email task will eventually run twice — because a worker died after sending but before acking, because Redis hiccuped, because an operator re-ran the dead-letter set. Write the handler so twice is harmless: check whether the email was already recorded as sent; make the invoice generation keyed on order ID so the second run overwrites rather than duplicates; make state transitions conditional. Idempotency is not an advanced pattern. It's the entry fee.
+
+## The patterns that keep it boring
+
+A few more habits, earned the usual way:
+
+**Payloads carry IDs, not data.** Enqueue `{"user_id": "…"}`, not the serialized user. The task runs later — maybe much later — and the user may have changed their email in between. Fetching at execution time means acting on current truth, and it keeps payloads small enough that Redis memory never becomes the interesting graph on your dashboard.
+
+**Shut down gracefully.** Workers should finish (or cleanly release) in-flight tasks on SIGTERM rather than dying mid-write. asynq handles the release-and-requeue dance when it's allowed to — so your deploy tooling needs to send SIGTERM and honor a drain window, not `kill -9` after two seconds. The scaffold's serve command and the deploy flow in [our VPS deployment post](/blog/deploy-go-app-vps) are both built around that assumption.
+
+**Watch the dead-letter set.** Tasks that exhausted retries are your system telling you about a persistent failure. A dead-letter set nobody looks at is an outage postponed. Even a scheduled job that counts it and grumbles into your notification channel beats silence.
+
+**Keep local dev honest.** Queues and schedulers are exactly the kind of infrastructure that "works on my machine" by not running on it. In a gofasta project, `gofasta dev` brings up the Docker services — Redis included — so the queue path executes in development, not just in production. More on that loop in [A proper Go dev loop](/blog/go-hot-reload-dev-loop).
+
+## Clocks lie: timezones, DST, and the 2:30am job
+
+One more class of bug deserves naming, because it ships silently and detonates twice a year. Cron expressions are evaluated in *some* timezone, and if you haven't decided which one deliberately, the decision was made for you by whatever `TZ` the process inherited — which is usually UTC in a container and your laptop's local time in development. A "3am cleanup" that quietly runs at 3am UTC is a 10pm job for your Pacific-time customers, right in the evening traffic peak.
+
+Our advice is unexciting and firm: **schedule in UTC, always, and convert in your head, not in your config.** The alternative — local-time schedules — buys you daylight-saving edges: a 2:30am job that doesn't run on spring-forward night because 2:30am never happened, or runs twice on fall-back night because it happened twice. Both are real behaviors of naive local-time scheduling, both surface as "the report is missing" tickets months after anyone touched the code, and both simply don't exist in UTC.
+
+The related habit: log the *next* scheduled run, not just the last one. When someone asks "did the invoice job run last night?", `gofasta inspect-jobs` answers what's registered and on what schedule, and your logs should answer what actually fired and when. The gap between those two answers is where scheduling bugs live — a job that's registered but never fires (dead scheduler, wrong timezone) looks healthy from the registration side and only the execution log tells the truth. Sweep-shaped jobs, as argued above, make this failure survivable: the next successful run absorbs the missed one, and the incident is a log line instead of data loss.
+
+## Choosing, in one paragraph
+
+Triggered by the clock, sweeping accumulated state → a scheduled job (`pkg/scheduler`, `g job`). Triggered by an event, one unit per occurrence, must survive restarts and retry on failure → a queued task (`pkg/queue`, `g task`). Genuinely fire-and-forget, in-process, harmless to lose → fine, use the goroutine; just re-ask the question the day losing it stops being harmless.
+
+Both halves are opt-out defaults in a scaffolded project, like every `pkg/*` import — prefer machinery of your own? Delete the import and bring yours, and nothing else in the project minds. The full walkthrough with configuration details lives in the [background jobs guide](/docs/guides/background-jobs). And if you're starting from zero, `gofasta new` gets you a project where all of the above is one generator command away — the [Quick Start](/docs/getting-started/quick-start) takes about five minutes.
