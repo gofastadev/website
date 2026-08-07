@@ -91,10 +91,9 @@ The listener auto-disables when stdin isn't a TTY (CI runs, piped input). Pass `
 | `gofasta dev --dry-run` | Print what *would* run, exit. Great in CI to validate compose + config without spinning anything up. |
 | `gofasta dev --fresh` | Drop every compose volume before starting. Clean slate database. |
 | `gofasta dev --seed` | Run seeders after migrations. |
-| `gofasta dev --no-cache` | Skip the cache (Redis). Use when you don't need it. |
-| `gofasta dev --no-queue` | Skip the queue dashboard. |
-| `gofasta dev --no-services` | Skip compose entirely. Air only — use when you bring your own database. |
-| `gofasta dev --all-in-docker` | Run *everything* in Docker, including Air. Supporting services run detached; the app container's stdout streams to your terminal so hot-reload feels identical to host-Air. |
+| `gofasta dev --services db` | Start only the database in Docker; the app stays on the host. Comma-separate for more (`--services db,cache,queue`). |
+| `gofasta dev --services all` | Run *everything* in Docker, including the app. Supporting services run detached; the app container's stdout streams to your terminal so hot-reload feels identical to host-Air. |
+| `gofasta dev` (no `--services`) | Host-only — no compose at all. The preflight probes your db/cache/queue connections and offers an interactive menu if one is unreachable. |
 | `gofasta dev --dashboard` | Spin up the [dev dashboard](/docs/cli-reference/dev#the-dashboard) on `:9090` — live routes, request inspector, trace waterfall, EXPLAIN-on-click, panic history, cache hit/miss, HAR export. Only available with the `devtools` build tag, which `gofasta dev` sets automatically. |
 | `gofasta dev --attach-logs` | Stream `docker compose logs -f` alongside Air output. |
 | `gofasta dev --json` | NDJSON event stream instead of human log lines — for CI and agents. |
@@ -109,7 +108,7 @@ In a separate terminal (leave `gofasta dev` running):
 gofasta g scaffold Product name:string price:float
 ```
 
-This generates **11 files** and patches **4** existing files in one shot:
+This generates **<Fact name="scaffold.createdCount" /> files** (tests included) and patches **<Fact name="scaffold.patchedCount" />** existing files in one shot:
 
 | Generated file | What it is |
 |---|---|
@@ -118,11 +117,18 @@ This generates **11 files** and patches **4** existing files in one shot:
 | `db/migrations/000006_create_products.down.sql` | Drop table migration |
 | `app/repositories/interfaces/product_repository.go` | Repository interface |
 | `app/repositories/product.repository.go` | Repository implementation (GORM) |
+| `app/repositories/product.repository_test.go` | Repository tests |
 | `app/services/interfaces/product_service.go` | Service interface |
 | `app/services/product.service.go` | Service implementation |
+| `app/services/product.service_test.go` | Service tests |
+| `app/services/product_errors.go` | Per-resource sentinel errors |
+| `app/services/product_inputs.go` | Domain input types |
+| `app/services/product_inputs_test.go` | Domain input tests |
 | `app/dtos/product.dtos.go` | Request/response DTOs with validation |
+| `app/dtos/product.dtos_test.go` | DTO tests |
 | `app/di/providers/product.go` | Wire DI provider |
 | `app/rest/controllers/product.controller.go` | REST controller |
+| `app/rest/controllers/product.controller_test.go` | Controller tests |
 | `app/rest/routes/product.routes.go` | Route definitions (GET, POST, PUT, DELETE) |
 
 Plus automatic patches to wire everything in:

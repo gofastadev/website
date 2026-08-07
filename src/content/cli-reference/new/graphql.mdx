@@ -97,13 +97,11 @@ Wire injects the services into the resolver via `app/di/providers/graphql.go`.
 ```bash
 gofasta new myapp --graphql
 cd myapp
-docker compose up db -d
 gofasta init
-gofasta migrate up
-make dev   # starts the server on :8080
+gofasta dev --services db   # db in Docker, app on the host with hot reload — migrations run automatically
 ```
 
-Then open `http://localhost:8080/playground` in a browser.
+Then open `http://localhost:8080/graphql-playground` in a browser.
 
 ### Combine with `--driver`
 

@@ -11,7 +11,7 @@ keywords:
 
 # gofasta g scaffold
 
-Generates a full CRUD resource spanning all layers of the application. This is the most powerful generator command -- it creates 11 new files and patches 4 existing files to wire everything together. After running this command and applying migrations, you have a fully working REST API for your resource.
+Generates a full CRUD resource spanning all layers of the application. This is the most powerful generator command -- it creates <Fact name="scaffold.createdCount" /> new files (tests included) and patches <Fact name="scaffold.patchedCount" /> existing files to wire everything together. After running this command and applying migrations, you have a fully working REST API for your resource.
 
 **Aliases:** `s`
 
@@ -69,7 +69,7 @@ gofasta g scaffold Category name:string description:text --graphql
 
 ## What It Generates
 
-Running `gofasta g scaffold Product name:string price:float` creates 11 files:
+Running `gofasta g scaffold Product name:string price:float` creates <Fact name="scaffold.createdCount" /> files:
 
 | File | Description |
 |------|-------------|
@@ -78,11 +78,18 @@ Running `gofasta g scaffold Product name:string price:float` creates 11 files:
 | `db/migrations/000006_create_products.down.sql` | Drop table migration |
 | `app/repositories/interfaces/product_repository.go` | Repository interface |
 | `app/repositories/product.repository.go` | Repository implementation |
+| `app/repositories/product.repository_test.go` | Repository tests |
 | `app/services/interfaces/product_service.go` | Service interface |
 | `app/services/product.service.go` | Service implementation |
+| `app/services/product.service_test.go` | Service tests |
+| `app/services/product_errors.go` | Per-resource sentinel errors |
+| `app/services/product_inputs.go` | Domain input types |
+| `app/services/product_inputs_test.go` | Domain input tests |
 | `app/dtos/product.dtos.go` | Request/response DTOs |
+| `app/dtos/product.dtos_test.go` | DTO tests |
 | `app/di/providers/product.go` | Wire DI provider set |
 | `app/rest/controllers/product.controller.go` | REST controller with CRUD handlers |
+| `app/rest/controllers/product.controller_test.go` | Controller tests |
 | `app/rest/routes/product.routes.go` | Route definitions |
 
 It also patches 4 existing files:

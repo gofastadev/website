@@ -110,9 +110,8 @@ Driver-specific quickstart commands (`docker compose up db -d` skipped for SQLit
 ```bash
 gofasta new myapp
 cd myapp
-docker compose up db -d
 gofasta init
-gofasta migrate up
+gofasta dev --services db   # db in Docker, app on the host — migrations run automatically
 ```
 
 ### MySQL
@@ -120,9 +119,8 @@ gofasta migrate up
 ```bash
 gofasta new myapp --driver mysql
 cd myapp
-docker compose up db -d
 gofasta init
-gofasta migrate up
+gofasta dev --services db
 ```
 
 ### SQLite (no Compose service)
@@ -131,7 +129,7 @@ gofasta migrate up
 gofasta new myapp --driver sqlite
 cd myapp
 gofasta init
-gofasta migrate up   # creates myapp.db in the project root
+gofasta dev   # creates myapp.db in the project root on first migrate
 ```
 
 ### SQL Server
@@ -139,9 +137,8 @@ gofasta migrate up   # creates myapp.db in the project root
 ```bash
 gofasta new myapp --driver sqlserver
 cd myapp
-docker compose up db -d
 gofasta init
-gofasta migrate up
+gofasta dev --services db
 ```
 
 ### ClickHouse
@@ -149,14 +146,13 @@ gofasta migrate up
 ```bash
 gofasta new myapp --driver clickhouse
 cd myapp
-docker compose up db -d
 gofasta init
-gofasta migrate up
+gofasta dev --services db
 ```
 
 ## Verifying DB-level enforcement
 
-After `gofasta init` + `gofasta migrate up`, you can confirm the triggers fire by talking to the database directly (i.e. bypassing the generated repositories). Example for Postgres:
+Once `gofasta dev` has started (it applies pending migrations automatically — or run `gofasta migrate up` yourself), you can confirm the triggers fire by talking to the database directly (i.e. bypassing the generated repositories). Example for Postgres:
 
 ```bash
 # Insert a non-deletable row, then try to delete it via psql:

@@ -368,7 +368,7 @@ The CLI exposes ~40 commands and subcommands, grouped below by purpose. Every co
 
 | Command | Description |
 |---------|-------------|
-| `gofasta new <name>` | Bootstrap a new project (~78 files) with full structure, Go module, and starter User resource. Accepts a plain name (`myapp`) or a full module path (`github.com/myorg/myapp`). Add `--graphql` / `--gql` to include gqlgen schema and resolvers. |
+| `gofasta new <name>` | Bootstrap a new project (~<Fact name="skeleton.fileCount" /> files) with full structure, Go module, and starter User resource. Accepts a plain name (`myapp`) or a full module path (`github.com/myorg/myapp`). Add `--graphql` / `--gql` to include gqlgen schema and resolvers. |
 | `gofasta init` | Initialize a freshly cloned project: create `.env` from `.env.example`, run `go mod tidy`, generate Wire DI, generate GraphQL code (if `gqlgen.yml` exists), run database migrations, and verify the build. |
 | `gofasta doctor` | Check system prerequisites (Go, migrate, Docker, air, wire, gqlgen, swag) and project health (`config.yaml`, database connectivity). Useful for bug reports. |
 | `gofasta upgrade` | Self-update to the latest CLI release. Detects whether the binary was installed via `go install` or a pre-built binary and runs the right upgrade path. |
@@ -459,7 +459,7 @@ gofasta new myapp
 This command:
 1. Creates the project directory with the full structure
 2. Runs `go mod init`
-3. Copies ~92 template files (REST-only by default)
+3. Copies ~<Fact name="skeleton.fileCount" /> template files (REST-only by default)
 4. Installs dependencies (`go mod tidy`)
 5. Generates Wire dependency injection code
 6. Includes a starter `User` resource so the project compiles and runs immediately
@@ -683,8 +683,8 @@ The CLI uses Go's `text/template` package to produce source files. Templates are
 
 | Generator | Input | Output |
 |-----------|-------|--------|
-| `new` | Project name, module path, driver | ~78 files: full project structure |
-| `scaffold` | Resource name, field definitions | 11 new files + 4 patched files |
+| `new` | Project name, module path, driver | ~<Fact name="skeleton.fileCount" /> files: full project structure |
+| `scaffold` | Resource name, field definitions | <Fact name="scaffold.createdCount" /> new files (tests included) + <Fact name="scaffold.patchedCount" /> patched files |
 | `model` | Resource name, field definitions | Model struct + migration pair |
 | `migration` | Migration name, optional fields | SQL migration pair (up/down) |
 | `repository` | Resource name, field definitions | Interface + GORM implementation |
@@ -1576,9 +1576,9 @@ CMD ["serve"]
 The development `compose.yaml` includes the application, the configured database, Redis (cache profile), and asynqmon (queue profile); the database and cache services carry container health checks. The development loop is driven by a single command:
 
 ```bash
-gofasta dev                 # db + cache + queue + Air on the host, auto-on profiles
-gofasta dev --all-in-docker # everything inside Docker, including Air
-gofasta dev --no-services   # Air only, bring your own database
+gofasta dev                 # host-first: Air on the host, preflight + interactive recovery
+gofasta dev --services db   # database in Docker, app stays on the host
+gofasta dev --services all  # everything inside Docker, including Air
 ```
 
 `gofasta dev` orchestrates the full pipeline — preflight, service-start with health-wait, migration apply, optional seed, Air hot-reload — and exposes interactive controls (`r` to restart from scratch, `q` to quit, `h` for help) plus a `--dashboard` flag that mounts a live request inspector with trace waterfalls, EXPLAIN-on-click, N+1 detection, and HAR export.

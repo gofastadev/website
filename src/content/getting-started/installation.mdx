@@ -1,15 +1,14 @@
 ---
 title: Installation
-description: Install the Gofasta CLI with `go install` or the pre-built binary install script. Covers macOS, Linux, and Windows (WSL); verifying the install with `gofasta doctor`; and the optional shell completion for bash, zsh, and fish.
+description: Install the Gofasta CLI with `go install` or a pre-built binary from GitHub Releases. Covers macOS, Linux, and Windows; verifying the install with `gofasta doctor`; and the optional shell completion for bash, zsh, and fish.
 keywords:
   - "install Gofasta"
   - "CLI install"
   - "pre-built binary"
-  - "install script"
   - "go install"
   - "macOS install"
   - "Linux install"
-  - "WSL"
+  - "Windows install"
   - "shell completion"
   - "gofasta doctor"
 ---
@@ -32,12 +31,14 @@ Because gofasta is a tool for Go developers, this is the simplest path: you alre
 
 ## Option B: Pre-built binary (no Go toolchain needed)
 
-If you don't have Go installed or just want a single self-contained binary, download the archive for your platform from [GitHub Releases](https://github.com/gofastadev/cli/releases) (macOS and Linux, `amd64` and `arm64`), then unpack it onto your `PATH`:
+If you don't have Go installed or just want a single self-contained binary, download the archive for your platform from [GitHub Releases](https://github.com/gofastadev/cli/releases) (macOS, Linux, and Windows, `amd64` and `arm64`). On macOS/Linux, unpack it onto your `PATH`:
 
 ```bash
 tar -xzf gofasta_*_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz
 sudo install -m 0755 gofasta /usr/local/bin/gofasta
 ```
+
+On Windows, download the `.zip` archive, extract `gofasta.exe`, and place it in a directory on your `%PATH%`.
 
 ## Verify Installation
 
