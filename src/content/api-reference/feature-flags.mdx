@@ -167,9 +167,12 @@ The `userID` becomes the OpenFeature **targeting key**. Providers that support s
 
 ```go
 func (c *DashboardController) Index(w http.ResponseWriter, r *http.Request) error {
-    claims := auth.ClaimsFromContext(r.Context())
+    claims, err := auth.ClaimsFromContext(r.Context())
+    if err != nil {
+        return err
+    }
 
-    if c.ffService.IsEnabled(r.Context(), "new-dashboard", claims.UserID, nil) {
+    if c.ffService.IsEnabled(r.Context(), "new-dashboard", claims.SubjectID(), nil) {
         return httputil.OK(w, newDashboardData)
     }
     return httputil.OK(w, legacyDashboardData)

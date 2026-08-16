@@ -235,11 +235,14 @@ Access user info in controllers:
 
 ```go
 func (c *UserController) GetProfile(w http.ResponseWriter, r *http.Request) error {
-    claims := auth.ClaimsFromContext(r.Context())
-    userID := claims.UserID
+    claims, err := auth.ClaimsFromContext(r.Context())
+    if err != nil {
+        return err
+    }
+    subjectID := claims.SubjectID() // the `sub` claim
     role := claims.Role
 
-    user, err := c.service.FindByID(r.Context(), userID)
+    user, err := c.service.FindByID(r.Context(), subjectID)
     if err != nil {
         return err
     }

@@ -100,9 +100,13 @@ Access the authenticated claims in your handler:
 
 ```go
 func profileHandler(w http.ResponseWriter, r *http.Request) {
-    claims := auth.ClaimsFromContext(r.Context())
-    fmt.Println(claims.UserID) // "user-123"
-    fmt.Println(claims.Roles)  // ["admin"]
+    claims, err := auth.ClaimsFromContext(r.Context())
+    if err != nil {
+        http.Error(w, "unauthenticated", http.StatusUnauthorized)
+        return
+    }
+    fmt.Println(claims.SubjectID()) // "user-123" — the `sub` claim
+    fmt.Println(claims.Roles)       // ["admin"]
 }
 ```
 

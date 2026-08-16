@@ -30,12 +30,30 @@ import "github.com/gofastadev/gofasta/pkg/auth"
 
 ```go
 type Claims struct {
-    UserID   string   `json:"user_id"`
-    Email    string   `json:"email"`
-    Roles    []string `json:"roles"`
     jwt.RegisteredClaims
+    Role  string   `json:"role"`
+    Roles []string `json:"roles,omitempty"`
 }
 ```
+
+The authenticated principal is the registered `sub` claim (RFC 7519 §4.1.2),
+carried by the embedded `jwt.RegisteredClaims`. Read it with `SubjectID()`:
+
+```go
+subject := claims.SubjectID() // the `sub` claim, or "" when the token names none
+```
+
+Two things about `sub` worth knowing before you build on it:
+
+- It is a **subject**, not necessarily a user. Under the client-credentials
+  grant `sub` conventionally holds a client id, so code assuming it names a row
+  in your users table is wrong for that grant.
+- It is unique **within the issuer**, not globally — the globally unique identity
+  is the pair (`iss`, `sub`). If you accept tokens from more than one issuer,
+  key on both, or two issuers' subjects can collide into one identity.
+
+Roles come as a single `role` or a `roles` array; `HasRole`, `HasAnyRole` and
+`RoleLadder` read both.
 
 ### AuthConfig
 

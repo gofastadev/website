@@ -254,11 +254,14 @@ GraphQL requests pass through the same middleware stack as REST. The JWT auth mi
 
 ```go
 func (r *mutationResolver) CreateProduct(ctx context.Context, input dtos.TCreateProductDto) (*dtos.Product, error) {
-    claims := auth.ClaimsFromContext(ctx)
-    userID := claims.UserID
+    claims, err := auth.ClaimsFromContext(ctx)
+    if err != nil {
+        return nil, err
+    }
+    subjectID := claims.SubjectID() // the `sub` claim
     role := claims.Role
 
-    // Use userID and role for authorization logic
+    // Use subjectID and role for authorization logic
     // ...
 }
 ```
