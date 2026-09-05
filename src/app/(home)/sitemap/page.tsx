@@ -7,7 +7,7 @@ import { getAllPosts, getAllTags } from "@/lib/blog";
 export const metadata: Metadata = {
   title: "Sitemap",
   description:
-    "Complete sitemap of the Gofasta documentation — all guides, CLI reference, and API reference pages.",
+    "Complete sitemap of the Gofasta documentation: all guides, CLI reference, and API reference pages.",
   keywords: withBaseKeywords("sitemap", "site map", "all pages", "index"),
   alternates: {
     canonical: `${SITE_URL}/sitemap`,
@@ -80,7 +80,7 @@ const sections = [
     ],
   },
   {
-    title: "CLI Reference — Generate",
+    title: "CLI Reference: Generate",
     links: [
       { href: "/docs/cli-reference/generate/scaffold", label: "scaffold" },
       { href: "/docs/cli-reference/generate/model", label: "model" },

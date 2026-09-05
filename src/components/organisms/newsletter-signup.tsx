@@ -64,7 +64,7 @@ export function NewsletterSignup({ location }: NewsletterSignupProps) {
       </p>
       {status === "success" ? (
         <p role="status" className="mt-4 text-sm font-medium text-primary">
-          Almost there — check your inbox to confirm your subscription.
+          Almost there. Check your inbox to confirm your subscription.
         </p>
       ) : (
         <form
@@ -92,7 +92,7 @@ export function NewsletterSignup({ location }: NewsletterSignupProps) {
       )}
       {status === "error" ? (
         <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">
-          Something went wrong — check your connection and try again.
+          Something went wrong. Check your connection and try again.
         </p>
       ) : null}
     </section>

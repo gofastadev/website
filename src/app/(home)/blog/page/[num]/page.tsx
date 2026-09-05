@@ -25,8 +25,8 @@ export async function generateMetadata({
   params: Promise<{ num: string }>;
 }): Promise<Metadata> {
   const { num } = await params;
-  const title = `Blog — Page ${num} — Gofasta`;
-  const description = `Page ${num} of the Gofasta engineering blog — CLI changes, library updates, and longer-form posts on Go backend topics.`;
+  const title = `Blog - Page ${num} - Gofasta`;
+  const description = `Page ${num} of the Gofasta engineering blog: CLI changes, library updates, and longer-form posts on Go backend topics.`;
   const url = `${SITE_URL}/blog/page/${num}`;
 
   return {
@@ -49,7 +49,7 @@ export async function generateMetadata({
       description,
       images: [
         {
-          url: `/api/og?title=${encodeURIComponent(`Blog — Page ${num}`)}&section=Blog`,
+          url: `/api/og?title=${encodeURIComponent(`Blog - Page ${num}`)}&section=Blog`,
           width: 1200,
           height: 630,
           alt: title,
@@ -61,7 +61,7 @@ export async function generateMetadata({
       title,
       description,
       images: [
-        `/api/og?title=${encodeURIComponent(`Blog — Page ${num}`)}&section=Blog`,
+        `/api/og?title=${encodeURIComponent(`Blog - Page ${num}`)}&section=Blog`,
       ],
     },
   };

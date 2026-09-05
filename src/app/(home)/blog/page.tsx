@@ -13,7 +13,7 @@ export const dynamic = "force-static";
 const CANONICAL = "https://gofasta.dev/blog";
 
 export const metadata: Metadata = {
-  title: "Blog — Gofasta",
+  title: "Blog - Gofasta",
   description:
     "Engineering notes on the Gofasta toolkit: CLI changes, library updates, and longer-form posts on Go backend topics.",
   keywords: withBaseKeywords(
@@ -36,9 +36,9 @@ export const metadata: Metadata = {
     type: "website",
     url: CANONICAL,
     siteName: "Gofasta",
-    title: "Blog — Gofasta",
+    title: "Blog - Gofasta",
     description:
-      "Engineering notes on the Gofasta toolkit — CLI changes, library updates, and longer-form posts on Go backend topics.",
+      "Engineering notes on the Gofasta toolkit: CLI changes, library updates, and longer-form posts on Go backend topics.",
     images: [
       {
         url: "/api/og?title=Blog&section=Blog",
@@ -50,9 +50,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Blog — Gofasta",
+    title: "Blog - Gofasta",
     description:
-      "Engineering notes on the Gofasta toolkit — CLI changes, library updates, and longer-form posts on Go backend topics.",
+      "Engineering notes on the Gofasta toolkit: CLI changes, library updates, and longer-form posts on Go backend topics.",
     images: ["/api/og?title=Blog&section=Blog"],
   },
 };

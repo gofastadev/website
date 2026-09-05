@@ -312,7 +312,7 @@ export function buildBlogIndexJsonLd(input: BlogIndexInput) {
         "@id": indexUrl,
         name: "Gofasta Blog",
         description:
-          "Engineering notes on the Gofasta toolkit — CLI changes, library updates, and longer-form posts on Go backend topics.",
+          "Engineering notes on the Gofasta toolkit: CLI changes, library updates, and longer-form posts on Go backend topics.",
         url: indexUrl,
         inLanguage: "en",
         publisher: buildOrganizationNode(),
@@ -360,7 +360,7 @@ export function buildTagPageJsonLd(input: TagPageInput) {
       {
         "@type": "CollectionPage",
         "@id": url,
-        name: `#${tag} — Gofasta Blog`,
+        name: `#${tag} - Gofasta Blog`,
         url,
         inLanguage: "en",
         isPartOf: { "@type": "Blog", "@id": `${SITE_URL}/blog` },

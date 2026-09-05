@@ -90,7 +90,7 @@ export async function generateMetadata({
   const post = getPost(slug);
   if (!post)
     return {
-      title: "Post not found — Gofasta Blog",
+      title: "Post not found - Gofasta Blog",
       robots: { index: false, follow: false },
     };
 
@@ -98,7 +98,7 @@ export async function generateMetadata({
   const ogImage = postOgImage(post);
 
   return {
-    title: `${post.title} — Gofasta Blog`,
+    title: `${post.title} - Gofasta Blog`,
     description: post.description,
     keywords: withBaseKeywords("blog", ...post.tags),
     authors: post.authorUrl

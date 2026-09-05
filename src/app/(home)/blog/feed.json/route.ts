@@ -11,7 +11,7 @@ const META: SiteMeta = {
   siteUrl: "https://gofasta.dev",
   title: "Gofasta Blog",
   description:
-    "Engineering notes on the Gofasta toolkit — CLI changes, library updates, and longer-form posts on Go backend topics.",
+    "Engineering notes on the Gofasta toolkit: CLI changes, library updates, and longer-form posts on Go backend topics.",
   language: "en-US",
 };
 

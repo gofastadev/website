@@ -17,32 +17,32 @@ cover: /blog/covers/deploy-go-app-vps/cover.jpg
 ---
 ## The unfashionable case for one server
 
-Somewhere along the way, "deploy" started to imply a control plane. A cluster, a service mesh, a YAML directory that outweighs the application. For plenty of teams that's the right call. For a lot of Go backends, it's a mortgage on complexity you never needed to take out.
+Somewhere along the way "deploy" started to imply a control plane. A cluster, a service mesh, a YAML directory that outweighs the application. For plenty of teams that is the right call. For a lot of Go backends it is a mortgage on complexity nobody needed to take out.
 
-Here's the thing about Go that deployment conversations keep forgetting: `go build` hands you one static binary. No runtime to install, no dependency directory to sync, no interpreter version to reconcile with the OS. The deliverable is a file. And a modest VPS — the kind that costs less per month than a team lunch — will happily push thousands of requests per second through that file while barely waking the CPU.
+Here is the thing about Go that deployment conversations keep forgetting. `go build` hands you one static binary. No runtime to install, no dependency directory to sync, no interpreter version to reconcile with the OS. The deliverable is a file. And a modest VPS, the kind that costs less per month than a team lunch, will push thousands of requests per second through that file while barely waking the CPU.
 
-We're not going to pretend the managed platforms buy you nothing. They buy you real things: nobody pages you about disks, scaling is a slider, and the ops surface is someone else's roadmap. If you have the traffic profile or the team shape that needs that, take it. But an awful lot of products spend their entire lives comfortably inside one box, and the honest arithmetic — a few dollars a month against a platform bill that scales with success — deserves a fair hearing before the cluster does.
+We are not going to pretend the managed platforms buy you nothing. They buy real things. Nobody pages you about disks, scaling is a slider, and the ops surface is someone else's roadmap. If your traffic profile or team shape needs that, take it. But an awful lot of products spend their entire lives comfortably inside one box, and the arithmetic of a few dollars a month against a platform bill that scales with your success deserves a fair hearing before the cluster does.
 
 This is part 4 of *Production Go, step by step*. We [built the API](/blog/build-production-rest-api-go), [locked it down](/blog/jwt-authentication-rbac-go), and [put the schema under version control](/blog/database-migrations-go). Now we ship it.
 
 ## "Deploy" is more than getting bytes onto the box
 
-The reason VPS deployment has a bad reputation isn't the VPS. It's that most homegrown deploy scripts are three lines of `scp` and a restart, and those three lines answer none of the questions that matter at 6pm on a Friday:
+The reason VPS deployment has a bad reputation is not the VPS. It is that most homegrown deploy scripts are three lines of `scp` and a restart, and those three lines answer none of the questions that matter at 6pm on a Friday.
 
 * Did the new version actually come up, or did it die on a missing config key while the script printed "done"?
-* What exactly is running right now — which build, deployed when, by whom?
-* The release is bad. What's the path back, and how long does it take under pressure?
+* What exactly is running right now, which build, deployed when, by whom?
+* The release is bad. What is the path back, and how long does it take under pressure?
 * What did the app log in the thirty seconds before it fell over?
 
-Answer those badly and you don't have a deployment process; you have a ritual that works until it doesn't. Kubernetes answers them with a control plane. Our position is that you can answer all four on a single server with a disciplined CLI — which is what `gofasta deploy` is.
+Answer those badly and you do not have a deployment process, you have a ritual that works until it does not. Kubernetes answers them with a control plane. Our position is that you can answer all four on a single server with a disciplined CLI, which is what `gofasta deploy` is.
 
 ## Setting the server up once
 
-`gofasta deploy setup` connects to your VPS over plain SSH — no agent to install on the box, no daemon phoning home — and prepares the host to run your app: the Docker runtime for your services, the pieces the deploy flow expects, done once and recorded. The scaffold already carries a production compose file alongside the development one, so the shape of "what runs in production" lives in your repository, versioned and reviewable like everything else.
+`gofasta deploy setup` connects to your VPS over plain SSH, with no agent to install on the box and no daemon phoning home, and prepares the host to run your app. It sets up the Docker runtime for your services and the pieces the deploy flow expects, once, and records that it did. The scaffold already carries a production compose file alongside the development one, so the shape of what runs in production lives in your repository, versioned and reviewable like everything else.
 
-That's the philosophy across the whole flow, and it's the same one we described back in [Hello, Gofasta](/blog/hello-gofasta): the CLI runs, does its work over SSH, and gets out of the way. No hidden state on your laptop, no control plane between you and your server. If you ever walk away from the toolkit, you still have a normal Linux box running normal containers, fully yours.
+That is the philosophy across the whole flow, and it is the one we described back in [Hello, Gofasta](/blog/hello-gofasta). The CLI runs, does its work over SSH, and gets out of the way. No hidden state on your laptop, no control plane between you and your server. If you ever walk away from the toolkit you still have a normal Linux box running normal containers, fully yours.
 
-It also means the release path is the same from every seat. A teammate's first deploy looks identical to your hundredth: same command, same health gate, same rollback behavior. The scaffold even ships CI workflow files ready to copy into `.github/workflows/`, so "deploys only happen from CI after tests pass" is a ten-minute policy decision rather than an infrastructure project. Your migrations ride along too — the schema changes we versioned in [part 3](/blog/database-migrations-go) travel with the release that needs them, which is the only ordering that never surprises anyone.
+It also means the release path is the same from every seat. A teammate's first deploy looks identical to your hundredth: same command, same health gate, same rollback behavior. The scaffold ships CI workflow files ready to copy into `.github/workflows/`, so "deploys only happen from CI after tests pass" becomes a ten-minute policy decision rather than an infrastructure project. Your migrations ride along too. The schema changes we versioned in [part 3](/blog/database-migrations-go) travel with the release that needs them, which is the only ordering that never surprises anyone.
 
 ## The deploy, and the Friday-evening scenario
 
@@ -52,9 +52,9 @@ A release is one command:
 gofasta deploy
 ```
 
-The part that matters is what happens *after* the new version starts. A scaffolded gofasta project exposes health endpoints from day one — `/health/live` for "the process is up" and `/health/ready` for "up *and* the database and cache answer" — and the deploy flow uses them as a gate, not decoration. The new version has to prove it's actually serving before the release is considered done.
+The part that matters is what happens *after* the new version starts. A scaffolded project exposes health endpoints from day one, with `/health/live` meaning the process is up and `/health/ready` meaning up and the database and cache both answer. The deploy flow uses them as a gate rather than decoration. The new version has to prove it is serving before the release counts as done.
 
-And when it can't prove it? It rolls back. Automatically. The broken build comes down, the previous version comes back, and your Friday evening continues — with an error to read on Monday instead of an outage to fight tonight. That distinction, deploy-as-transaction instead of deploy-as-hope, is the single biggest thing separating a real deployment process from the `scp` script.
+And when it cannot prove it, the release rolls back on its own. The broken build comes down, the previous version returns, and your Friday evening continues with an error to read on Monday instead of an outage to fight tonight. Deploy as a transaction instead of deploy as hope is the single biggest thing separating a real deployment process from the `scp` script.
 
 The rest of the answers come from the same place:
 
@@ -64,48 +64,52 @@ gofasta deploy logs       # the app's logs, from your terminal, no ssh-and-grep
 gofasta deploy rollback   # the manual lever, for the failures a health check can't see
 ```
 
-That last one matters more than it looks. Automatic rollback catches the version that won't boot or can't reach its database. It cannot catch the version that boots beautifully and calculates every invoice wrong. Some failures are only visible to a human — so the human gets a one-command path back too.
+That last one matters more than it looks. Automatic rollback catches the version that will not boot or cannot reach its database. It cannot catch the version that boots beautifully and calculates every invoice wrong. Some failures are only visible to a human, so the human gets a one-command path back too.
 
-One more thing, because deployment tooling is exactly the kind of software where "it should work" isn't good enough: this flow is tested end to end in our CI against a disposable "VPS" container running systemd, sshd, Docker, and PostgreSQL. Real setup, real deploys, repeat deploys — and a deliberately broken release, to prove the automatic rollback actually fires instead of merely existing in the README. That test adds real minutes to every CI run. We keep it because a deploy tool whose rollback path is untested is a rumor, not a feature.
+Deployment tooling is exactly the kind of software where "it should work" is not good enough, so this flow is tested end to end in our CI against a disposable VPS container running systemd, sshd, Docker and PostgreSQL. Real setup, real deploys, repeat deploys, and a deliberately broken release to prove the automatic rollback actually fires rather than merely existing in the README. That test adds real minutes to every CI run. We keep it because a deploy tool whose rollback path is untested is a rumor, not a feature.
 
 The [deploy reference](/docs/cli-reference/deploy) documents every command and flag.
 
-## What you're actually running once it's up
+## What you are actually running once it is up
 
-A deploy tool can only gate on what the application exposes, so it's worth saying what a scaffolded project brings to the party — because most of the "day two" work on a VPS is really observability work.
+A deploy tool can only gate on what the application exposes, so it is worth saying what a scaffolded project brings. Most of the day-two work on a VPS is really observability work.
 
-Logs are structured from the first request: the scaffold logs through Go's `slog`, and in production you'd run it in JSON mode, which turns `gofasta deploy logs` from a wall of text into something you can actually filter. Metrics are already there too — the scaffold wires Prometheus counters and latency histograms behind a `/metrics` endpoint, so pointing any Prometheus instance (or a hosted scraper) at your box is configuration, not code. Distributed tracing via OpenTelemetry ships in the same package, ready for the day one server becomes two services.
+Logs are structured from the first request, going through Go's `slog`, and in production you would run JSON mode, which turns `gofasta deploy logs` from a wall of text into something you can filter. Metrics are already there, with Prometheus counters and latency histograms behind a `/metrics` endpoint, so pointing any Prometheus instance or hosted scraper at your box is configuration rather than code. Distributed tracing via OpenTelemetry ships in the same package, ready for the day one server becomes two services.
 
-And the health endpoints doing the gating aren't deploy-specific machinery; they're the same `/health`, `/health/live`, and `/health/ready` probes you'd hand to an uptime monitor. The readiness probe checks the database and the cache because that's what "ready" means — a process that's up but can't reach Postgres shouldn't be receiving traffic, during a deploy or any other time.
+The health endpoints doing the gating are not deploy-specific machinery. They are the same probes you would hand an uptime monitor. Readiness checks the database and cache because that is what ready means: a process that is up but cannot reach Postgres should not be receiving traffic, during a deploy or at any other time.
 
-Configuration follows the same no-mystery rule as everything else: `config.yaml` for the shape, environment variables for the secrets, loaded by one package you can read in a sitting. Nothing on the server is special; a teammate with SSH access and no gofasta knowledge could reconstruct what's running and why.
+Configuration follows the same no-mystery rule as everything else. `config.yaml` for the shape, environment variables for the secrets, loaded by one package you can read in a sitting. Nothing on the server is special, and a teammate with SSH access and no gofasta knowledge could reconstruct what is running and why.
 
-The debug dashboard deserves a footnote here, mostly for what it *doesn't* cost: it's gated behind a build tag, so the production binary you just deployed carries none of it. Development gets the introspection; the release stays lean. You don't have to remember to turn anything off, which — given that this whole post is about Friday evenings — is the correct default.
+The debug dashboard deserves a footnote here, mostly for what it does not cost. It is gated behind a build tag, so the production binary you just deployed carries none of it. Development gets the introspection and the release stays lean. You never have to remember to turn anything off, which, given that this post is about Friday evenings, is the correct default.
 
-## What a single VPS honestly doesn't solve
+## What a single VPS honestly does not solve
 
-We'd rather draw this line ourselves than have you find it in an incident review.
+We would rather draw this line ourselves than have you find it in an incident review.
 
-One server is one failure domain. When the box dies — hardware, kernel, the provider's bad day — you're down until it's back; there's no second node to absorb the hit. Automatic rollback protects you from bad *releases*, not from bad *hosts*. Backups are on you, and the database deserves particular respect here: a copy of the binary is trivially replaceable, your data is not. And if your traffic genuinely spikes past what one machine handles, no deploy tool fixes that — you've reached the point where a load balancer, a managed database, or a platform stops being complexity and starts being the job.
+One server is one failure domain. When the box dies, whether from hardware, the kernel, or the provider's bad day, you are down until it comes back. There is no second node to absorb the hit. Automatic rollback protects you from bad releases, not bad hosts.
 
-None of that is an argument against starting on a VPS. It's an argument for knowing which problems you've deferred, and noticing when one of them stops being deferrable. Plenty of products never get there. The ones that do usually count it as good news.
+Backups are on you, and the database deserves particular respect. A copy of the binary is trivially replaceable and your data is not.
+
+And if traffic genuinely spikes past what one machine handles, no deploy tool fixes that. You have reached the point where a load balancer, a managed database, or a platform stops being complexity and starts being the job.
+
+None of that argues against starting on a VPS. It argues for knowing which problems you deferred and noticing when one stops being deferrable. Plenty of products never get there, and the ones that do usually count it as good news.
 
 ## Two chores that stay yours
 
-Being honest about scope cuts both ways, so: two pieces of a production VPS sit deliberately outside the deploy flow, because they're host concerns rather than release concerns, and pretending otherwise would just hide them.
+Being honest about scope cuts both ways. Two pieces of a production VPS sit deliberately outside the deploy flow, because they are host concerns rather than release concerns, and pretending otherwise would only hide them.
 
-The first is TLS. Terminate it in front of the app — a reverse proxy like [Caddy](https://caddyserver.com) gets you automatic Let's Encrypt certificates in a four-line config, and nginx does the same with a little more ceremony. Your Go process listens on localhost; the proxy owns 443. This is one of those rare places where the boring conventional setup is also simply the best one.
+The first is TLS. Terminate it in front of the app. A reverse proxy like [Caddy](https://caddyserver.com) gets you automatic Let's Encrypt certificates in a four-line config, and nginx does the same with a little more ceremony. Your Go process listens on localhost and the proxy owns 443. This is one of the rare places where the boring conventional setup is also simply the best one.
 
-The second is backups, which we mentioned above but will happily repeat, because nobody ever regretted hearing it twice: a deploy tool can restore your previous *binary* in seconds, and can do nothing at all about your data. Scheduled database dumps shipped off the box — object storage is pennies — are the difference between a bad host day and a bad company day. Set them up before the first real user, and test the restore once so it isn't a theory.
+The second is backups, which we mentioned above and will happily repeat, because nobody ever regretted hearing it twice. A deploy tool restores your previous binary in seconds and can do nothing at all about your data. Scheduled database dumps shipped off the box, into object storage that costs pennies, are the difference between a bad host day and a bad company day. Set them up before the first real user, and test the restore once so it is not a theory.
 
-## If you'd rather have a control panel
+## If you would rather have a control panel
 
-Some teams want the single-server economics but with a dashboard on top: a UI for deploys, buttons instead of commands. Fair enough — that layer exists and it's mature. [Coolify](https://coolify.io), [Dokploy](https://dokploy.com), and [Kamal](https://kamal-deploy.org) all run your containers on hardware you control, and a gofasta project deploys onto any of them without ceremony, because a scaffolded project is just Go plus Docker — nothing about it assumes our deploy flow. We keep [guides for all three](/docs/guides/deployment) in the docs.
+Some teams want single-server economics with a dashboard on top, meaning a UI for deploys and buttons instead of commands. That layer exists and it is mature. [Coolify](https://coolify.io), [Dokploy](https://dokploy.com) and [Kamal](https://kamal-deploy.org) all run your containers on hardware you control, and a gofasta project deploys onto any of them without ceremony, because a scaffolded project is just Go plus Docker and nothing about it assumes our deploy flow. We keep [guides for all three](/docs/guides/deployment) in the docs.
 
-The through-line, whichever route you pick: your app, your server, your data, a deliberate absence of mystery.
+The through-line, whichever route you pick: your app, your server, your data, and a deliberate absence of mystery.
 
 ## The series, wrapped
 
-Four posts, one arc: [scaffold a production-shaped API](/blog/build-production-rest-api-go), [authenticate and authorize it](/blog/jwt-authentication-rbac-go), [version its schema](/blog/database-migrations-go), and ship it to a machine you control — with health checks standing guard and a tested way back when a release goes wrong.
+Four posts, one arc. [Scaffold a production-shaped API](/blog/build-production-rest-api-go), [authenticate and authorize it](/blog/jwt-authentication-rbac-go), [version its schema](/blog/database-migrations-go), and ship it to a machine you control, with health checks standing guard and a tested way back when a release goes wrong.
 
-None of it requires a platform team. That was rather the point. The [Quick Start](/docs/getting-started/quick-start) covers the first five minutes if you're starting from zero, and the deploy flow is waiting behind one command when you get there.
+None of it requires a platform team. That was rather the point. The [Quick Start](/docs/getting-started/quick-start) covers the first five minutes if you are starting from zero, and the deploy flow is waiting behind one command when you get there.

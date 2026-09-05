@@ -3,7 +3,7 @@ draft: true
 title: How to build a production-ready REST API in Go (2026 edition)
 description: >-
   A start-to-finish walkthrough of building a Go REST API with the Gofasta
-  toolkit — scaffold the project, generate a resource, and make it genuinely
+  toolkit. Scaffold the project, generate a resource, and make it genuinely
   production-ready.
 publishedAt: 2026-06-05T10:00:00.000Z
 author: Gofasta Team
@@ -17,9 +17,9 @@ series: Production Go, step by step
 seriesPart: 1
 cover: /blog/covers/build-production-rest-api-go/cover.png
 ---
-"Build a REST API in Go" tutorials usually stop at the exact moment things get interesting. You get a router, two handlers, and an in-memory map pretending to be a database. Then the article ends, and you're left to figure out migrations, auth, error handling, logging, and deployment on your own — which is to say, you're left to figure out the actual work.
+"Build a REST API in Go" tutorials tend to stop at the exact moment things get interesting. You get a router, two handlers, and an in-memory map pretending to be a database. Then the post ends and you are on your own for migrations, auth, error handling, logging and deployment. Which is to say, you are on your own for the actual work.
 
-This is the first post in a series we're calling *Production Go, step by step*, and we want to do the opposite. We'll go from an empty directory to an API that has a database with versioned migrations, JWT authentication, structured errors, health probes, and metrics — and we'll be honest about which parts are genuinely hard. We'll use the [Gofasta toolkit](https://gofasta.dev/docs/getting-started/introduction) to skip the boilerplate, but every layer it generates is plain Go you could have written by hand. That's rather the point.
+This is the first post in a series we are calling *Production Go, step by step*, and we want to do the opposite. We are going from an empty directory to an API with a database under versioned migrations, JWT authentication, structured errors, health probes and metrics. We will also be straight with you about which parts are genuinely hard. We use the [Gofasta toolkit](https://gofasta.dev/docs/getting-started/introduction) to skip the boilerplate, but every layer it generates is plain Go you could have written by hand. That is rather the point.
 
 ## Zero to a running project
 
@@ -30,34 +30,34 @@ go install github.com/gofastadev/cli/cmd/gofasta@latest
 gofasta new bookshelf
 ```
 
-Postgres is the default. If your team runs MySQL, SQLite, SQL Server, or ClickHouse, pass `--driver mysql` (or whichever) and the migrations, Docker services, and config all come out matched to that database. There's also `--graphql` if you want gqlgen wired up next to REST, and `--layout` to pick between layered and feature-based code organization — we'll dig into that choice in [a separate post](/blog/go-project-structure-layered-vs-feature).
+Postgres is the default. If your team runs MySQL, SQLite, SQL Server or ClickHouse, pass `--driver mysql` or whichever applies, and the migrations, Docker services and config all come out matched to that database. There is also `--graphql` if you want gqlgen wired up next to REST, and `--layout` to choose between layered and feature-based organization. We dig into that choice in [a separate post](/blog/go-project-structure-layered-vs-feature).
 
-What lands on disk is roughly 80 files of ordinary Go. Not a starter kit that imports some application object, and not a zip file you'll be afraid to touch. The server is a stdlib `http.Server` with [chi](https://github.com/go-chi/chi) routing requests. Models are [GORM](https://gorm.io) structs. Dependency injection resolves at compile time with [Google Wire](https://github.com/google/wire). Logging goes through `slog`. The commands you'll run — `serve`, `migrate`, `seed` — are Cobra subcommands you can read in a minute each.
+What lands on disk is roughly 80 files of ordinary Go. Not a starter kit that imports some application object, and not a zip file you will be afraid to touch. The server is a stdlib `http.Server` with [chi](https://github.com/go-chi/chi) routing requests. Models are [GORM](https://gorm.io) structs. Dependency injection resolves at compile time with [Google Wire](https://github.com/google/wire). Logging goes through `slog`. The commands you will run, `serve` and `migrate` and `seed`, are Cobra subcommands you can read in a minute each.
 
-The scaffold imports packages from the Gofasta library (`pkg/config`, `pkg/auth`, `pkg/middleware`, and friends) as opt-out defaults, the same way any Go service imports its chosen router or ORM. Don't like one? Delete the import and bring your own. Nothing else moves.
+The scaffold imports packages from the Gofasta library, `pkg/config` and `pkg/auth` and `pkg/middleware` among them, as opt-out defaults. It is the same relationship any Go service has with its chosen router or ORM. If you do not like one, delete the import and bring your own. Nothing else moves.
 
 ## A tour before we build anything
 
-Spend five minutes reading the tree before generating code. It pays off. The short version:
+Spend five minutes reading the tree before you generate anything. It pays off. The short version:
 
 - `app/` holds your domain code: models, repositories, services, controllers, DTOs.
 - `db/migrations/` holds SQL migrations, already seeded with a users table and some database-level guardrails.
 - `config.yaml` plus environment variables configure everything through `pkg/config`.
-- Docker files and CI workflows are there from the first commit, not bolted on the week before launch.
+- Docker files and CI workflows are there from the first commit rather than bolted on the week before launch.
 
-One detail worth calling out: every model embeds `BaseModelImpl` from `pkg/models`, which gives you a UUID primary key, `CreatedAt`, `UpdatedAt`, soft deletes, and a `RecordVersion` field used for optimistic locking. Two writers updating the same row won't silently clobber each other; the stale write is rejected. Most hand-rolled projects add that after their first data-corruption incident. We'd rather you have it before.
+One detail deserves calling out. Every model embeds `BaseModelImpl` from `pkg/models`, which supplies a UUID primary key, `CreatedAt`, `UpdatedAt`, soft deletes, and a `RecordVersion` field for optimistic locking. Two writers updating the same row will not silently clobber each other, because the stale write gets rejected. Most hand-rolled projects add that right after their first data-corruption incident. We would rather you have it before.
 
 The full layout is documented in [Project Structure](https://gofasta.dev/docs/getting-started/project-structure) if you want the room-by-room tour.
 
 ## Generate the first resource
 
-Here's where a toolkit earns its keep. We're building a bookshelf API, so we need a `Book` resource:
+Here is where a toolkit earns its keep. We are building a bookshelf API, so we need a `Book`:
 
 ```bash
 gofasta g scaffold Book title:string author:string blurb:text pages:int
 ```
 
-One command, and you get the entire vertical slice:
+One command produces the entire vertical slice:
 
 - a GORM model with the fields typed correctly (`string` becomes `VARCHAR(255)`, `text` becomes `TEXT`, `int` becomes `INTEGER`)
 - a SQL migration pair to create the table
@@ -67,7 +67,9 @@ One command, and you get the entire vertical slice:
 - a controller exposing the CRUD endpoints
 - route registration, a Wire provider, and tests for each layer
 
-Run `gofasta migrate up`, and the table exists. Run `gofasta routes`, and you'll see the new endpoints listed. That's a working CRUD API for `Book` in about a minute, and — this matters — the generated code is code, not configuration. The CLI writes the files and gets out of the way. It doesn't watch them, sync them, or regenerate them behind your back. Edit the service layer however you like; it's yours now.
+Run `gofasta migrate up` and the table exists. Run `gofasta routes` and the new endpoints are listed. That is a working CRUD API for `Book` in about a minute.
+
+The part that matters most: what you got is code, not configuration. The CLI wrote the files and left. It does not watch them, sync them, or regenerate them behind your back. Edit the service layer however you like. It belongs to you now.
 
 The [scaffold reference](https://gofasta.dev/docs/cli-reference/generate/scaffold) covers all seven field types and what each maps to in SQL and GraphQL.
 
@@ -79,7 +81,7 @@ Start everything with one command:
 gofasta dev
 ```
 
-That brings up the Docker services (Postgres, in our case), applies pending migrations, and starts the server under [Air](https://github.com/air-verse/air) so a file save triggers a rebuild in about a second. No `docker compose up` in one terminal, `air` in another, and a sticky note reminding you to run migrations. We wrote up the whole loop, including the debug dashboard, in [a dedicated post](/blog/go-hot-reload-dev-loop).
+That brings up the Docker services, applies pending migrations, and starts the server under [Air](https://github.com/air-verse/air) so a file save triggers a rebuild in about a second. No `docker compose up` in one terminal, `air` in another, and a sticky note reminding you to run migrations. We wrote up the whole loop, debug dashboard included, in [a dedicated post](/blog/go-hot-reload-dev-loop).
 
 Try the API:
 
@@ -89,68 +91,86 @@ curl -s localhost:8080/api/v1/books \
   -d '{"title":"The Go Programming Language","author":"Donovan & Kernighan","pages":380}'
 ```
 
-You'll get a JSON response with the created record — UUID, timestamps, the lot. A `GET` to the collection endpoint returns paginated results, because pagination DTOs ship in `pkg/types` and the generated repository uses them. Pagination is another one of those things every tutorial skips and every production API needs by week two.
+You get back a JSON response with the created record, UUID and timestamps and all. A `GET` to the collection endpoint returns paginated results, because pagination DTOs ship in `pkg/types` and the generated repository uses them. Pagination is another one of those things every tutorial skips and every production API needs by week two.
 
 ## What the layers actually do
 
-The request path is deliberately boring: controller, then service, then repository. The controller's only job is HTTP — it uses `pkg/httputil` to bind and validate the request body, calls the service, and writes the response. The service holds the rules of your domain. The repository talks to the database and nothing else.
+The request path is deliberately boring. Controller, then service, then repository. The controller only does HTTP: it uses `pkg/httputil` to bind and validate the request body, calls the service, and writes the response. The service holds the rules of your domain. The repository talks to the database and to nothing else.
 
 Two library packages do quiet, load-bearing work here.
 
-`pkg/errors` gives you typed application errors — not found, bad request, conflict, internal — that map to HTTP status codes automatically. Your service returns a semantic error; the HTTP layer translates it. Nobody writes `w.WriteHeader(404)` in a service, and clients get a consistent error shape whether the failure came from validation, a missing record, or a version conflict.
+`pkg/errors` gives you typed application errors for not-found, bad-request, conflict and internal cases, and maps them to HTTP status codes automatically. Your service returns something semantic and the HTTP layer translates. Nobody writes `w.WriteHeader(404)` in a service, and clients get a consistent error shape whether the failure came from validation, a missing record, or a version conflict.
 
-`pkg/validators` wraps [go-playground/validator](https://github.com/go-playground/validator) and turns tag-based validation failures into structured error DTOs, so a request with a missing title fails with a field-level message rather than a vague 400.
+`pkg/validators` wraps [go-playground/validator](https://github.com/go-playground/validator) and turns tag-based failures into structured error DTOs, so a request with a missing title fails with a field-level message instead of a vague 400.
 
-None of this is exotic. It's the same three-layer arrangement a careful Go team converges on by their third service. The difference is having it on day one, consistently, in every resource you generate.
+None of this is exotic. It is the same three-layer arrangement a careful Go team converges on by their third service. The difference is having it on day one, consistently, in every resource you generate.
 
 ## What "production-ready" actually means
 
-This is where most tutorials wave their hands, so let's be concrete. An API is production-ready when the things around the happy path are handled. Here's the checklist, and where the scaffold stands on each.
+This is where most tutorials wave their hands, so let us be concrete. An API is production-ready when the things around the happy path are handled. Here is the checklist and where the scaffold stands on each.
 
-**Health probes.** `pkg/health` mounts `/health`, `/health/live`, and `/health/ready`. The readiness probe actually checks the database and cache rather than returning a cheerful static 200. Kubernetes, a load balancer, or a plain uptime monitor can all use these unchanged.
+**Health probes.** `pkg/health` mounts `/health`, `/health/live` and `/health/ready`. The readiness probe genuinely checks the database and cache rather than returning a cheerful static 200. Kubernetes, a load balancer, or a plain uptime monitor can all use these unchanged.
 
-**Middleware.** The scaffold's chain includes request logging, panic recovery, CORS, security headers, rate limiting, and request IDs — composed with `middleware.Chain()` so the order is explicit and readable. Panic recovery in particular is non-negotiable: one nil-pointer dereference in a handler shouldn't take the whole process down.
+**Middleware.** The scaffold's chain covers request logging, panic recovery, CORS, security headers, rate limiting and request IDs, composed with `middleware.Chain()` so the order stays explicit and readable. Panic recovery is the non-negotiable one. A single nil-pointer dereference in a handler should not take the whole process down.
 
-**Authentication.** JWT with role-based access control via Casbin is wired by default through `pkg/auth`. It's a big enough topic that [part two of this series](/blog/jwt-authentication-rbac-go) is entirely about it.
+**Authentication.** JWT with role-based access control via Casbin is wired by default through `pkg/auth`. It is a big enough topic that [part two of this series](/blog/jwt-authentication-rbac-go) is entirely about it.
 
-**Observability.** `pkg/observability` exposes Prometheus metrics at `/metrics` (request count, duration, in-flight) and supports OpenTelemetry tracing. When something is slow in production, "which endpoint, how slow, since when" should be a query, not an archaeology project.
+**Observability.** `pkg/observability` exposes Prometheus metrics at `/metrics`, covering request count, duration and in-flight requests, and supports OpenTelemetry tracing. When something is slow in production, "which endpoint, how slow, since when" should be a query rather than an archaeology project.
 
-**Structured logging.** Everything goes through `slog`, and the format is configurable — text while developing, JSON in production where a log pipeline will parse it.
+**Structured logging.** Everything goes through `slog`, and the format is configurable. Text while you develop, JSON in production where a log pipeline will parse it.
 
 **API documentation.** `gofasta swagger` generates an OpenAPI spec from code comments, so the docs describe the API you actually shipped rather than the one you remember writing.
 
-Could you assemble all of that yourself from good libraries? Absolutely — each item on that list is a solved problem. The failure mode isn't ignorance. It's that under deadline, items get deferred, and the deferred list becomes the incident list.
+Could you assemble all of that yourself from good libraries? Of course. Every item on that list is a solved problem. The failure mode is not ignorance. It is that under deadline these get deferred, and the deferred list quietly becomes the incident list.
 
-## Tests you didn't have to write first
+## Tests you did not have to write first
 
-Every generated layer arrives with tests, and `gofasta test` runs the suite (`--coverage` if you want the number). The generated tests are a floor, not a ceiling — they prove the CRUD path works and give you a pattern to extend when you add real business logic. For integration tests against a real database, `pkg/testutil/testdb` spins up a disposable Postgres container via [testcontainers-go](https://golang.testcontainers.org) and hands you a live `*gorm.DB`, cleaned up automatically when the test ends. Mocking a database lies to you in exactly the cases you care about; a throwaway container doesn't.
+Every generated layer arrives with tests, and `gofasta test` runs the suite, with `--coverage` if you want the number. Treat the generated tests as a floor rather than a ceiling. They prove the CRUD path works and give you a pattern to extend once real business logic shows up.
 
-There's a deeper walkthrough in the [testing guide](https://gofasta.dev/docs/guides/testing).
+For integration tests against a real database, `pkg/testutil/testdb` spins up a disposable Postgres container via [testcontainers-go](https://golang.testcontainers.org) and hands you a live `*gorm.DB` that gets cleaned up when the test ends. A mocked database lies to you in exactly the cases you care about. A throwaway container does not.
+
+There is a deeper walkthrough in the [testing guide](https://gofasta.dev/docs/guides/testing).
 
 ## Shipping it
 
-Deployment is part four of this series, so here's just the shape of it: the scaffold includes Docker configuration for production, and `gofasta deploy` can push to a plain VPS over SSH with health checks and automatic rollback when a release fails its probe. No orchestrator required for the first few years of most products' lives. If that sounds suspiciously simple, [the deployment post](/blog/deploy-go-app-vps) goes through exactly what happens on the wire.
+Deployment is part four, so here is only the shape of it. The scaffold includes Docker configuration for production, and `gofasta deploy` can push to a plain VPS over SSH with health checks and automatic rollback when a release fails its probe. Most products do not need an orchestrator for their first few years. If that sounds suspiciously simple, [the deployment post](/blog/deploy-go-app-vps) walks through exactly what happens on the wire.
 
 ## Evolving the API without fighting the generator
 
-A fair objection to any code generator: what happens in month three, when the generated code has been edited by hand and the requirements change? Regenerating over your edits is obviously off the table. Writing everything manually from then on gives up the consistency you started with.
+Here is a fair objection to any code generator. What happens in month three, when the generated code has been edited by hand and the requirements change? Regenerating over your edits is obviously off the table. Writing everything manually from then on throws away the consistency you started with.
 
-Gofasta's answer is a set of modify-aware generators that patch existing code instead of replacing it. Need a new column on `Book`?
+Our answer is a set of modify-aware generators that patch existing code instead of replacing it. Need a new column on `Book`?
 
 ```bash
 gofasta g field Book subtitle:string
 ```
 
-That updates the model, generates the migration, and threads the field through the DTOs — in code you've already edited, using AST patching rather than string templates, so your hand-written logic stays put. The same family covers `g endpoint` for adding a route to an existing controller, `g relation` for wiring a `has-many` between resources, and `g rename` for the refactor you've been putting off. All of them are idempotent, and all of them take `--dry-run` so you can see the diff before it happens.
+That updates the model, generates the migration, and threads the field through the DTOs, all inside code you have already edited. It uses AST patching rather than string templates, so your hand-written logic stays exactly where you put it. The same family covers `g endpoint` for adding a route to an existing controller, `g relation` for wiring a has-many between resources, and `g rename` for the refactor you have been putting off. Every one of them is idempotent, and every one takes `--dry-run` so you can read the diff first.
 
-When you're not sure what a change will touch, `gofasta impact` reports the blast radius, and `gofasta inspect Book` describes the resource — fields, endpoints, relations — as structured data. These sound like small conveniences. On a team, they're the difference between the codebase staying coherent for two years and each developer growing their own dialect. The [code generation guide](https://gofasta.dev/docs/guides/code-generation) covers the full set.
+When you are unsure what a change will touch, `gofasta impact` reports the blast radius, and `gofasta inspect Book` describes the resource as structured data: fields, endpoints, relations. These sound like small conveniences. On a team they are the difference between a codebase that stays coherent for two years and one where every developer has grown their own dialect. The [code generation guide](https://gofasta.dev/docs/guides/code-generation) covers the full set.
 
 ## Configuration that survives contact with ops
 
-One more production concern before we wrap: config. The scaffold loads settings through `pkg/config` from `config.yaml`, with environment variables overriding file values — the arrangement that keeps secrets out of the repository and lets the same build run in dev, staging, and production with nothing but environment changes. Database DSNs, token lifetimes, log format and level, rate limits: all of it lives in one typed structure instead of scattered `os.Getenv` calls with hopeful defaults. Your future self, debugging a staging-only issue at 4pm on a Friday, will appreciate that the answer to "what config is this thing actually running with" has one place to look. Details in the [configuration guide](https://gofasta.dev/docs/guides/configuration).
+One more production concern before we wrap. Config.
+
+The scaffold loads settings through `pkg/config` from `config.yaml`, with environment variables overriding file values. That arrangement keeps secrets out of the repository and lets one build run in dev, staging and production with nothing but environment changes. Database DSNs, token lifetimes, log format and level, rate limits: all of it lives in one typed structure instead of scattered `os.Getenv` calls with hopeful defaults.
+
+Your future self, debugging a staging-only issue at 4pm on a Friday, will appreciate that "what config is this thing actually running with" has exactly one place to look. Details in the [configuration guide](https://gofasta.dev/docs/guides/configuration).
+
+## The unglamorous parts nobody demos
+
+Two things sit between "it works locally" and "it survives a Tuesday", and neither photographs well.
+
+**Graceful shutdown.** When your platform sends SIGTERM, the default behavior of a naive server is to die mid-request. Clients see a connection reset rather than a response, and any write that was halfway through is now a support ticket. The scaffold's server drains: it stops accepting new connections, gives in-flight requests a bounded window to finish, then exits. That single behavior is the difference between a deploy nobody notices and a deploy that produces a small spike of mysterious 502s every single time.
+
+**Timeouts, in both directions.** Go's `http.Server` ships with no read or write timeout by default, which means one slow client can hold a connection indefinitely, and enough of them exhaust your file descriptors. The other direction matters just as much: every outbound call your service makes needs a context deadline, because the default HTTP client waits forever and a hung dependency quietly becomes a hung service. The scaffold sets server timeouts and passes request context down through the layers, so a cancelled request stops work rather than continuing to burn a database connection nobody is waiting on.
+
+Neither of these appears in a getting-started guide, because neither is visible until traffic is real. They are also both roughly ten lines of configuration, which is exactly why it stings to discover them the hard way.
 
 ## Where this leaves you
 
-About fifteen minutes of actual work, and the result is an API we'd defend in a code review: migrations under version control, optimistic locking on every row, typed errors, auth, health probes, metrics, and tests. More usefully, you understand each piece, because each piece is plain Go sitting in your repository where you can read it.
+About fifteen minutes of real work, and the result is an API we would defend in a code review. Migrations under version control, optimistic locking on every row, typed errors, auth, health probes, metrics, tests. More usefully, you understand each piece, because each piece is plain Go sitting in your repository where you can read it.
 
-If you want to go deeper today, the [Quick Start](https://gofasta.dev/docs/getting-started/quick-start) condenses the setup, and the [REST API guide](https://gofasta.dev/docs/guides/rest-api) covers request handling in more detail than we could here. Next up in the series: authentication, properly — token lifetimes, role checks, and the pitfalls that catch real teams.
+If you want to go deeper today, the [Quick Start](https://gofasta.dev/docs/getting-started/quick-start) condenses the setup and the [REST API guide](https://gofasta.dev/docs/guides/rest-api) covers request handling in more detail than we had room for here.
+
+Next in the series: authentication done properly, including token lifetimes, role checks, and the pitfalls that catch real teams.

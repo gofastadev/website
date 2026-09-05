@@ -10,7 +10,7 @@ import { CookiePreferences } from "@/components/organisms/cookie-preferences";
 export const metadata: Metadata = {
   title: "Cookie preferences",
   description:
-    "Manage cookie and analytics preferences for gofasta.dev. We use Google Analytics and Microsoft Clarity only with consent — both are off by default.",
+    "Manage cookie and analytics preferences for gofasta.dev. We use Google Analytics and Microsoft Clarity only with consent, and both are off by default.",
   alternates: {
     canonical: "https://gofasta.dev/cookies",
   },
@@ -63,7 +63,7 @@ export default function CookiesPage() {
             <p className="mt-2 text-sm">
               Session replay, heatmaps, and rage-click detection. We use this
               to find pages where users get stuck. Clarity is loaded only
-              after you accept below — it does not contact{" "}
+              after you accept below. It does not contact{" "}
               <code className="rounded bg-gray-100 px-1 text-xs dark:bg-gray-800">
                 clarity.ms
               </code>{" "}

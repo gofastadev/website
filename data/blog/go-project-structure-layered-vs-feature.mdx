@@ -16,25 +16,25 @@ cover: /blog/covers/go-project-structure-layered-vs-feature/cover.png
 ---
 ## The question every Go repo answers differently
 
-Clone five Go backends and you'll find five different directory trees. One puts everything in `internal/`. One has a `pkg/` folder that's really just a junk drawer. One went all-in on hexagonal architecture and now has four packages named `ports`. One is a single `main.go` that grew to 4,000 lines while nobody was looking. The fifth one is beautiful, and the person who structured it left the company.
+Clone five Go backends and you will find five different directory trees. One puts everything in `internal/`. One has a `pkg/` folder that is really a junk drawer. One went all-in on hexagonal architecture and now has four packages named `ports`. One is a single `main.go` that grew to 4,000 lines while nobody was looking. The fifth is beautiful, and the person who structured it left the company.
 
-This isn't a Go failure. It's a Go choice. The language ships strong opinions about formatting, naming, and error handling, and then goes completely silent on how to arrange a web backend. `go build` doesn't care where your files live. The compiler is equally happy with any tree that respects package boundaries.
+This is not a Go failure, it is a Go choice. The language ships strong opinions about formatting, naming and error handling, then goes completely silent on how to arrange a web backend. `go build` does not care where your files live. The compiler is equally happy with any tree that respects package boundaries.
 
-Which means every team answers the structure question themselves, usually twice: once on day one, with no information, and once eighteen months later, with plenty of information and no appetite for the migration.
+So every team answers the structure question themselves, usually twice. Once on day one with no information, and once eighteen months later with plenty of information and no appetite for the migration.
 
-We think that second conversation is the one worth designing for. But let's start at the beginning.
+We think that second conversation is the one worth designing for.
 
-## There is no official layout (no, not even that one)
+## There is no official layout, not even that one
 
-If you search "golang project structure", the top result is usually [golang-standards/project-layout](https://github.com/golang-standards/project-layout), a repository with tens of thousands of stars and a name that does a lot of heavy lifting. It's worth being clear about what it is: a community proposal, not an official standard. It doesn't belong to the Go team, and Go's tech lead has [publicly asked](https://github.com/golang-standards/project-layout/issues/117) for the "golang-standards" name to be reconsidered precisely because people keep mistaking it for gospel.
+Search "golang project structure" and the top result is usually [golang-standards/project-layout](https://github.com/golang-standards/project-layout), a repository with tens of thousands of stars and a name doing a lot of heavy lifting. Be clear about what it is: a community proposal, not an official standard. It does not belong to the Go team, and Go's tech lead has [publicly asked](https://github.com/golang-standards/project-layout/issues/117) for the "golang-standards" name to be reconsidered precisely because people keep mistaking it for gospel.
 
-The Go team's actual guidance, in the official [organizing a Go module](https://go.dev/doc/modules/layout) doc, is far more modest: start small, use `internal/` to hide packages you don't want imported, add `cmd/` if you ship multiple binaries, and let structure grow out of need rather than ceremony. That's it. No blessed `services/` directory, no required depth.
+The Go team's actual guidance, in the official [organizing a Go module](https://go.dev/doc/modules/layout) doc, is far more modest. Start small. Use `internal/` to hide packages you do not want imported. Add `cmd/` if you ship multiple binaries. Let structure grow out of need rather than ceremony. That is the whole thing. No blessed `services/` directory, no required depth.
 
-So the honest starting point is: you're going to choose. And in practice, backends converge on one of two shapes.
+So the honest starting point is that you are going to choose. In practice, backends converge on one of two shapes.
 
-## The layered layout: organized by what code is
+## The layered layout, organized by what code is
 
-The layered layout groups files by their technical role. All the controllers together, all the services together, all the repositories together:
+The layered layout groups files by technical role. All the controllers together, all the services together, all the repositories together:
 
 ```
 app/
@@ -52,15 +52,15 @@ app/
     user.go
 ```
 
-A request flows top to bottom: the controller parses and validates input, the service holds business rules, the repository talks to the database. Every resource takes the same path through the same layers.
+A request flows top to bottom. The controller parses and validates input, the service holds business rules, the repository talks to the database. Every resource takes the same path through the same layers.
 
-The strengths are real. The structure teaches itself — a new hire who's seen one layered backend has seen them all, and "where do database queries live?" has exactly one answer. The layer boundary is also a natural seam for testing: mock the repository, test the service; mock the service, test the controller. And uniformity is enforceable. When every resource follows the same shape, a code reviewer can spot a service reaching directly into the database from across the room.
+The strengths are real. The structure teaches itself, so a new hire who has seen one layered backend has seen them all, and "where do database queries live?" has exactly one answer. The layer boundary is a natural testing seam: mock the repository to test the service, mock the service to test the controller. Uniformity is also enforceable, because when every resource follows the same shape a reviewer can spot a service reaching straight into the database from across the room.
 
-The cost shows up as the project grows. Working on one feature means touching four directories, and each directory scrolls further every month. By the time you have forty resources, `services/` is a wall of files, and the ones you need for today's task are scattered alphabetically among thirty-six you don't care about. The code for "articles" exists — it's just smeared across the entire tree.
+The cost arrives as the project grows. Working on one feature means touching four directories, and each of them scrolls further every month. By forty resources, `services/` is a wall of files, and the ones you need today sit scattered alphabetically among thirty-six you do not care about. The code for articles exists. It is just smeared across the entire tree.
 
-## The feature layout: organized by what code is for
+## The feature layout, organized by what code is for
 
-The feature layout (you'll also hear "vertical slice" or "package by feature") flips the axis. Everything about a resource lives in one place:
+The feature layout, which you will also hear called vertical slice or package by feature, flips the axis. Everything about a resource lives in one place:
 
 ```
 app/
@@ -76,46 +76,46 @@ app/
     model.go
 ```
 
-Now "work on articles" means opening one directory. Everything you need is adjacent; everything you don't need is somewhere else. Deleting a feature is close to `rm -rf` plus fixing a few references — which sounds like a small thing until the day you actually have to remove something, and in a layered project you're hunting fragments through every directory in the tree.
+Now "work on articles" means opening one directory. Everything you need is adjacent and everything you do not need is elsewhere. Deleting a feature is close to `rm -rf` plus fixing a few references, which sounds minor until the day you actually have to remove something and find yourself hunting fragments through every directory in a layered tree.
 
-This shape also plays nicely with how Go itself thinks. A feature directory is a package, and Go's package boundary — lowercase identifiers stay private — becomes a real architectural wall. In a layered project, `controllers` must import `services` must import `repositories`, so nearly everything ends up exported and the boundaries are convention, not compiler-checked.
+This shape also suits how Go thinks. A feature directory is a package, and Go's package boundary, where lowercase identifiers stay private, becomes a real architectural wall. In a layered project `controllers` must import `services` must import `repositories`, so nearly everything ends up exported and the boundaries are convention rather than compiler-checked.
 
-The costs are the mirror image of the layered ones. Cross-cutting questions get harder: "show me all our database access" is now a grep, not a directory. Shared logic between features needs a deliberate home, or you'll grow import cycles and a junk-drawer `common` package. And uniformity depends on discipline — nothing structural stops the `article` package from arranging itself completely differently from `user`.
+The costs mirror the layered ones. Cross-cutting questions get harder, because "show me all our database access" is now a grep rather than a directory. Shared logic between features needs a deliberate home or you grow import cycles and a junk-drawer `common` package. And uniformity depends on discipline, since nothing structural stops `article` from arranging itself completely differently from `user`.
 
 ## The trade-offs that actually decide it
 
-Strip away the architecture-blog framing and three practical forces decide which layout fits:
+Strip away the architecture-blog framing and three practical forces decide this.
 
-**Team size and collision rate.** Feature layouts localize merge conflicts: two people on two features touch disjoint directories. Layered layouts concentrate churn — everyone edits `services/`, and route-registration files become conflict magnets.
+**Team size and collision rate.** Feature layouts localize merge conflicts, because two people on two features touch disjoint directories. Layered layouts concentrate churn, since everyone edits `services/` and route-registration files become conflict magnets.
 
-**Codebase size over time.** Layered scales down well and up poorly; a small layered project is wonderfully legible, a huge one is a filing cabinet sorted by paper size. Feature layouts scale up well and down awkwardly — with three resources, the per-feature directories feel like ceremony.
+**Codebase size over time.** Layered scales down well and up poorly. A small layered project is wonderfully legible and a huge one is a filing cabinet sorted by paper size. Feature layouts do the reverse, scaling up well and feeling like ceremony at three resources.
 
-**Who reads the code.** People who live in the codebase daily develop a mental map and stop caring about layout. It's everyone else — new hires, the on-call engineer from another team, and increasingly coding agents — who lean on structure. For them, feature layouts answer "what does this system do?" straight from `ls`, while layered layouts answer "how is this system built?".
+**Who reads the code.** People who live in a codebase daily build a mental map and stop caring about layout. It is everyone else, meaning new hires, the on-call engineer from another team, and increasingly coding agents, who lean on structure. For them a feature layout answers "what does this system do?" straight from `ls`, while a layered one answers "how is this system built?"
 
-Notice what's not on the list: performance (identical — packages are a compile-time concept), testability (both testable if layers or slices keep clean interfaces), and correctness. This is an ergonomics decision. Which is exactly why teams change their minds: ergonomics depend on team size and codebase size, and both of those change.
+Notice what is missing from that list. Performance is identical, since packages are a compile-time concept. Testability is fine either way if the seams stay clean. Correctness does not enter into it. This is an ergonomics decision, which is exactly why teams change their minds: ergonomics depend on team size and codebase size, and both of those move.
 
 ## Picking on day one
 
-When we built the [gofasta](/blog/hello-gofasta) scaffolder, we refused to pick a winner, because the honest answer is "it depends on things you don't know yet." So the choice is a flag:
+When we built the [gofasta](/blog/hello-gofasta) scaffolder we refused to pick a winner, because the honest answer depends on things you do not know yet. So the choice is a flag:
 
 ```bash
 gofasta new myapp --layout layered
 gofasta new myapp --layout feature
 ```
 
-Both produce the same working backend — HTTP server, database layer, migrations, auth, the works — arranged in whichever shape you asked for. See the [project structure docs](/docs/getting-started/project-structure) for the full tree of each, and [`gofasta new`](/docs/cli-reference/new/index) for the other scaffold-time options.
+Both produce the same working backend, with HTTP server, database layer, migrations and auth, arranged in whichever shape you asked for. The [project structure docs](/docs/getting-started/project-structure) have the full tree of each, and [`gofasta new`](/docs/cli-reference/new/index) covers the other scaffold-time options.
 
-The part that matters more: [code generation](/docs/guides/code-generation) respects the layout. `gofasta g scaffold Article title:string body:text` generates a model, migration, repository, service, DTOs, controller, route registration, a Wire provider, and tests — placed wherever *your* layout says they go. The generators keep the structure coherent as the project grows, which is where hand-maintained layouts usually start to drift.
+What matters more is that [code generation](/docs/guides/code-generation) respects the layout. `gofasta g scaffold Article title:string body:text` generates a model, migration, repository, service, DTOs, controller, route registration, a Wire provider and tests, placed wherever *your* layout says they belong. The generators keep the structure coherent as the project grows, which is where hand-maintained layouts usually start to drift.
 
-If you're at three developers or fewer and under a couple dozen resources, we'd default to `layered` — the self-teaching uniformity is worth more than cohesion at that scale. Past that, or if you already know the domain will sprawl, start with `feature`.
+At three developers or fewer and under a couple dozen resources, we would default to `layered`, because self-teaching uniformity is worth more than cohesion at that scale. Past that, or if you already know the domain will sprawl, start with `feature`.
 
 And if you get it wrong? That used to be the expensive part.
 
 ## Changing your mind is allowed
 
-The traditional cost of a layout migration is why most teams never do one. Moving files is easy; updating every import path, keeping the dependency-injection wiring intact, and reviewing a 300-file diff while feature work continues is not. So the structure decays instead: new code half-follows a new convention, old code stays put, and two years later the tree is an archaeology site.
+The traditional cost of a layout migration is why most teams never attempt one. Moving files is easy. Updating every import path, keeping the dependency-injection wiring intact, and reviewing a 300-file diff while feature work continues is not. So the structure decays instead. New code half-follows a new convention, old code stays put, and two years later the tree is an archaeology site.
 
-This is the actual reason gofasta treats structure as a convertible property rather than a permanent one:
+That is the real reason gofasta treats structure as a convertible property rather than a permanent one:
 
 ```bash
 gofasta refactor status    # which layout is this project, and how cleanly?
@@ -123,26 +123,26 @@ gofasta refactor feature   # convert layered -> feature
 gofasta refactor layered   # convert feature -> layered
 ```
 
-[`gofasta refactor`](/docs/cli-reference/refactor) rewrites the tree between the two layouts — files moved, packages and imports updated — so the migration is a command and a code review, not a quarter-long project nobody will approve. `refactor status` is also useful on its own as a drift check: it tells you which layout the project actually follows today, which after a few months of hurried merges is not always the layout you started with.
+[`gofasta refactor`](/docs/cli-reference/refactor) rewrites the tree between the two layouts, moving files and updating packages and imports, so migration is a command and a code review rather than a quarter-long project nobody will approve. `refactor status` earns its keep on its own as a drift check, telling you which layout the project actually follows today, which after a few months of hurried merges is not always the one you started with.
 
-The conversion being cheap changes the day-one decision too. You're no longer choosing a permanent home, you're choosing a starting point. That takes most of the anxiety (and most of the meeting time) out of a question that was never worth the meeting.
+Cheap conversion changes the day-one decision too. You are no longer choosing a permanent home, only a starting point. That removes most of the anxiety, and most of the meeting time, from a question that never deserved the meeting.
 
-## The mistakes we keep seeing (in both layouts)
+## The mistakes we keep seeing
 
-Whichever shape you pick, a few failure modes show up so reliably that they're worth naming.
+A few failure modes show up in both layouts often enough to name.
 
-**The junk-drawer `pkg/`.** A top-level `pkg/` directory with no admission criteria becomes the place code goes when nobody wants to decide where it belongs. Six months in, it holds a string formatter, half an email client, and something called `helpers2`. If a package doesn't have a one-line answer to "what is this for?", it doesn't belong in a shared directory yet — leave it next to its only caller until a second caller exists.
+**The junk-drawer `pkg/`.** A top-level `pkg/` with no admission criteria becomes where code goes when nobody wants to decide. Six months in it holds a string formatter, half an email client, and something called `helpers2`. If a package has no one-line answer to "what is this for?", leave it next to its only caller until a second caller exists.
 
-**Premature ceremony.** Interfaces with one implementation, `domain/` and `infrastructure/` splits in a three-endpoint service, a `cmd/` tree for a project that ships one binary. Go's own guidance is to grow structure out of need, and the need is observable: you add the seam when the second implementation, the second consumer, or the second binary actually appears. Adding it earlier doesn't make the project enterprise-grade; it makes every file two clicks further away.
+**Premature ceremony.** Interfaces with one implementation. A `domain/` and `infrastructure/` split in a three-endpoint service. A `cmd/` tree for a project shipping one binary. Go's own guidance is to grow structure out of need, and need is observable: add the seam when the second implementation, consumer or binary actually appears. Adding it earlier does not make the project enterprise-grade, it makes every file two clicks further away.
 
-**Mixed layouts by accretion.** The project started layered; someone added a self-contained `billing/` feature package during a crunch; now there are two organizing principles and every new file is a judgment call. This is the worst of both worlds — the predictability of neither. It's also the drift that `gofasta refactor status` exists to catch early, while the fix is still one honest conversation and one command instead of a standards document nobody reads.
+**Mixed layouts by accretion.** The project started layered, someone added a self-contained `billing/` package during a crunch, and now there are two organizing principles and every new file is a judgment call. That is the worst of both worlds, with the predictability of neither. It is also the drift `gofasta refactor status` exists to catch while the fix is still one honest conversation and one command.
 
-**Structure by copy-paste.** New resources get created by duplicating the last one, typos and stale imports included. This is less a layout problem than a tooling gap — it's the specific reason we lean on generators: `gofasta g scaffold` stamps out the same shape every time, and uniformity you don't have to police is the only kind that survives deadline pressure.
+**Structure by copy-paste.** New resources get created by duplicating the last one, typos and stale imports included. That is less a layout problem than a tooling gap, and it is the specific reason we lean on generators. `gofasta g scaffold` stamps out the same shape every time, and uniformity you do not have to police is the only kind that survives deadline pressure.
 
 ## Where we landed
 
-Structure is a tool, not a virtue. The layered layout optimizes for "how is this built?", the feature layout for "what does this do?", and both are defensible answers held by reasonable teams — which is precisely why the Go team never blessed one.
+Structure is a tool, not a virtue. The layered layout optimizes for "how is this built?" and the feature layout for "what does this do?", and both are defensible answers held by reasonable teams. Which is precisely why the Go team never blessed either.
 
-Our advice, compressed: pick the layout that matches your team's size today, generate code instead of hand-placing it so the structure stays coherent, and treat the layout as revisable — because with [`gofasta refactor`](/docs/cli-reference/refactor) it actually is. If you want to see both shapes without committing to anything, `gofasta new` twice with each `--layout` flag and diff the trees; it's a five-minute experiment, and the [quick start](/docs/getting-started/quick-start) covers the rest.
+Compressed advice: pick the layout matching your team's size today, generate code instead of hand-placing it so the structure stays coherent, and treat the layout as revisable, because with [`gofasta refactor`](/docs/cli-reference/refactor) it genuinely is. To see both shapes without committing, run `gofasta new` twice with each `--layout` flag and diff the trees. It is a five-minute experiment, and the [quick start](/docs/getting-started/quick-start) covers the rest.
 
-We went deeper on how the generated code itself is wired — and why the whole thing resolves at compile time — in [our REST API walkthrough](/blog/build-production-rest-api-go). And if you're weighing scaffolding tools generally, we wrote an honest [comparison of the Go scaffolding landscape](/blog/go-scaffolding-tools-compared), including the parts other tools do better.
+We went deeper on how the generated code is wired, and why it all resolves at compile time, in [our REST API walkthrough](/blog/build-production-rest-api-go). If you are weighing scaffolding tools generally, we also wrote an honest [comparison of the Go scaffolding landscape](/blog/go-scaffolding-tools-compared), including the parts other tools do better.

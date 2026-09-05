@@ -16,33 +16,29 @@ cover: /blog/covers/agent-friendly-cli-design/cover.png
 ---
 ## Your CLI has a new kind of consumer
 
-Somewhere in the last couple of years, the traffic hitting developer CLIs quietly changed shape. It used to be a person at a keyboard, reading your colored output, squinting at your error messages, retyping the command with one flag changed. Now a growing share of invocations come from coding agents — Claude Code, Cursor, OpenAI Codex, Aider, Windsurf — running your tool in a loop, parsing whatever comes back, and deciding what to do next based on it.
+Somewhere in the last couple of years the traffic hitting developer CLIs quietly changed shape. It used to be a person at a keyboard, reading your colored output, squinting at your error messages, retyping the command with one flag changed. Now a growing share of invocations come from coding agents running your tool in a loop, parsing whatever comes back, and deciding what to do next based on it.
 
-That second consumer is not a person, and it doesn't read the way a person reads. It doesn't enjoy your ASCII banner. It can't infer that "something went wrong, check your config" probably means the database URL is malformed. And when your output format drifts between versions, it doesn't shrug and adapt — it silently mis-parses, then confidently does the wrong thing in someone's repository.
+That second consumer does not read the way a person reads. It cannot infer that "something went wrong, check your config" probably means the database URL is malformed. And when your output format drifts between versions it does not shrug and adapt. It silently mis-parses, then confidently does the wrong thing in someone's repository.
 
-We build gofasta, a Go backend toolkit — a CLI that scaffolds projects plus a library of independent packages — and early on we made a bet: the agent is a first-class consumer of the CLI, with its own requirements, and those requirements deserve the same design attention the human ones get. Not a chatbot bolted onto the side. The same commands, made legible to both audiences at once.
+We build gofasta, a Go backend toolkit made of a CLI plus a library of independent packages, and early on we made a bet. The agent is a first-class consumer of the CLI, and its requirements deserve the same design attention the human ones get. The same commands, made legible to both audiences at once.
 
-What follows is the checklist we ended up with. None of it is specific to Go, and almost none of it is specific to gofasta. If you maintain a CLI that agents are starting to touch — and if your tool is any good, they already are — this is the work.
+Almost none of the checklist below is specific to Go or to gofasta.
 
-## Principle 1: one flag, machine-readable everything
+## One flag, machine-readable everything
 
-The obvious first step is a `--json` flag. The mistake nearly everyone makes is bolting it onto the three commands that felt important and calling it done. An agent doesn't know your flag coverage map. It learns "this tool speaks JSON," tries it on the fourth command, gets a banner and a progress spinner mixed into stdout, and its parse fails in a way that poisons everything downstream.
+The obvious first step is a `--json` flag. The mistake nearly everyone makes is bolting it onto the three commands that felt important and calling it done. An agent does not know your flag coverage map. It learns that the tool speaks JSON, tries it on the fourth command, gets a banner and a progress spinner mixed into stdout, and its parse fails in a way that poisons everything downstream.
 
-So the rule has to be total: **every command honors `--json`, or the flag is a trap.** In gofasta it's a global flag, and the routing is structural rather than a per-command courtesy. When `--json` is set:
+So the rule has to be total. Every command honors `--json`, or the flag is a trap. In gofasta it is a global flag and the routing is structural rather than a per-command courtesy. When `--json` is set, stdout carries exactly one thing, which is the JSON document that is the command's result. Progress chatter, headers and hints go to stderr, undecorated. The banner is suppressed entirely.
 
-- stdout carries exactly one thing: the JSON document that is the command's result
-- progress chatter, headers, and hints go to stderr, undecorated
-- the banner is suppressed entirely
+That split matters more than it looks. Run `gofasta migrate up --json 2>/dev/null | jq .` and you get clean data. Run it with stderr attached and you still watch live progress while the machine-readable result stays uncontaminated.
 
-That stdout/stderr split matters more than it looks. A human running `gofasta migrate up --json 2>/dev/null | jq .` gets clean data. A human running it with stderr attached still sees live progress while the machine-readable result stays uncontaminated. And an agent piping stdout never has to regex a spinner out of a JSON stream.
+The way we keep the promise is worth stealing. Do not gate every print statement on an `if jsonMode` check that fifty call sites must remember. Make routing a property of the printing layer, with one internal package every command prints through, so a new command cannot leak decorated text into the JSON stream. Discipline enforced by architecture beats discipline enforced by code review.
 
-The way we keep the promise is worth stealing: don't gate every print statement on an `if jsonMode` check that fifty call sites have to remember. Make routing a property of the printing layer itself — one internal package every command prints through, so a new command literally can't leak decorated text into the JSON stream. Discipline enforced by architecture beats discipline enforced by code review.
+## Errors an agent can act on
 
-## Principle 2: errors an agent can act on
+Exit code 1 plus prose is a fine error interface for a person and a terrible one for a program. The prose gets reworded in a patch release and every consumer that string-matched it breaks. We have all done the string-matching and we have all been broken by it.
 
-Exit code 1 plus prose is a fine error interface for a person and a terrible one for a program. The prose gets reworded in a patch release, and every consumer that string-matched it breaks. We've all done the string-matching; we've all been broken by it.
-
-Every gofasta error carries four fields: a **stable machine-readable code**, a one-line message, a **remediation hint**, and — in most cases — a link into the documentation:
+Every gofasta error carries four fields: a stable machine-readable code, a one-line message, a remediation hint, and usually a link into the documentation.
 
 ```json
 {
@@ -55,68 +51,62 @@ Every gofasta error carries four fields: a **stable machine-readable code**, a o
 }
 ```
 
-The code is a contract: it will mean the same thing next release, even if we rewrite the message. The hint is the part that changes agent behavior most in practice — it converts "report failure to the human" into "run the suggested command and continue." The full catalog lives at [error codes](/docs/cli-reference/error-codes), which means both a person and an agent can look up what `GF-MIGRATE-DIRTY` implies without reading our source.
+The code is a contract. It will mean the same thing next release even if we rewrite the message. The hint changes agent behavior more than anything else in practice, converting "report failure to the human" into "run the suggested command and continue." The full catalog lives at [error codes](/docs/cli-reference/error-codes), so a person and an agent can both look up what `GF-MIGRATE-DIRTY` implies without reading our source.
 
-If you adopt one thing from this post, adopt this. It's a weekend of work on most CLIs and it compounds forever.
+If you adopt one thing from this post, adopt this. It is a weekend of work on most CLIs and it compounds forever.
 
-## Principle 3: introspection beats grepping
+## Introspection beats grepping
 
-Watch an agent work in an unfamiliar codebase and you'll see it spend enormous effort reconstructing facts the tooling already knows. Which fields does this resource have? Where is this route registered? What breaks if I rename this method? The agent greps, reads five files, holds them all in context, and *usually* concludes correctly.
+Watch an agent work in an unfamiliar codebase and you will see it spend enormous effort reconstructing facts the tooling already knows. Which fields does this resource have? Where is this route registered? The agent greps, reads five files, holds them all in context, and usually concludes correctly.
 
-That's wasteful, and worse, it's fragile — a stale grep produces a confident wrong answer. The fix is to let the tool answer questions directly. gofasta ships an [`inspect`](/docs/cli-reference/inspect) command that describes any resource in the project as structured data — its model fields, repository methods, service surface, routes — plus `inspect-jobs` and `inspect-tasks` for background work, `impact` for "what does this change touch," and `xrefs` for cross-references. Combined with `--json`, a question that used to be eight file reads becomes one command:
+Usually is the problem, because a stale grep produces a confident wrong answer. So let the tool answer directly. Gofasta's [`inspect`](/docs/cli-reference/inspect) describes any resource as structured data, with `inspect-jobs` and `inspect-tasks` for background work, `impact` for what a change touches, and `xrefs` for cross-references. Combined with `--json`, a question that used to be eight file reads becomes one command:
 
 ```bash
 gofasta inspect Article --json
 ```
 
-The design principle generalizes to any CLI: **your tool has a model of the project in its head; expose it.** Every question an agent can ask your CLI is a question it doesn't answer by guessing, and every guess you eliminate is a wrong edit that never happens.
+The principle generalizes to any CLI. Your tool has a model of the project in its head, so expose it. Every question an agent can ask your CLI is one it does not answer by guessing, and every guess you eliminate is a wrong edit that never happens.
 
-## Principle 4: documentation that matches the installed version
+## Documentation that matches the installed version
 
-Agents arrive with training data, and training data is always stale. An agent's memory of your CLI is whatever your flags looked like when its training corpus was cut — commands you've since renamed, defaults you've since changed, features it has never heard of.
+Agents arrive with training data, and training data is always stale. An agent's memory of your CLI is whatever your flags looked like when its corpus was cut.
 
-The emerging answer is [llms.txt](https://llmstxt.org), a convention for publishing your documentation in a form agents can fetch and reason over at working time instead of trusting their memory. The gofasta docs site publishes both [`/llms.txt`](https://gofasta.dev/llms.txt) (the index) and `/llms-full.txt` (the whole documentation set, one file), so an agent can pull current truth in one request.
+The emerging answer is [llms.txt](https://llmstxt.org), a convention for publishing documentation agents can fetch at working time rather than recall. Our docs site publishes [`/llms.txt`](https://gofasta.dev/llms.txt) as an index and `/llms-full.txt` as the whole set in one file.
 
-Is llms.txt a perfect standard? No — it's young, and conventions around it are still settling. But the alternative is agents confidently using your 2024 flag names, and we know how that goes. Publishing costs almost nothing; ours is generated from the same sources as the human docs, so it can't drift from them.
+Is llms.txt a perfect standard? No, it is young and the conventions are still settling. But the alternative is agents confidently using your 2024 flag names. Publishing costs almost nothing, and ours generates from the same sources as the human docs so it cannot drift.
 
-## Principle 5: meet the agent where it configures
+## Meet the agent where it configures
 
-The previous four principles make your CLI *legible* to agents. The last one makes it *ergonomic*: ship the configuration that makes a specific agent effective with your tool.
+The previous principles make your CLI legible to agents. This one makes it ergonomic: ship the configuration that makes a specific agent effective with your tool.
 
-Different agents want different setup — permission allowlists so routine commands don't stall on confirmation prompts, hooks that run your verifier after edits, briefing files that explain project conventions. Writing all of that by hand, per agent, per project, is exactly the kind of toil a CLI should absorb. So gofasta ships [`gofasta ai <agent>`](/docs/cli-reference/ai): run `gofasta ai claude-code` (or `cursor`, `codex`, `aider`, `windsurf`) and it installs tuned configuration for that agent in the current project — and only that agent, so projects that don't use Cursor don't grow Cursor files. `gofasta ai list`, `status`, and `uninstall` round it out.
+Different agents want different setup: permission allowlists so routine commands do not stall on prompts, hooks that run your verifier after edits, briefing files explaining project conventions. Writing that by hand, per agent, per project, is exactly the toil a CLI should absorb. So gofasta ships [`gofasta ai <agent>`](/docs/cli-reference/ai), which installs tuned configuration for one named agent in the current project and only that agent, so projects that do not use Cursor never grow Cursor files.
 
-We settled on this design after ruling out the alternative: baking one agent's config into every scaffold. That privileges whichever agent is fashionable this quarter and litters everyone else's repositories. Making it an explicit, per-agent, reversible command respects that this landscape is churning and your CLI shouldn't pick winners.
+We ruled out the alternative of baking one agent's config into every scaffold. That privileges whichever agent is fashionable this quarter and litters everyone else's repositories.
 
 ## The quiet prerequisite: never block on a prompt
 
-There's a sixth principle we almost forgot to write down because it's invisible when done right: **an agent-friendly CLI never hangs waiting for input it didn't announce.**
+There is one more principle we almost forgot to write down, because it is invisible when done right. An agent-friendly CLI never hangs waiting for input it did not announce.
 
-Interactive confirmation prompts are the classic offender. A human sees `Are you sure? [y/N]` and answers. An agent sees a process that stopped producing output, waits, times out, and reports a failure that isn't one — or worse, its harness feeds the prompt an empty line and your CLI interprets that as "no" and half-completes an operation. Every prompt in your tool is a place where an automated consumer can wedge.
+Interactive confirmation prompts are the classic offender. A human sees `Are you sure? [y/N]` and answers. An agent sees a process that stopped producing output, waits, times out, and reports a failure that is not one. Worse, its harness feeds the prompt an empty line, your CLI reads that as "no", and an operation half-completes. Every prompt in your tool is a place where an automated consumer can wedge.
 
-The fixes are old Unix manners, newly load-bearing:
+The fixes are old Unix manners, newly load-bearing. Detect when stdout is not a TTY and drop interactive behavior automatically, meaning no prompts, no spinners, no cursor tricks. Give every confirmation a flag equivalent like `--yes` or `--force` so consent can be expressed up front. If input is genuinely required and absent, fail immediately with a structured error naming the missing flag rather than waiting.
 
-- Detect when stdout isn't a TTY and drop interactive behavior automatically — no prompts, no spinners, no cursor tricks.
-- Give every confirmation a flag equivalent (`--yes`, `--force`), so consent can be expressed up front.
-- If input is genuinely required and absent, fail immediately with a structured error saying which flag was missing — don't wait.
-
-Exit codes belong in the same paragraph. An agent's cheapest signal is the exit code, before it parses anything. Zero for success and nonzero for failure sounds too obvious to state, but plenty of tools print an error and exit zero, or exit nonzero on warnings a consumer should ignore. Pick semantics, document them, and never let a partial failure exit clean. In gofasta, exit codes and the structured error stream always agree — if stdout's JSON contains an `error` object, the exit code is nonzero, no exceptions. Two signals that can disagree are worse than one signal, because every consumer has to decide which to trust, and different consumers will decide differently.
+Exit codes belong in the same paragraph. An agent's cheapest signal is the exit code, read before it parses anything. Zero for success and nonzero for failure sounds too obvious to state, yet plenty of tools print an error and exit zero, or exit nonzero on warnings a consumer should ignore. Pick semantics, document them, and never let a partial failure exit clean. In gofasta the exit code and the structured error always agree: if stdout's JSON contains an `error` object, the exit code is nonzero, no exceptions. Two signals that can disagree are worse than one, because every consumer has to decide which to trust and different consumers will decide differently.
 
 ## The bar we hold ourselves to
 
-Here's the sentence that keeps these five principles honest, from our own engineering docs: an agent working in a gofasta project should be **measurably faster and more accurate** than one working in a hand-rolled Go backend. Not "we have an AI story." Measurably better, as a design constraint on every feature that ships.
+One sentence from our engineering docs keeps these principles honest. An agent working in a gofasta project should be measurably faster and more accurate than one working in a hand-rolled Go backend. Not "we have an AI story", but measurably better, as a constraint on every feature that ships.
 
-That framing changes decisions in small ways constantly. Structured output isn't a nice-to-have, because unparseable output has a measurable cost in retries. Stable error codes aren't polish, because a string-matched error is a future misbehavior. Introspection commands aren't a luxury, because every grep an agent runs is context spent not solving the actual problem.
-
-And none of it degrades the human experience — that's the part that surprised us least but seems to surprise others most. Humans also benefit from errors with remediation hints. Humans also pipe `--json` into `jq`. Humans also read `gofasta inspect` output instead of spelunking five files. Designing for the strictest consumer raised the floor for everyone.
+None of it degrades the human experience, which surprised us least and seems to surprise others most. People also benefit from errors carrying remediation hints. People also pipe `--json` into `jq`. Designing for the strictest consumer raised the floor for everyone.
 
 ## A checklist to leave with
 
-If you maintain a CLI and want it to survive contact with 2026's tooling, in rough order of effort-to-payoff:
+Roughly ordered by payoff per hour of effort:
 
 1. **`--json` on every command, globally**, with results on stdout and progress on stderr. Enforce it in the print layer, not by convention.
 2. **Stable error codes** with remediation hints and docs links. Never make a consumer parse prose.
 3. **Introspection commands** for anything your tool already knows about the project.
 4. **Publish llms.txt**, generated from the same source as your human docs.
-5. **A setup command per agent** for permissions, hooks, and briefings — explicit and uninstallable.
+5. **A setup command per agent** for permissions, hooks and briefings, explicit and uninstallable.
 
-We wrote more about the thinking behind gofasta itself in [Hello, Gofasta!](/blog/hello-gofasta), and the [scaffolding tools comparison](/blog/go-scaffolding-tools-compared) covers how these choices stack up against neighboring tools. If you're building a CLI and disagree with any of this, we'd genuinely like to hear where — the conventions here are young, and they'll be shaped by whoever ships opinions. The gofasta CLI is [open source](https://github.com/gofastadev/cli); every principle above is inspectable in the code.
+We wrote more about the thinking behind gofasta in [Hello, Gofasta!](/blog/hello-gofasta), and the [scaffolding tools comparison](/blog/go-scaffolding-tools-compared) covers how these choices stack up against neighboring tools. If you build a CLI and disagree with any of this, we would genuinely like to hear where. These conventions are young and they will be shaped by whoever ships opinions. The gofasta CLI is [open source](https://github.com/gofastadev/cli), so every principle above is inspectable in the code.

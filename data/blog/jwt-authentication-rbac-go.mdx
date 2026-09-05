@@ -17,33 +17,35 @@ series: Production Go, step by step
 seriesPart: 2
 cover: /blog/covers/jwt-authentication-rbac-go/cover.png
 ---
-Authentication is the feature everyone builds twice. The first version gets written in a hurry because sign-in is blocking the demo. The second version gets written six months later, once the team has discovered token expiry edge cases, a role check that lived in only four of the five handlers that needed it, and a logout button that doesn't actually log anyone out.
+Authentication is the feature everyone builds twice. Version one gets written in a hurry because sign-in is blocking the demo. Version two arrives six months later, after the team has met token expiry edge cases, found a role check living in four of the five handlers that needed it, and discovered that the logout button does not actually log anyone out.
 
-This is part two of *Production Go, step by step*. [Part one](/blog/build-production-rest-api-go) left us with a scaffolded API; today we're looking at the auth layer that came with it — how JWT authentication and role-based access control work in a Gofasta project, why the pieces are arranged the way they are, and the sharp edges we think every team should understand *before* shipping, not after. Even if you never touch Gofasta, most of this post is really about doing JWT in Go without hurting yourself.
+This is part two of *Production Go, step by step*. [Part one](/blog/build-production-rest-api-go) left us with a scaffolded API. Today we look at the auth layer that came with it: how JWT authentication and role-based access control work in a Gofasta project, why the pieces sit where they do, and the sharp edges every team should understand *before* shipping. Even if you never touch Gofasta, most of this is really about doing JWT in Go without hurting yourself.
 
 ## Why stateless tokens keep winning
 
-Session cookies backed by server-side storage are a fine design, and for a single monolith serving a browser they're arguably the simpler one. But the moment your API serves a mobile app, a CLI, a partner integration, and three internal services, the session store becomes a thing every request must consult and every instance must share.
+Session cookies backed by server-side storage are a perfectly good design. For a single monolith serving a browser they are arguably the simpler one. But once your API serves a mobile app, a CLI, a partner integration and three internal services, that session store becomes a thing every request must consult and every instance must share.
 
-A JSON Web Token flips that. The server signs a small blob of claims — who you are, what roles you hold, when the token dies — and hands it to the client. Any instance can verify the signature and trust the claims without a database round trip. That's the whole trick: **the token carries the state, the signature makes it tamper-evident**.
+A JSON Web Token flips the arrangement. The server signs a small blob of claims saying who you are, what roles you hold, and when the token dies, then hands it to the client. Any instance can verify the signature and trust the claims without a database round trip. That is the whole trick: **the token carries the state, and the signature makes it tamper-evident**.
 
-The cost is real, though, and worth stating up front: you can't easily un-issue a signed token. We'll come back to that, because the revocation trade-off is where most "JWTs considered harmful" posts are actually pointing.
+The cost is real and worth saying up front. You cannot easily un-issue a signed token. We come back to that below, because the revocation trade-off is what most "JWTs considered harmful" posts are actually pointing at.
 
-## What's already wired when you scaffold
+## What is already wired when you scaffold
 
-Run `gofasta new` and the auth layer arrives as part of the project — not a tutorial you follow afterwards. Concretely, the scaffold imports `pkg/auth` from the Gofasta library, which handles three jobs:
+Run `gofasta new` and the auth layer arrives as part of the project rather than as a tutorial you follow afterwards. The scaffold imports `pkg/auth`, which handles three jobs.
 
-1. **Token management** — generating, validating, and refreshing JWTs, built on [golang-jwt](https://github.com/golang-jwt/jwt), the maintained successor to the old `dgrijalva` package half the internet still links to.
-2. **Middleware** — extracting the token from the `Authorization: Bearer` header, verifying it, and rejecting the request before it ever reaches your handler if the token is missing, malformed, or expired.
-3. **Authorization** — role enforcement backed by [Casbin](https://casbin.org), so "is this user allowed to do this" is policy, not `if` statements scattered through controllers.
+Token management covers generating, validating and refreshing JWTs, built on [golang-jwt](https://github.com/golang-jwt/jwt), the maintained successor to the old `dgrijalva` package that half the internet still links to.
 
-The scaffold's migrations include a users table from day one, and the middleware is already in the chain for protected routes. Sign-up, sign-in, token refresh: present and testable the moment `gofasta dev` boots.
+Middleware extracts the token from the `Authorization: Bearer` header, verifies it, and rejects the request before it reaches your handler if the token is missing, malformed or expired.
 
-One framing note that matters to us: `pkg/auth` is an opt-out default, not a requirement. It's an ordinary import in your repository. If your organization standardizes on a different JWT library, or on sessions via `pkg/session`, or on an external identity provider, you delete the `pkg/auth` import and wire in your alternative. The rest of the project doesn't care. That's the deal with every package the scaffold pulls in, and it's the difference between a default and a dependency you're stuck with.
+Authorization is role enforcement backed by [Casbin](https://casbin.org), so "is this user allowed to do this" lives in policy instead of in `if` statements scattered through controllers.
 
-## Authentication answers "who"; it can't answer "may"
+The scaffold's migrations include a users table from day one, and the middleware is already in the chain for protected routes. Sign-up, sign-in and token refresh are present and testable the moment `gofasta dev` boots.
 
-A valid token proves identity. It says nothing about whether this identity may delete a book, view another user's orders, or hit the admin export endpoint. That's authorization, and it's where hand-rolled systems rot fastest, because the natural first implementation is:
+One framing note that matters to us. `pkg/auth` is an opt-out default, not a requirement. It is an ordinary import in your repository. If your organization standardizes on a different JWT library, or on sessions via `pkg/session`, or on an external identity provider, delete the import and wire in your alternative. The rest of the project does not care. That is the deal with every package the scaffold pulls in, and it is the difference between a default and a dependency you are stuck with.
+
+## Authentication answers "who" and cannot answer "may"
+
+A valid token proves identity. It says nothing about whether this identity may delete a book, read another user's orders, or hit the admin export endpoint. That is authorization, and it is where hand-rolled systems rot fastest, because the natural first implementation is this:
 
 ```go
 if user.Role != "admin" {
@@ -51,9 +53,9 @@ if user.Role != "admin" {
 }
 ```
 
-That line works. Then it gets copied into eleven handlers with small variations. Then someone adds an `editor` role and updates nine of the eleven. The two they missed become a security finding.
+The line works. Then it gets copied into eleven handlers with small variations. Then someone adds an `editor` role and updates nine of the eleven. The two they missed become a security finding.
 
-Casbin's answer is to pull the rules out of the code entirely. You describe a model (we use RBAC: users have roles, roles grant permissions on resources and actions) and a policy — the actual grants, editable without recompiling:
+Casbin's answer is to pull the rules out of the code entirely. You describe a model, in our case RBAC where users have roles and roles grant permissions on resources and actions, plus a policy holding the actual grants, editable without recompiling:
 
 ```text
 p, admin, /api/v1/books, GET
@@ -64,33 +66,39 @@ g, alice, admin
 g, bob, viewer
 ```
 
-The middleware asks Casbin one question per request: can this role perform this action on this resource? Adding a role, or granting an existing role a new permission, is a policy edit — one place, reviewable in a diff, no handler code touched. When an auditor asks "who can delete records?", the answer is a file, not a grep session across your controllers.
+The middleware asks Casbin one question per request. Can this role perform this action on this resource? Adding a role, or granting an existing role a new permission, becomes a policy edit in one place, reviewable in a diff, with no handler code touched. When an auditor asks who can delete records, the answer is a file rather than a grep session across your controllers.
 
-The [authentication guide](https://gofasta.dev/docs/guides/authentication) walks through the scaffold's model and policy files in detail, and the [pkg/auth reference](https://gofasta.dev/docs/api-reference/auth) documents the middleware surface.
+The [authentication guide](https://gofasta.dev/docs/guides/authentication) walks through the scaffold's model and policy files, and the [pkg/auth reference](https://gofasta.dev/docs/api-reference/auth) documents the middleware surface.
 
 ## The pitfalls that actually bite
 
-Here's the section we wish more tutorials had. None of these are hypothetical; each one is a postmortem we've read or lived.
+This is the section we wish more tutorials had. None of these are hypothetical. Each is a postmortem we have read or lived.
 
 ### Where the client stores the token
 
-`localStorage` is the path of least resistance and the worst option: any successful XSS reads it and walks away with a valid credential. An `HttpOnly`, `Secure`, `SameSite` cookie is invisible to JavaScript, which closes the XSS-theft path (you then handle CSRF, which is a much better-understood problem). For non-browser clients — mobile apps, CLIs, service-to-service — the OS keychain or environment-injected secrets are fine and the debate largely evaporates. The point is to *decide*, per client type, rather than let the frontend's convenience decide for you.
+`localStorage` is the path of least resistance and the worst option, because any successful XSS reads it and walks away with a valid credential. An `HttpOnly`, `Secure`, `SameSite` cookie is invisible to JavaScript, which closes the theft path and leaves you handling CSRF instead, a much better understood problem. For mobile apps, CLIs and service-to-service calls the OS keychain or environment-injected secrets are fine. What matters is deciding per client type rather than letting the frontend's convenience decide for you.
 
 ### Long-lived tokens are unexploded revocations
 
-The tension: short expiry means users re-authenticate constantly; long expiry means a stolen token works for weeks. The standard resolution, which `pkg/auth` implements, is a pair: a short-lived access token (minutes) and a longer-lived refresh token used only to mint new access tokens. A stolen access token now has a blast radius measured in minutes. The refresh endpoint becomes your control point — it's one place, it can consult the database, and it can say no.
+Short expiry means people re-authenticate constantly. Long expiry means a stolen token works for weeks. The resolution `pkg/auth` implements is a pair: a short-lived access token measured in minutes, and a longer-lived refresh token used only to mint new access tokens. A stolen access token now has a blast radius of minutes, and the refresh endpoint becomes your control point. One place, able to consult the database, able to say no.
 
 ### "Log out" and the revocation trade-off
 
-Here's the uncomfortable truth about stateless auth: a signed token is valid until it expires, full stop. Deleting it from the client is politeness, not security. If you need *hard* revocation — terminate this session now, this account is compromised — you need server-side state again: a denylist of revoked token IDs, or a per-user version number checked at refresh time. Yes, that reintroduces a lookup. The pragmatic stance we've settled on: keep access tokens short enough that refresh-time revocation is acceptable, and accept the small window. Teams that can't accept the window (banks, healthcare) should check state on every request and know they've made that trade consciously.
+Here is the uncomfortable truth about stateless auth. A signed token is valid until it expires, full stop, and deleting it from the client is politeness rather than security.
+
+Hard revocation, meaning terminate this session now because the account is compromised, needs server-side state again: a denylist of revoked token IDs, or a per-user version checked at refresh time. Yes, that reintroduces a lookup.
+
+Our pragmatic stance is to keep access tokens short enough that refresh-time revocation is acceptable and live with the small window. Teams that cannot accept it, in banking or healthcare say, should check state on every request and know they made the trade deliberately.
 
 ### Algorithm confusion
 
-The JWT header announces which algorithm signed the token — and historically, libraries that believed the *token's* claim about that were vulnerable to attacks like `alg: none` or swapping RS256 for HS256 with a public key as the HMAC secret. The fix is simple and absolute: the server dictates the accepted algorithm; the token gets no vote. Modern golang-jwt makes pinning straightforward, and `pkg/auth` does it for you, but if you ever hand-roll validation, this is the mistake that turns "signed" into "decorative."
+The JWT header announces which algorithm signed the token. Libraries that believed the *token's* claim about that were historically vulnerable to `alg: none`, or to swapping RS256 for HS256 with a public key used as the HMAC secret.
+
+The fix is absolute. The server dictates the accepted algorithm and the token gets no vote. Modern golang-jwt makes pinning straightforward and `pkg/auth` does it for you, but if you hand-roll validation this is the mistake that turns "signed" into "decorative."
 
 ### Clock skew and the invisible 401
 
-Tokens carry timestamps; servers disagree about the time. A token minted on one host can be "not valid yet" on another whose clock runs seconds behind, and the resulting intermittent 401s are miserable to debug because they vanish on retry. A small validation leeway plus NTP on your hosts makes this a non-issue — but only if you knew to do it.
+Tokens carry timestamps and servers disagree about the time. A token minted on one host can be "not valid yet" on another whose clock runs a few seconds behind, and the resulting intermittent 401s are miserable to debug because they vanish on retry. A small validation leeway plus NTP on your hosts makes it a non-issue, but only if you knew to do it.
 
 ## Seeing it work
 
@@ -108,24 +116,26 @@ curl -s localhost:8080/api/v1/books -H "Authorization: Bearer $TOKEN"
 # HTTP/1.1 200 OK
 ```
 
-Sign in as a `viewer` and `POST` instead, and you'll get a 403 — the token verified fine, then Casbin declined the action. The error bodies come out of `pkg/errors` as structured JSON either way, so clients can tell "you're not signed in" from "you're signed in but not allowed," which is a distinction your frontend team will thank you for.
+Sign in as a `viewer` and `POST` instead and you get a 403. The token verified fine, then Casbin declined the action. Error bodies come out of `pkg/errors` as structured JSON either way, so clients can tell "you are not signed in" from "you are signed in but not allowed." Your frontend team will thank you for that distinction.
 
-The generated tests cover both outcomes, and the [testing guide](https://gofasta.dev/docs/guides/testing) shows the pattern for asserting on policy decisions — worth extending every time you add a role, because authorization bugs are exactly the kind that unit tests catch cheaply and production discovers expensively.
+The generated tests cover both outcomes, and the [testing guide](https://gofasta.dev/docs/guides/testing) shows the pattern for asserting on policy decisions. Extend it every time you add a role. Authorization bugs are exactly the kind that unit tests catch cheaply and production discovers expensively.
 
 ## The parts around the token
 
-Two adjacent concerns deserve a paragraph each, because auth incidents rarely start at the token itself.
+Auth incidents rarely start at the token itself, so two adjacent concerns deserve a paragraph each.
 
-**Passwords.** The scaffold's sign-in flow stores password hashes, never passwords, using bcrypt — deliberately slow, per-password salted, and boring in the best way. The rules that matter: no truncation surprises (bcrypt caps input at 72 bytes; validate your max length accordingly), no homemade "pepper plus MD5" cleverness, and no logging of request bodies on the auth endpoints. That last one sounds obvious until you inherit a log pipeline that's been faithfully recording sign-in payloads for a year.
+**Passwords.** The sign-in flow stores hashes, never passwords, using bcrypt: deliberately slow, per-password salted, boring in the best way. Watch for truncation, since bcrypt caps input at 72 bytes. Skip homemade pepper-plus-MD5 cleverness. And never log request bodies on the auth endpoints, which sounds obvious right up until you inherit a log pipeline that has been faithfully recording sign-in payloads for a year.
 
-**The login endpoint is an attack surface.** It's the one route where an attacker *wants* to be told "wrong password," millions of times, quickly. The scaffold's middleware chain includes rate limiting, and applying a tighter limit on `/auth/login` than on the rest of the API is a one-line policy decision rather than a new subsystem. Pair it with uniform error messages — "invalid credentials," never "no such user" — so the endpoint doesn't double as a user-enumeration oracle.
+**The login endpoint is an attack surface.** It is the one route where an attacker *wants* to be told "wrong password" millions of times, quickly. The middleware chain includes rate limiting, and applying a tighter limit to `/auth/login` than to the rest of the API is a one-line policy decision rather than a new subsystem. Pair it with uniform error messages, always "invalid credentials" and never "no such user", so the endpoint does not double as a user-enumeration oracle.
 
-And if your use case genuinely fits server-side sessions better — a browser-only admin panel, say, where instant revocation matters more than statelessness — the library ships `pkg/session` wrapping gorilla/sessions. Using it instead of `pkg/auth` is exactly the kind of swap the opt-out default model exists for. Same scaffold, different trade.
+If your use case genuinely fits server-side sessions better, say a browser-only admin panel where instant revocation matters more than statelessness, the library ships `pkg/session` wrapping gorilla/sessions. Using it instead of `pkg/auth` is exactly the swap the opt-out default model exists for. Same scaffold, different trade.
 
 ## Our position, briefly
 
-JWTs are neither the security disaster their critics describe nor the free lunch their fans imply. They're a trade: you give up instant revocation and gain horizontal statelessness. That trade is right for most APIs, wrong for some, and *catastrophic only when made unknowingly*. Pair short-lived access tokens with refresh rotation, pin your algorithms, keep secrets out of JavaScript's reach, and put authorization in policy rather than in handlers, and you've covered the failure modes that account for nearly every JWT incident we've seen.
+JWTs are neither the security disaster their critics describe nor the free lunch their fans imply. They are a trade. You give up instant revocation and gain horizontal statelessness. That trade is right for most APIs, wrong for some, and catastrophic only when made unknowingly.
 
-The scaffold exists so that "the secure arrangement" and "the default arrangement" are the same thing. What we can't automate is the thinking — which is why this post is long.
+Pair short-lived access tokens with refresh rotation, pin your algorithms, keep secrets out of JavaScript's reach, and put authorization in policy rather than handlers. That covers the failure modes behind nearly every JWT incident we have seen.
 
-Next in the series: [migrations](/blog/database-migrations-go) — how schema changes stay boring across five databases, and why some guardrails belong in the database itself, beneath even a compromised application. If you're joining mid-series, [part one](/blog/build-production-rest-api-go) gets you from empty directory to running API in about fifteen minutes.
+The scaffold exists so the secure arrangement and the default arrangement are the same thing. What we cannot automate is the thinking.
+
+Next in the series: [migrations](/blog/database-migrations-go), on how schema changes stay boring across five databases and why some guardrails belong in the database itself, beneath even a compromised application. If you are joining mid-series, [part one](/blog/build-production-rest-api-go) gets you from empty directory to running API in about fifteen minutes.

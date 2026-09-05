@@ -50,7 +50,7 @@ export default async function DocsLayout({
         <Footer>
           <span className="flex flex-wrap items-center gap-3">
             <span>
-              &copy; 2025–{new Date().getFullYear()} Gofasta Authors — MIT
+              &copy; 2025-{new Date().getFullYear()} Gofasta Authors, MIT
               License
             </span>
             <span aria-hidden="true">·</span>

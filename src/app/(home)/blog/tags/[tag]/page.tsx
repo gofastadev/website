@@ -31,11 +31,11 @@ export async function generateMetadata({
   const posts = getPostsByTag(normalized);
   if (posts.length === 0)
     return {
-      title: "Tag not found — Gofasta Blog",
+      title: "Tag not found - Gofasta Blog",
       robots: { index: false, follow: false },
     };
 
-  const title = `#${normalized} — Gofasta Blog`;
+  const title = `#${normalized} - Gofasta Blog`;
   const description = `Posts tagged ${normalized} on the Gofasta blog.`;
   const url = tagUrl(normalized);
   const ogImage = `/api/og?title=${encodeURIComponent(`#${normalized}`)}&section=Blog`;
