@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ComponentPropsWithoutRef, CSSProperties, ReactNode } from "react";
 import { AnchoredHeading } from "@/components/atoms/anchored-heading";
 import { MdxPre } from "@/components/molecules/mdx-pre";
 import { getLocalImageDim } from "./image-dim";
@@ -92,10 +92,25 @@ export function BlogImage({ src, alt, title }: BlogImageProps) {
 // the article header owns the title and stripTitleH1 removes body H1s.
 type HeadingProps = React.ComponentPropsWithoutRef<"h2">;
 
+export type TableProps = ComponentPropsWithoutRef<"table">;
+
+// A wide comparison table would otherwise push the whole article into
+// horizontal scroll on narrow viewports. The wrapper keeps the overflow
+// local to the table, and `block` on the table itself is what lets the
+// wrapper actually clip it inside Tailwind's prose styles.
+export function BlogTable(props: TableProps) {
+  return (
+    <div className="my-6 -mx-6 overflow-x-auto px-6 sm:mx-0 sm:px-0">
+      <table {...props} className="my-0 block w-max min-w-full sm:table" />
+    </div>
+  );
+}
+
 export const blogMdxComponents = {
   Callout,
   img: BlogImage,
   pre: MdxPre,
+  table: BlogTable,
   h2: (props: HeadingProps) => <AnchoredHeading as="h2" {...props} />,
   h3: (props: HeadingProps) => <AnchoredHeading as="h3" {...props} />,
   h4: (props: HeadingProps) => <AnchoredHeading as="h4" {...props} />,

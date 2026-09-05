@@ -4,6 +4,7 @@ import {
   Callout,
   BlogImage,
   blogMdxComponents,
+  BlogTable,
 } from "./blog-mdx-components";
 import { getLocalImageDim } from "./image-dim";
 
@@ -130,5 +131,20 @@ describe("blogMdxComponents map", () => {
     expect(
       screen.getByRole("link", { name: "Link to this section" }),
     ).toHaveAttribute("href", `#${tag}-slug`);
+  });
+});
+
+describe("BlogTable", () => {
+  it("wraps the table in its own horizontal scroll container", () => {
+    const { container } = render(<BlogTable />);
+    const wrapper = container.firstElementChild as HTMLElement;
+
+    expect(wrapper.tagName).toBe("DIV");
+    expect(wrapper.className).toContain("overflow-x-auto");
+    expect(wrapper.querySelector("table")).not.toBeNull();
+  });
+
+  it("is registered as the table renderer for post bodies", () => {
+    expect(blogMdxComponents.table).toBe(BlogTable);
   });
 });

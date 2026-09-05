@@ -279,3 +279,18 @@ describe("json feed icons", () => {
     expect(feed.favicon).toBe("https://gofasta.dev/icon-48.png");
   });
 });
+
+describe("renderMdxToHtml GFM support", () => {
+  it("renders a markdown table as a real table rather than pipe text", () => {
+    const html = renderMdxToHtml("| a | b |\n|---|---|\n| 1 | 2 |\n");
+
+    expect(html).toContain("<table>");
+    expect(html).toContain("<th>a</th>");
+    expect(html).toContain("<td>2</td>");
+    expect(html).not.toContain("|---|");
+  });
+
+  it("still renders ordinary paragraphs unchanged", () => {
+    expect(renderMdxToHtml("Plain prose.\n")).toBe("<p>Plain prose.</p>");
+  });
+});

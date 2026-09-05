@@ -1,5 +1,7 @@
 import "server-only";
 import { fromMarkdown } from "mdast-util-from-markdown";
+import { gfmFromMarkdown } from "mdast-util-gfm";
+import { gfm } from "micromark-extension-gfm";
 import { toHast } from "mdast-util-to-hast";
 import { toHtml } from "hast-util-to-html";
 import type { BlogPost } from "./blog";
@@ -30,7 +32,12 @@ export interface SiteMeta {
 }
 
 export function renderMdxToHtml(source: string): string {
-  const mdast = fromMarkdown(source);
+  // Same GFM requirement as the page renderer: without these extensions a
+  // markdown table reaches feed readers as a paragraph of pipe characters.
+  const mdast = fromMarkdown(source, {
+    extensions: [gfm()],
+    mdastExtensions: [gfmFromMarkdown()],
+  });
   const hast = toHast(mdast);
   return toHtml(hast);
 }

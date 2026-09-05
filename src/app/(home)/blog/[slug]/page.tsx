@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
+import remarkGfm from "remark-gfm";
 import { createCssVariablesTheme } from "shiki";
 import { LandingTemplate } from "@/components/templates";
 import { ReadingProgressBar } from "@/components/atoms/reading-progress-bar";
@@ -252,6 +253,10 @@ export default async function BlogPostPage({
               components={blogMdxComponents}
               options={{
                 mdxOptions: {
+                  // Tables, strikethrough and autolinks are GFM, not
+                  // CommonMark, so MDX renders them as literal text without
+                  // this. The feed builder needs the same extension.
+                  remarkPlugins: [remarkGfm],
                   rehypePlugins: [
                     rehypeSlug,
                     [rehypePrettyCode, { theme: shikiTheme }],
