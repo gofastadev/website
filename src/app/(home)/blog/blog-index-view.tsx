@@ -8,7 +8,7 @@ import {
 import { BlogPostCard } from "@/components/molecules/blog-post-card";
 import { BlogPagination } from "@/components/molecules/blog-pagination";
 import { getAllPosts, getAllTags } from "@/lib/blog";
-import { buildBlogIndexJsonLd } from "@/lib/structured-data";
+import { buildBlogIndexJsonLd, serializeJsonLd } from "@/lib/structured-data";
 import { SITE_URL } from "@/lib/seo";
 
 // Shared server-side view for the blog index: `/blog` renders page 1,
@@ -70,7 +70,7 @@ export function BlogIndexView({ page }: { page: number }) {
       {jsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
       ) : null}
       <main className="mx-auto max-w-6xl px-6 pt-32 pb-24" data-pagefind-body>

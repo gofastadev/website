@@ -4,26 +4,13 @@ import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { computeReadingTime, type ReadingTimeResult } from "./reading-time";
 
-// ─────────────────────────────────────────────────────────────────────
-// src/lib/blog.ts
+// One `.mdx` file per post; the filename becomes the slug, matching what
+// Keystatic's `slugField: "title"` produces. Bodies are rendered at the
+// route layer so this module stays pure data.
 //
-// Filesystem-backed reader over MDX posts in `content/blog/`. The
-// reader is exposed via a factory (`createBlogService(dir)`) so tests
-// can point at a fixture directory, and the project's default surface
-// (used by routes) is constructed once from `process.cwd()`.
-//
-// Authoring model: each post is one `.mdx` file at the blog directory
-// root. The filename (without extension) becomes the slug, which is
-// what Keystatic's `slugField: "title"` produces too. Frontmatter is
-// YAML; the body after the closing `---` is rendered with
-// `next-mdx-remote/rsc` at the route layer (not here — this module
-// stays pure data).
-//
-// Tag normalization happens at the lib boundary: every tag is
-// lowercased + whitespace-collapsed to a slug. This prevents
-// `/blog/tags/Go` and `/blog/tags/go` from rendering two pages with
-// the same content but different cache keys.
-// ─────────────────────────────────────────────────────────────────────
+// Tags are lowercased and whitespace-collapsed here at the boundary, so
+// `/blog/tags/Go` and `/blog/tags/go` can't become two pages with the
+// same content under different cache keys.
 
 const COVER_PUBLIC_PATH = "/blog/covers/";
 
@@ -37,26 +24,19 @@ export interface BlogPostFrontmatter {
   tags: string[];
   cover: string;
   /**
-   * Editorial draft flag from Keystatic. When `true`, the post is
-   * filtered out of every PRODUCTION surface (index, sitemap, RSS,
-   * JSON Feed, tag pages, on-site search) but stays visible on
-   * preview deploys and in local dev so PR-mode editorial review can
-   * actually see the post. Defaults to `false` when missing so legacy
-   * posts authored before the field existed stay published without
-   * re-edit.
+   * Hidden from every production surface, but still rendered on preview
+   * deploys and in dev so Keystatic's PR-mode review can see the post.
+   * Missing means published, so posts predating the field stay live.
    */
   draft?: boolean;
   /**
-   * Name of the multi-part series this post belongs to, e.g.
-   * "Deploy Anywhere". Posts sharing the exact name form one series;
-   * `seriesPart` orders them. Keystatic emits "" for the untouched
-   * optional field — treated as "no series", not an error.
+   * Posts sharing an exact name form one series. Keystatic emits "" for
+   * an untouched field, which means "no series" rather than an error.
    */
   series?: string;
   /**
-   * 1-based position within `series`. Explicit rather than derived
-   * from publishedAt so parts can be backfilled or reordered without
-   * renumbering every sibling. Requires `series` to be set.
+   * 1-based position, explicit rather than derived from publishedAt so
+   * parts can be backfilled without renumbering siblings.
    */
   seriesPart?: number;
 }
@@ -91,15 +71,13 @@ function resolveCoverUrl(cover: string): string {
   return `${COVER_PUBLIC_PATH}${cover}`;
 }
 
-// parsePost returns null when:
-//   - the file isn't valid MDX with YAML frontmatter,
-//   - any required field is missing or the wrong shape, or
-//   - the post's publishedAt is in the future (relative to `now`).
+// Returns null for malformed frontmatter, a missing or misshapen
+// required field, or a publishedAt in the future.
 //
-// Future-dating is the project's de-facto scheduling primitive: an
-// editor can land a PR ahead of time and the post stays hidden from
-// `/blog`, `/blog/[slug]`, RSS, JSON Feed, sitemap, and tag pages
-// until the scheduled date arrives and the next build runs.
+// Future-dating hides a post from every surface, but it is not a
+// scheduler: the date is evaluated at build time and nothing rebuilds on
+// a timer, so a future-dated post appears at the next deploy after its
+// date, not on the date itself.
 function parsePost(
   filename: string,
   source: string,
@@ -135,29 +113,22 @@ function parsePost(
     return null;
   }
 
-  // `yaml` v2 parses ISO datetime scalars as strings by default (YAML
-  // 1.2 doesn't recognize the timestamp type), and Keystatic emits
-  // datetime fields as quoted ISO strings. So treat `publishedAt` and
-  // `updatedAt` strictly as strings — anything else is invalid input.
+  // YAML 1.2 has no timestamp type, so `yaml` v2 hands back ISO datetimes
+  // as strings and Keystatic writes them quoted. Anything non-string here
+  // is malformed input.
   if (typeof publishedAt !== "string") return null;
   const publishDate = new Date(publishedAt);
   if (Number.isNaN(publishDate.getTime())) return null;
   if (publishDate.getTime() > now.getTime()) return null;
 
-  // Drafts are filtered after the publishedAt check so the two
-  // mechanisms compose: a future-dated draft stays hidden even if one
-  // of the two gates is removed. Strict `=== true` so a non-boolean
-  // (or missing) value falls through to "published" — matches Keystatic
-  // checkbox semantics and keeps existing posts that lack the field
-  // visible without a re-edit.
+  // Strict `=== true` so a missing or non-boolean value reads as
+  // published, matching Keystatic checkbox semantics.
   if (fm.draft === true && !includeDrafts) return null;
 
   let updatedAt: string | undefined;
   if (typeof fm.updatedAt === "string") {
-    // Same strictness as publishedAt: a malformed date would flow into
-    // `new Date(...)` in the sitemap (Invalid Date lastModified),
-    // JSON-LD dateModified, and OpenGraph modifiedTime. Invalid input
-    // rejects the post, consistent with every other gate above.
+    // A malformed date would surface as an Invalid Date in sitemap
+    // lastModified, JSON-LD dateModified, and OpenGraph modifiedTime.
     if (Number.isNaN(new Date(fm.updatedAt).getTime())) return null;
     updatedAt = fm.updatedAt;
   }
@@ -167,9 +138,8 @@ function parsePost(
       ? fm.authorUrl
       : undefined;
 
-  // Series: absent or empty string (Keystatic's untouched text field)
-  // means "not in a series"; any other non-string is invalid input and
-  // rejects the post, same strictness as updatedAt above.
+  // Absent or empty means "not in a series"; any other non-string is
+  // malformed.
   let series: string | undefined;
   if (fm.series !== undefined) {
     if (typeof fm.series !== "string") return null;
@@ -177,9 +147,8 @@ function parsePost(
     if (trimmed.length > 0) series = trimmed;
   }
 
-  // seriesPart must be a 1-based integer and is meaningless without a
-  // series name — both violations reject the post so a half-filled
-  // Keystatic form surfaces at build time, not as a broken nav.
+  // Rejecting a part without a series surfaces a half-filled Keystatic
+  // form at build time rather than as broken nav in production.
   let seriesPart: number | undefined;
   if (fm.seriesPart !== undefined && fm.seriesPart !== null) {
     if (
@@ -193,12 +162,10 @@ function parsePost(
     seriesPart = fm.seriesPart;
   }
 
-  // The slug is interpolated into hrefs, canonical URLs, RSS links, and
-  // JSON-LD across the site. Constrain it to a strict kebab-case charset
-  // at this single boundary so no downstream consumer has to reason
-  // about traversal sequences or URL metacharacters in a filename — a
-  // file that violates the pattern is excluded, like any other invalid
-  // input above.
+  // Slugs are interpolated into hrefs, canonical URLs, RSS links, and
+  // JSON-LD. Constraining the charset at this one boundary means no
+  // downstream consumer has to reason about traversal sequences or URL
+  // metacharacters coming out of a filename.
   const slug = filename.replace(/\.mdx$/, "");
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
   const body = match[2];
@@ -216,8 +183,7 @@ function parsePost(
     coverUrl: resolveCoverUrl(cover),
     body,
     readingTime: computeReadingTime(body),
-    // Surfaced so the UI can badge draft posts on previews/dev — the
-    // only contexts where a draft is ever rendered.
+    // Surfaced so previews can badge the post as a draft.
     draft: fm.draft === true,
     series,
     seriesPart,
@@ -227,12 +193,10 @@ function parsePost(
 export interface BlogServiceOptions {
   now?: () => Date;
   /**
-   * Whether posts flagged `draft: true` are included. Defaults to the
-   * deploy context: drafts stay hidden in production but ARE rendered
-   * on Vercel preview deploys and in local dev — Keystatic's PR mode
-   * exists so editors review a post on its preview deploy, which is
-   * impossible if the draft flag hides it there too. (Previews are
-   * noindexed by Vercel, so draft content doesn't leak into search.)
+   * Defaults to the deploy context. Drafts render on previews and in dev
+   * because Keystatic's PR mode exists to review a post on its preview
+   * deploy, which the flag would otherwise prevent. Vercel noindexes
+   * previews, so nothing leaks into search.
    */
   includeDrafts?: boolean;
 }
@@ -287,7 +251,7 @@ export function createBlogService(
       const posts = loadAll();
       const index = posts.findIndex((p) => p.slug === slug);
       if (index === -1) return { prev: null, next: null };
-      // posts are newest-first → "prev" reads older, "next" reads newer.
+      // Newest-first, so "prev" is older and "next" is newer.
       return {
         prev: posts[index + 1] ?? null,
         next: posts[index - 1] ?? null,
@@ -305,9 +269,8 @@ export function createBlogService(
         .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
     },
     getSeriesPosts(series: string) {
-      // Parts ordered by their explicit number; publishedAt breaks the
-      // tie if two posts ever claim the same part. Posts with a series
-      // name but no part sort last, in publish order.
+      // publishedAt breaks ties between posts claiming the same part;
+      // posts with no part sort last.
       return loadAll()
         .filter((p) => p.series === series)
         .sort(
@@ -320,11 +283,9 @@ export function createBlogService(
   };
 }
 
-// `process.cwd()` is captured lazily on first use rather than at
-// module-import time. Next.js's build pipeline evaluates modules
-// during analysis under a working directory that's NOT the project
-// root, so binding the path at import would freeze a stale value
-// before generateStaticParams runs.
+// Captured lazily, not at import: Next's build pipeline evaluates modules
+// during analysis under a working directory that is not the project root,
+// so binding at import time would freeze a stale path.
 export function getDefaultBlogDir(): string {
   return path.join(process.cwd(), "data", "blog");
 }

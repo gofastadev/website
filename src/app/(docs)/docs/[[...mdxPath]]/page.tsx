@@ -1,7 +1,7 @@
 import { generateStaticParamsFor, importPage } from "nextra/pages";
 import { useMDXComponents as getMDXComponents } from "../../../../../mdx-components";
 import { AGENT_DOC_ALTERNATES, SITE_URL, withBaseKeywords } from "@/lib/seo";
-import { buildTechArticleJsonLd } from "@/lib/structured-data";
+import { buildTechArticleJsonLd, serializeJsonLd } from "@/lib/structured-data";
 
 export const generateStaticParams = generateStaticParamsFor("mdxPath");
 
@@ -95,7 +95,7 @@ export default async function Page(props: {
     <Wrapper toc={toc} metadata={metadata}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       <MDXContent {...props} params={params} />
     </Wrapper>

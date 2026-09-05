@@ -8,64 +8,36 @@ import "server-only";
 import Link from "next/link";
 import { getPageMap } from "nextra/page-map";
 
-// ─────────────────────────────────────────────────────────────────────
-// <RelatedPages /> — the docs-site "Related" footer.
-//
-// Renders an auto-generated list of sibling pages from the same section
-// (sourced from Nextra's page map at request time, so adding a new
-// MDX file under e.g. cli-reference/ automatically appears in every
-// other cli-reference page's Related list — zero per-page edits).
-//
-// Authors pass `path` to anchor the component to the current page, and
-// optionally `extra` to add curated cross-section links. The component
-// is a server component — no client JS — so the link list lands in the
-// initial HTML where Google's crawler reads it.
-//
-// Why an explicit `path` prop and not auto-detection?
-//
-//   Server components rendered through MDX don't have a clean handle
-//   on the current request path (no useRouter, headers() doesn't carry
-//   it by default). Threading the path through React Context would
-//   require turning the dynamic route into a client subtree, which we
-//   don't want for SEO. A one-line `path="cli-reference/dev"` from the
-//   author is the cheapest robust answer.
-// ─────────────────────────────────────────────────────────────────────
+// `path` is passed explicitly rather than auto-detected: a server
+// component rendered through MDX has no clean handle on the current
+// request path, and threading it through Context would turn the route
+// into a client subtree, costing the server-rendered links that Google
+// reads from the initial HTML.
 
 /** A curated cross-section link rendered alongside the auto-generated siblings. */
 export interface RelatedExtra {
   href: string;
   label: string;
-  /**
-   * Optional one-sentence description rendered next to the link.
-   * Adds keyword-rich context that helps Google's topical relevance
-   * scoring on internal links — the same way the manual `## Related`
-   * bullets used to. When omitted, the link renders as title-only.
-   */
+  /** Rendered next to the link; the link is title-only without it. */
   description?: string;
 }
 
 interface RelatedPagesProps {
   /**
-   * Path of the page this component is rendered on, relative to /docs.
-   * Examples: "cli-reference/dev", "api-reference/cache",
-   * "guides/debugging/architecture". The component lists siblings of
-   * the final segment.
+   * Page this is rendered on, relative to /docs, e.g.
+   * "cli-reference/dev". Siblings of the final segment are listed.
    */
   path: string;
 
   /**
-   * Optional curated cross-section links rendered AFTER the
-   * auto-generated sibling list. Use for "this CLI command relates to
-   * this API package" — the kind of cross-link the directory-based
-   * auto-list cannot infer.
+   * Curated links appended after the siblings, for cross-section
+   * relationships the directory layout cannot infer.
    */
   extra?: RelatedExtra[];
 }
 
-// PageMapItem shape we need — Nextra's exported type tree includes
-// folders, MDX files, and meta files. We only render MDX files. The
-// frontMatter shape pulls `description` alongside `title` because the
-// description is rendered next to each link for SEO keyword context.
+// Nextra's page map mixes folders, MDX files, and meta files; only MDX
+// leaves are rendered.
 interface MdxLikeItem {
   name: string;
   route: string;
@@ -91,13 +63,9 @@ function isRenderableMdx(item: unknown): item is MdxLikeItem {
   return true;
 }
 
-// trimSentence picks the first sentence of a description (or the first
-// ~140 chars when there's no sentence break). The full frontmatter
-// description is often 2-3 sentences sized for the page meta tag;
-// inside the Related-Pages footer that's too heavy visually, so we
-// summarize. The full text remains in the page's <meta name="description">
-// so SEO indexes the whole thing — this trim is purely for the
-// in-page rendering.
+// Frontmatter descriptions are sized for the meta tag and run 2-3
+// sentences, which is visually heavy in this footer. Trimming here is
+// presentational only — the meta tag still carries the full text.
 function trimSentence(s: string, max = 140): string {
   const trimmed = s.trim();
   if (trimmed.length === 0) return "";
@@ -144,12 +112,9 @@ export async function RelatedPages({ path, extra = [] }: RelatedPagesProps) {
     return null;
   }
 
-  // Each <li> renders the link followed by an inline description (in
-  // dim text), if one is available. The description sits OUTSIDE the
-  // <a> on purpose: anchor text stays clean (the page title) while
-  // the surrounding text feeds Google's contextual relevance scoring —
-  // every internal link carries keyword-rich context just like the
-  // pre-normalization manual bullets did.
+  // The description sits outside the <a> deliberately: anchor text stays
+  // just the page title, while the surrounding prose still gives Google
+  // context for the link.
   return (
     <nav
       aria-label="Related pages"

@@ -12,15 +12,11 @@ export default withNextra({
   reactCompiler: true,
   output: "standalone",
   poweredByHeader: false,
-  // ── Canonical host ───────────────────────────────────────────────
-  // `www.gofasta.dev` used to serve the entire site with a 200, so
-  // every page existed at two URLs. The canonical tag pointed Google
-  // at the apex, which is why Search Console filed the www copy under
-  // "Alternate page with proper canonical tag" rather than as a
-  // duplicate — but a canonical is a hint, not an instruction, and it
-  // still cost crawl budget on a second copy of all 89 URLs. A 308
-  // makes the apex the only reachable host. The `has` host condition
-  // scopes this to requests that arrive on www, so it can't loop.
+  // Without this, www serves the whole site with a 200 and every page
+  // exists at two URLs. A canonical tag is only a hint, so it still cost
+  // crawl budget on a second copy of the site; a 308 makes the apex the
+  // only reachable host. The `has` condition scopes the redirect to www
+  // requests so it can't loop.
   async headers() {
     // Baseline hardening headers. HSTS is intentionally absent — Vercel
     // sets strict-transport-security on custom domains itself.
@@ -63,23 +59,16 @@ export default withNextra({
       "@react-aria/interactions": "./shims/react-aria-interactions-shim.mjs",
     },
   },
-  // Image optimization: serve modern formats by default. Next.js will
-  // negotiate AVIF first (best compression), then WebP, then fall
-  // back to the original on browsers that support neither — so this
-  // is purely additive. The 30-day minimum cache TTL means repeat
-  // visitors get edge-cached images instead of round-tripping through
-  // the optimizer on every request, which saves CWV LCP on warm
-  // visits.
+  // Next negotiates AVIF, then WebP, then the original, so this is
+  // purely additive. The 30-day minimum TTL keeps repeat visits on
+  // edge-cached images instead of round-tripping the optimizer.
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 60 * 60 * 24 * 30,
-    // SVG covers are allowed for blog posts. Authoring goes through
-    // Keystatic (an authenticated admin UI gated behind GitHub OAuth)
-    // OR via direct PRs we review — never via untrusted user upload.
-    // The strict CSP below sandboxes the rendered SVG so scripts and
-    // foreign-origin assets inside the file are blocked, eliminating
-    // the XSS vector that makes user-uploaded SVGs risky on hosts
-    // that mirror unmodified user input.
+    // SVG covers are allowed because authoring is gated: Keystatic
+    // behind GitHub OAuth, or a reviewed PR, never untrusted upload.
+    // The CSP below sandboxes the rendered SVG so scripts and
+    // foreign-origin assets inside the file are blocked anyway.
     dangerouslyAllowSVG: true,
     contentSecurityPolicy:
       "default-src 'self'; script-src 'none'; sandbox;",

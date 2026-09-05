@@ -1,32 +1,12 @@
-// ─────────────────────────────────────────────────────────────────────
-// JSON-LD builders for every long-form content surface on the site.
-//
-// One module, two callers:
-//
-//   - The dynamic /docs route (Nextra MDX) → buildBreadcrumbJsonLd +
-//     buildTechArticleJsonLd.
-//   - The dynamic /blog routes (Keystatic-backed MDX) →
-//     buildBreadcrumbJsonLd + buildBlogPostingJsonLd.
-//
-// Pulling the helpers out of the docs route page lets the blog route
-// reuse the same breadcrumb logic and gives both schemas a single
-// place to evolve when Google's recommendations change.
-//
-// Coverage note: this module is in the vitest 100%-threshold include
-// set. Every branch below has matching test coverage in
-// structured-data.test.ts.
-// ─────────────────────────────────────────────────────────────────────
+// JSON-LD builders shared by the /docs and /blog routes, so both
+// schemas move together when Google's recommendations change.
 
 import { SITE_URL } from "./seo";
 
-// ── Shared Organization entity ───────────────────────────────────────
-//
 // One canonical Organization node, referenced by @id from every
 // publisher/author field, so Google merges the entity across pages
-// instead of seeing disconnected inline copies. sameAs disambiguates
-// the org (E-E-A-T signal); the logo is a typed ImageObject (512×512 —
-// well above Google's 112×112 minimum) as the Organization docs
-// recommend.
+// instead of seeing disconnected inline copies. The logo is a typed
+// ImageObject at 512×512, above Google's 112×112 minimum.
 export const ORG_ID = `${SITE_URL}/#organization`;
 
 export function buildOrganizationNode() {
@@ -45,11 +25,8 @@ export function buildOrganizationNode() {
   };
 }
 
-// Title-cases a kebab-case slug for display: "cli-reference" → "Cli Reference".
-// Used both for breadcrumb item names and for the OG-image / article
-// `section` so the on-page text and the structured data agree. Exported
-// because callers outside this file (the blog [slug] route) derive
-// `articleSection` from a slugged tag with the same casing rules.
+// "cli-reference" → "Cli Reference". Shared with the OG image and
+// article section so on-page text and structured data agree.
 export function humanize(slug: string): string {
   return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -109,11 +86,7 @@ export interface TechArticleInput {
   keywords?: readonly string[];
 }
 
-/**
- * Build the `@graph` (BreadcrumbList + TechArticle) JSON-LD payload
- * for any /docs page. Same contract as the legacy
- * buildStructuredData() that used to live in the docs page.
- */
+/** The `@graph` (BreadcrumbList + TechArticle) payload for a /docs page. */
 export function buildTechArticleJsonLd(input: TechArticleInput) {
   const { segments, title, description, keywords = [] } = input;
   const urlPath = `/docs${segments.length > 0 ? `/${segments.join("/")}` : ""}`;
@@ -367,11 +340,9 @@ export interface TagPageInput {
 }
 
 /**
- * Build the `@graph` (BreadcrumbList + CollectionPage) payload for a
- * tag archive. The posts are expressed as a proper `ItemList` under
- * `mainEntity` — `numberOfItems` is an ItemList property, not a
- * CollectionPage one (the previous inline schema had it on the wrong
- * node).
+ * The `@graph` (BreadcrumbList + CollectionPage) payload for a tag
+ * archive. Posts go in an `ItemList` under `mainEntity` because
+ * `numberOfItems` is an ItemList property, not a CollectionPage one.
  */
 export function buildTagPageJsonLd(input: TagPageInput) {
   const { tag, posts } = input;
@@ -407,4 +378,16 @@ export function buildTagPageJsonLd(input: TagPageInput) {
       },
     ],
   };
+}
+
+/**
+ * Serialize a JSON-LD payload for injection into a <script> tag.
+ *
+ * `JSON.stringify` does not escape `<`, so a `</script>` sequence inside
+ * any authored string — a post title, an author name, a tag — would
+ * close the tag early and let the rest execute as markup. Escaping the
+ * `<` is what Next's own JSON-LD guide prescribes.
+ */
+export function serializeJsonLd(payload: unknown): string {
+  return JSON.stringify(payload).replace(/</g, "\\u003c");
 }

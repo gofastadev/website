@@ -13,6 +13,7 @@ import {
 } from "@/components/organisms";
 import { ScrollDepthTracker, SectionTracker } from "@/components/atoms";
 import { AGENT_DOC_ALTERNATES, SITE_URL, withBaseKeywords } from "@/lib/seo";
+import { serializeJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
   keywords: withBaseKeywords(
@@ -106,7 +107,7 @@ export default function HomePage() {
     <LandingTemplate>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       {/* Page-level analytics:
           - ScrollDepthTracker fires 25/50/75/100% milestones.

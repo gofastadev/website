@@ -3,20 +3,12 @@ import { AnchoredHeading } from "@/components/atoms/anchored-heading";
 import { MdxPre } from "@/components/molecules/mdx-pre";
 import { getLocalImageDim } from "./image-dim";
 
-// ─────────────────────────────────────────────────────────────────────
-// blog-mdx-components.tsx
+// The component map for blog posts, separate from the project-root
+// `mdx-components.tsx` that Nextra uses for docs.
 //
-// Component map passed to `<MDXRemote components={...}>` when rendering
-// posts under `content/blog/`. Distinct from the project-root
-// `mdx-components.tsx` (which Nextra uses for the docs route) — the
-// blog uses `next-mdx-remote/rsc` and has its own surface concerns
-// (Callout styling, captioned figures, etc.).
-//
-// Keystatic stores MDX without imports or raw HTML tags, so any
-// custom component referenced from a post must be registered both
-// here AND in the Keystatic `body` field schema so the editor knows
-// it's available.
-// ─────────────────────────────────────────────────────────────────────
+// Keystatic stores MDX without imports or raw HTML, so a custom
+// component must be registered both here and in the Keystatic `body`
+// field schema before a post can reference it.
 
 export type CalloutType = "info" | "warning" | "tip";
 
@@ -62,17 +54,10 @@ export interface BlogImageProps {
   title?: string;
 }
 
-// Markdown's `![alt](src)` syntax emits a bare `<img>` element. We
-// replace it with a captioned `<figure>` and a lazy-loaded `<img>` so
-// blog images don't block first paint and so the alt text doubles as
-// a caption when present.
-//
-// `width` / `height` come from `getLocalImageDim`, which probes the
-// file at build time (the consuming route is `force-static`). When the
-// dimensions are known we also set an inline `aspect-ratio` so the
-// browser reserves vertical space immediately on first paint — that's
-// the Core Web Vitals (CLS) fix. Remote URLs or missing files keep the
-// current attribute-less behavior.
+// Replaces markdown's bare `<img>` with a captioned, lazy-loaded
+// `<figure>`. Known dimensions also set an inline `aspect-ratio` so the
+// browser reserves vertical space on first paint, which is the CLS fix;
+// remote or missing files degrade to no attributes.
 export function BlogImage({ src, alt, title }: BlogImageProps) {
   if (!src) return null;
   const caption = title ?? alt;
@@ -102,11 +87,9 @@ export function BlogImage({ src, alt, title }: BlogImageProps) {
   );
 }
 
-// h2–h6 render through AnchoredHeading so every section gets the
-// hover-revealed "#" fragment link; rehype-slug (registered in the
-// [slug] route's pipeline) supplies the `id` prop. h1 is intentionally
-// absent — the article header owns the title and stripTitleH1 removes
-// body H1s.
+// h2–h6 get hover-revealed fragment links, with ids supplied by
+// rehype-slug in the [slug] route's pipeline. h1 is deliberately absent:
+// the article header owns the title and stripTitleH1 removes body H1s.
 type HeadingProps = React.ComponentPropsWithoutRef<"h2">;
 
 export const blogMdxComponents = {

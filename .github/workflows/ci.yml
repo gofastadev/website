@@ -23,6 +23,24 @@ jobs:
       - name: Lint
         run: yarn lint
 
+  # Nothing else type-checks: `next build` runs Turbopack, which does
+  # not, and there is no typecheck script.
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Type check
+        run: npx tsc --noEmit
+
   test:
     runs-on: ubuntu-latest
     steps:

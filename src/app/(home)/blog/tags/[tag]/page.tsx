@@ -5,7 +5,7 @@ import { LandingTemplate } from "@/components/templates";
 import { BlogPostCard } from "@/components/molecules/blog-post-card";
 import { getAllTags, getPostsByTag, slugifyTag } from "@/lib/blog";
 import { SITE_URL, withBaseKeywords } from "@/lib/seo";
-import { buildTagPageJsonLd } from "@/lib/structured-data";
+import { buildTagPageJsonLd, serializeJsonLd } from "@/lib/structured-data";
 
 // See the [slug] route for rationale — Pagefind only indexes static
 // routes, and prerendering at build time keeps the tag page on the
@@ -87,7 +87,7 @@ export default async function BlogTagPage({
     <LandingTemplate>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       <main
         className="mx-auto max-w-6xl px-6 pt-32 pb-24"

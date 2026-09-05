@@ -1,37 +1,19 @@
 import { AGENT_DOC_FILES, SITE_URL } from "@/lib/seo";
 
-// robots.txt for the Gofasta documentation site.
+// A route handler rather than `robots.ts`: Next's `MetadataRoute.Robots`
+// type is exactly `{ rules, sitemap, host }` with no field for a comment
+// line, and the llms.txt URLs are advertised at the top of the file where
+// an operator, or an agent fetching robots.txt first, will see them.
 //
-// WHY A ROUTE HANDLER INSTEAD OF `robots.ts`:
-// This file replaces the previous `src/app/robots.ts`, which used Next's
-// `MetadataRoute.Robots` helper. That helper's type is exactly
-// `{ rules, sitemap, host }` — it has no field for a comment line, and
-// we want the llms.txt URLs advertised at the top of the file where an
-// operator (or an agent fetching robots.txt as its first request) sees
-// them. Emitting the document ourselves is the only way to include them.
+// Those `# llms.txt:` lines are only comments. No crawler parses them and
+// there is no robots.txt directive for llms.txt — sitemap.xml and real
+// hyperlinks do the actual discovery work.
 //
-// Note honestly what this does and doesn't buy: the `# llms.txt:` lines
-// are COMMENTS. No crawler parses them, and there is no standardized
-// robots.txt directive for llms.txt. They are documentation for humans
-// and for agents that read the file as text. The load-bearing discovery
-// work is done by sitemap.xml and the real hyperlinks — not by this.
-//
-// The crawl rules themselves are unchanged from the previous version:
-//
-//   - `/api/`           — Next.js API routes, internal-only.
-//   - `/_next/`         — bundler output, not content.
-//   - `/keystatic/`     — Keystatic admin UI; auth-gated but no value to
-//                         search engines and we don't want it indexed.
-//   - `/api/keystatic/` — Keystatic's server route handlers; same reason.
-//
-// `/api/og` is the one API route that MUST stay crawlable. Every docs
-// page points `og:image` / `twitter:image` at it, and a blanket
-// `Disallow: /api/` made Google report those image URLs as "Blocked by
-// robots.txt" in the page-indexing report — meaning no social preview
-// image could be fetched for any doc. The explicit Allow is longer than
-// the `/api/` Disallow, and longest-match wins in the robots spec
-// (RFC 9309 §2.2.2), so it takes precedence for that one prefix while
-// the rest of `/api/` stays blocked.
+// `/api/og` must stay crawlable while the rest of `/api/` does not: every
+// page points og:image at it, and a blanket `Disallow: /api/` made Google
+// report those images as "Blocked by robots.txt", killing social previews
+// site-wide. The Allow is the longer pattern and longest-match wins
+// (RFC 9309 §2.2.2), so it takes precedence for that prefix alone.
 
 const ALLOW = ["/", "/api/og"];
 const DISALLOW = ["/api/", "/_next/", "/keystatic/", "/api/keystatic/"];
@@ -54,9 +36,7 @@ export function buildRobotsTxt(): string {
   return lines.join("\n");
 }
 
-// force-static: the document has no request-dependent content, so it is
-// rendered once at build time and served from the CDN exactly as the
-// `robots.ts` version was.
+// No request-dependent content, so render once at build time.
 export const dynamic = "force-static";
 
 export function GET(): Response {

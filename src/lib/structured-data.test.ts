@@ -6,6 +6,7 @@ import {
   buildBlogIndexJsonLd,
   humanize,
   buildTagPageJsonLd,
+  serializeJsonLd,
 } from "./structured-data";
 
 describe("buildBreadcrumbJsonLd", () => {
@@ -466,5 +467,26 @@ describe("blog index summary images", () => {
       "https://gofasta.dev/blog/covers/a/cover.png",
     );
     expect(blog.blogPost[1]).not.toHaveProperty("image");
+  });
+});
+
+describe("serializeJsonLd", () => {
+  it("escapes < so an authored string cannot close the script tag", () => {
+    const out = serializeJsonLd({
+      headline: "</script><img src=x onerror=alert(1)>",
+    });
+    expect(out).not.toContain("</script>");
+    expect(out).not.toContain("<");
+    expect(out).toContain("\\u003c");
+  });
+
+  it("round-trips the escaped payload without altering its values", () => {
+    const payload = { headline: "a < b", author: { name: "</script>" } };
+    expect(JSON.parse(serializeJsonLd(payload))).toEqual(payload);
+  });
+
+  it("leaves a payload with no angle brackets byte-identical to JSON.stringify", () => {
+    const payload = { "@type": "BlogPosting", headline: "Wire, explained" };
+    expect(serializeJsonLd(payload)).toBe(JSON.stringify(payload));
   });
 });
