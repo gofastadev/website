@@ -86,7 +86,7 @@ export function NewsletterSignup({ location }: NewsletterSignupProps) {
             disabled={status === "submitting"}
           />
           <Button type="submit" disabled={status === "submitting"}>
-            {status === "submitting" ? "Subscribing…" : "Subscribe"}
+            {status === "submitting" ? "Subscribing..." : "Subscribe"}
           </Button>
         </form>
       )}

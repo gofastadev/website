@@ -31,7 +31,7 @@ function clampParam(
   const cleaned = (value ?? "").replace(/\p{C}/gu, " ").replace(/\s+/g, " ").trim();
   if (cleaned.length === 0) return fallback;
   if (cleaned.length <= maxLength) return cleaned;
-  return cleaned.slice(0, maxLength - 1).trimEnd() + "…";
+  return cleaned.slice(0, maxLength - 1).trimEnd() + "...";
 }
 
 // Long titles must not overflow the 1200x630 card. Rather than a fixed

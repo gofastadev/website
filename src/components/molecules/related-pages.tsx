@@ -76,10 +76,12 @@ function trimSentence(s: string, max = 140): string {
     return m[0];
   }
   if (trimmed.length <= max) return trimmed;
-  // No sentence break found in budget — hard-truncate on a word boundary.
-  const hardCut = trimmed.slice(0, max);
+  // No sentence break in budget, so hard-truncate on a word boundary. The
+  // suffix counts against `max` so the rendered string never exceeds it.
+  const suffix = "...";
+  const hardCut = trimmed.slice(0, max - suffix.length);
   const lastSpace = hardCut.lastIndexOf(" ");
-  return (lastSpace > 0 ? hardCut.slice(0, lastSpace) : hardCut) + "…";
+  return (lastSpace > 0 ? hardCut.slice(0, lastSpace) : hardCut) + suffix;
 }
 
 export async function RelatedPages({ path, extra = [] }: RelatedPagesProps) {

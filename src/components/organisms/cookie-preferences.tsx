@@ -17,7 +17,7 @@ export function CookiePreferences() {
     return (
       <div className="rounded-xl border border-gray-200 bg-surface p-6 shadow-e3 dark:border-gray-800">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Loading current preference…
+          Loading current preference...
         </p>
       </div>
     );

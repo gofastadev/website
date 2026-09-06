@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { BlogPost } from "@/lib/blog";
+import { MetaDot } from "@/components/atoms";
 
 // Card used in the blog index grid and the tag-filtered list. Shows
 // cover, title, excerpt, publish date, reading time, and the first
@@ -58,7 +59,7 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
               </span>
             ) : null}
             <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
-            <span aria-hidden>·</span>
+            <MetaDot />
             <span>{post.readingTime.text}</span>
           </div>
           <h3 className="font-display text-lg font-bold tracking-tight text-foreground group-hover:text-primary">

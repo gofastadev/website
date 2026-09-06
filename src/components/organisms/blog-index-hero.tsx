@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { BlogPost } from "@/lib/blog";
+import { MetaDot } from "@/components/atoms";
 
 // Featured-post hero rendered at the top of `/blog`. Bigger than a
 // regular card, two-column on desktop (cover on the left, text on
@@ -52,14 +53,14 @@ export function BlogIndexHero({ post }: BlogIndexHeroProps) {
             <span className="font-medium text-gray-900 dark:text-gray-200">
               {post.author}
             </span>
-            <span aria-hidden>·</span>
+            <MetaDot />
             {post.draft ? (
               <span className="rounded-full border border-amber-400/60 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
                 Draft
               </span>
             ) : null}
             <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
-            <span aria-hidden>·</span>
+            <MetaDot />
             <span>{post.readingTime.text}</span>
           </div>
         </div>

@@ -28,7 +28,7 @@ export default function CookiesPage() {
         </h1>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
           We collect anonymous analytics to understand how the documentation
-          gets used and to fix issues we can&rsquo;t see from logs alone. Both
+          gets used and to fix issues we can&apos;t see from logs alone. Both
           tools are opt-in and only run after you accept below.
         </p>
 
@@ -98,7 +98,7 @@ export default function CookiesPage() {
 
           <p className="text-sm text-gray-600 dark:text-gray-400">
             For California residents under CPRA: this page is the
-            &ldquo;Do Not Sell or Share My Personal Information&rdquo;
+            &quot;Do Not Sell or Share My Personal Information&quot;
             destination. We do not sell or share personal information; the
             controls above let you opt out of the analytics that exists.
           </p>

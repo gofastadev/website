@@ -98,7 +98,7 @@ export default async function BlogTagPage({
             href="/blog"
             className="mb-4 inline-block text-sm text-gray-700 hover:text-primary dark:text-gray-400"
           >
-            ← All posts
+            Back to all posts
           </Link>
           <h1 className="text-4xl font-bold text-foreground sm:text-5xl">
             #{normalized}

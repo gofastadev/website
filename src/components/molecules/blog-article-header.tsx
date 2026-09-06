@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BlogTagPill } from "@/components/atoms/blog-tag-pill";
 import { ShareButtons } from "@/components/molecules/share-buttons";
 import type { BlogPost } from "@/lib/blog";
+import { MetaDot } from "@/components/atoms";
 
 // Top-of-article header: tag pills, title, byline (author + date +
 // reading time) with share buttons on the right, and cover image.
@@ -66,18 +67,18 @@ export function BlogArticleHeader({ post, shareUrl }: BlogArticleHeaderProps) {
               {post.author}
             </span>
           )}
-          <span aria-hidden>·</span>
+          <MetaDot />
           {post.draft ? (
             <span className="rounded-full border border-amber-400/60 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
               Draft
             </span>
           ) : null}
           <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
-          <span aria-hidden>·</span>
+          <MetaDot />
           <span>{post.readingTime.text}</span>
           {post.updatedAt ? (
             <>
-              <span aria-hidden>·</span>
+              <MetaDot />
               <span>
                 Updated{" "}
                 <time dateTime={post.updatedAt}>

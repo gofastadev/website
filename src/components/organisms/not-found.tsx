@@ -47,12 +47,12 @@ export function NotFound() {
         </h1>
 
         <h2 className="font-display mt-4 max-w-3xl text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl">
-          This route didn&rsquo;t compile.
+          This route didn&apos;t compile.
         </h2>
 
         <p className="mt-5 max-w-xl text-base leading-relaxed text-gray-600 dark:text-gray-400 sm:text-lg">
-          The page you&rsquo;re looking for doesn&rsquo;t exist, moved, or was
-          never wired into the router. Don&rsquo;t worry, everything else is
+          The page you&apos;re looking for doesn&apos;t exist, moved, or was
+          never wired into the router. Don&apos;t worry, everything else is
           still here, and we can point you somewhere useful.
         </p>
 
@@ -86,35 +86,35 @@ export function NotFound() {
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "1.3s" } as React.CSSProperties}
           >
-            <span className="text-gray-400">        ├─ </span>
+            <span className="text-gray-400">        |-- </span>
             <span className="text-terminal-accent">/</span>
-            <span className="text-gray-400">                         → Home</span>
+            <span className="text-gray-400">                         -&gt; Home</span>
           </span>
           <span
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "1.6s" } as React.CSSProperties}
           >
-            <span className="text-gray-400">        ├─ </span>
+            <span className="text-gray-400">        |-- </span>
             <span className="text-terminal-accent">
               /docs/getting-started
             </span>
-            <span className="text-gray-400">     → Quick start</span>
+            <span className="text-gray-400">     -&gt; Quick start</span>
           </span>
           <span
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "1.9s" } as React.CSSProperties}
           >
-            <span className="text-gray-400">        ├─ </span>
+            <span className="text-gray-400">        |-- </span>
             <span className="text-terminal-accent">/docs/cli-reference</span>
-            <span className="text-gray-400">       → CLI reference</span>
+            <span className="text-gray-400">       -&gt; CLI reference</span>
           </span>
           <span
             className="gofasta-term-line"
             style={{ "--gofasta-term-delay": "2.2s" } as React.CSSProperties}
           >
-            <span className="text-gray-400">        └─ </span>
+            <span className="text-gray-400">        `-- </span>
             <span className="text-terminal-accent">/docs/white-paper</span>
-            <span className="text-gray-400">         → White paper</span>
+            <span className="text-gray-400">         -&gt; White paper</span>
           </span>
           <span
             className="gofasta-term-line"

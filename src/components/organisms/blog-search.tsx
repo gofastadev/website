@@ -75,7 +75,7 @@ export interface BlogSearchProps {
 }
 
 export function BlogSearch({
-  placeholder = "Search posts…",
+  placeholder = "Search posts...",
   loadPagefind = defaultLoadPagefind,
 }: BlogSearchProps) {
   const pagefindRef = useRef<Pagefind | null>(null);
@@ -170,7 +170,7 @@ export function BlogSearch({
             </p>
           ) : (
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              No posts match &ldquo;{query}&rdquo;.
+              No posts match &quot;{query}&quot;.
             </p>
           )}
         </div>

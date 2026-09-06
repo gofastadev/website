@@ -26,7 +26,7 @@ export function SeriesNextLink({
         href={`/blog/${slug}`}
         className="mt-1 inline-block font-medium text-foreground transition-colors hover:text-primary"
       >
-        {title} →
+        {title}
       </Link>
     </div>
   );

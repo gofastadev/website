@@ -4,6 +4,7 @@ import { Footer, Layout, Navbar } from "nextra-theme-docs";
 import { getPageMap } from "nextra/page-map";
 import { AGENT_DOC_FILES } from "@/lib/seo";
 import "nextra-theme-docs/style.css";
+import { MetaDot } from "@/components/atoms";
 
 export default async function DocsLayout({
   children,
@@ -53,21 +54,21 @@ export default async function DocsLayout({
               &copy; 2025-{new Date().getFullYear()} Gofasta Authors, MIT
               License
             </span>
-            <span aria-hidden="true">·</span>
+            <MetaDot />
             <Link
               href="/blog"
               className="text-sm underline-offset-4 hover:underline"
             >
               Blog
             </Link>
-            <span aria-hidden="true">·</span>
+            <MetaDot />
             <Link
               href="/sitemap"
               className="text-sm underline-offset-4 hover:underline"
             >
               Sitemap
             </Link>
-            <span aria-hidden="true">·</span>
+            <MetaDot />
             {/* The llmstxt.org files, linked from every docs page.
                 An agent reading the docs is the exact audience for
                 them, and the repetition across ~90 docs pages is what
@@ -86,7 +87,7 @@ export default async function DocsLayout({
                 >
                   {file.label}
                 </Link>
-                <span aria-hidden="true">·</span>
+                <MetaDot />
               </span>
             ))}
             {/* "Manage cookies" lives in the docs footer too so EU/CA

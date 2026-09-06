@@ -84,7 +84,7 @@ With either layer, one thing becomes non-negotiable. Handlers must be idempotent
 
 ## The patterns that keep it boring
 
-**Payloads carry IDs, not data.** Enqueue `{"user_id": "…"}` rather than the serialized user. The task runs later, possibly much later, and the user may have changed their email in between. Fetching at execution time means acting on current truth, and it keeps payloads small enough that Redis memory never becomes the interesting graph on your dashboard.
+**Payloads carry IDs, not data.** Enqueue `{"user_id": "..."}` rather than the serialized user. The task runs later, possibly much later, and the user may have changed their email in between. Fetching at execution time means acting on current truth, and it keeps payloads small enough that Redis memory never becomes the interesting graph on your dashboard.
 
 **Shut down gracefully.** Workers should finish or cleanly release in-flight tasks on SIGTERM instead of dying mid-write. Asynq handles the release-and-requeue dance when you let it, so your deploy tooling needs to send SIGTERM and honor a drain window rather than reaching for `kill -9` after two seconds. The scaffold's serve command and the flow in [our VPS deployment post](/blog/deploy-go-app-vps) both assume that.
 

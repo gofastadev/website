@@ -46,7 +46,7 @@ export function CookieBanner() {
         <div className="text-sm text-gray-700 dark:text-gray-300">
           <p>
             We use Google Analytics and Microsoft Clarity to understand how the
-            site is used. They&rsquo;re only loaded if you accept. See our{" "}
+            site is used. They&apos;re only loaded if you accept. See our{" "}
             <Link
               href="/cookies"
               className="text-primary underline underline-offset-4"

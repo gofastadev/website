@@ -2,6 +2,7 @@ export { AnchoredHeading } from "./anchored-heading";
 export { Button } from "./button";
 export { Input } from "./input";
 export { Logo } from "./logo";
+export { MetaDot } from "./meta-dot";
 export { ThemeToggle } from "./theme-toggle";
 export { Analytics } from "./analytics";
 export { PageviewTracker } from "./pageview-tracker";

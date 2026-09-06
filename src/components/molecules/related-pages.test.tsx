@@ -246,7 +246,7 @@ describe("RelatedPages", () => {
 
     const para = screen.getByText(/this is a very long description/);
     // Ends with an ellipsis (we hit the hard-truncate branch).
-    expect(para.textContent?.endsWith("…")).toBe(true);
+    expect(para.textContent?.endsWith("...")).toBe(true);
     // And it's short enough — we didn't include the full input.
     expect(para.textContent?.length).toBeLessThan(longRun.length);
   });
@@ -316,9 +316,9 @@ describe("RelatedPages", () => {
 
     await renderRSC(RelatedPages({ path: "cli-reference/dev" }));
 
-    const truncated = screen.getByText(/word .*…$/);
-    expect(truncated.textContent!.length).toBeLessThanOrEqual(141);
-    expect(truncated.textContent!.endsWith("…")).toBe(true);
+    const truncated = screen.getByText(/word .*...$/);
+    expect(truncated.textContent!.length).toBeLessThanOrEqual(140);
+    expect(truncated.textContent!.endsWith("...")).toBe(true);
   });
 
   it("hard-truncates a long unbroken token without a word boundary", async () => {
@@ -333,7 +333,7 @@ describe("RelatedPages", () => {
 
     await renderRSC(RelatedPages({ path: "cli-reference/dev" }));
 
-    const truncated = screen.getByText(/^x+…$/);
-    expect(truncated.textContent).toHaveLength(141);
+    const truncated = screen.getByText(/^x+...$/);
+    expect(truncated.textContent).toHaveLength(140);
   });
 });
