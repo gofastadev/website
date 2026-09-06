@@ -1,0 +1,393 @@
+---
+title: gofasta refactor
+description: "Switch a Gofasta project between layered and feature-package layouts without rewriting code by hand. Bidirectional AST-based migration with safety gates."
+keywords:
+  - "CLI"
+  - "refactor"
+  - "layout migration"
+  - "feature-package"
+  - "layered"
+  - "gofasta refactor"
+---
+
+# gofasta refactor
+
+Performs structural moves on an existing Gofasta project. The current set of subcommands all migrate between project layouts — they move files, rewrite imports, patch cross-cutting wiring (DI container, Wire bindings, route index), regenerate `wire_gen.go`, and verify the result compiles. Behavior of the running app is unchanged; only the on-disk shape moves.
+
+For the full conceptual treatment of the two layouts, what stays vs. moves, and the workflow, read [Project structure → Choosing a layout](/docs/getting-started/project-structure#choosing-a-layout-layered-or-feature-package). This page is the CLI reference.
+
+## Usage
+
+```bash
+gofasta refactor <subcommand> [args] [flags]
+```
+
+| Subcommand | Direction | What it does |
+|------------|-----------|--------------|
+| [`status`](#status) | (read-only) | Inspect the current layout and report which migration target is available. |
+| [`feature`](#feature) | layered → feature | Migrate the project to feature-package layout. Alias: `feature-package`. |
+| [`layered`](#layered) | feature → layered | Migrate the project back to layered layout (inverse of `feature`). |
+
+All migration subcommands share the same flag surface (`--all`, `--dry-run`, `--force`), the same safety gates (clean tree, in-source-layout, compile-pass-after), and the same abort behavior (partial state on disk, `git restore` to recover).
+
+---
+
+## status
+
+Read-only inspector. Reports the project's current layout, where the CLI read that information from (`config.yaml` or filesystem detection), how many resources are present, and which migration target is available — with the exact command to run.
+
+```bash
+gofasta refactor status
+```
+
+### Output (text)
+
+```
+Layout:           layered  (from config.yaml)
+Resources:        3
+  • User
+  • Product
+  • Order
+Migration target: feature
+Command:          gofasta refactor feature --all
+```
+
+### Output (JSON)
+
+```bash
+gofasta --json refactor status
+```
+
+```json
+{
+  "action": "refactor.status",
+  "layout": "layered",
+  "layout_source": "config.yaml",
+  "resources": ["User", "Product", "Order"],
+  "migration_target": "feature",
+  "migration_command": "gofasta refactor feature --all",
+  "success": true
+}
+```
+
+`layout_source` will be `"config.yaml"` when `project.layout` is set, or `"filesystem-detect"` when the CLI inferred the layout from the on-disk shape (this happens for projects that pre-date the `project.layout` config key — they keep working, but the inference adds a `cliout.Info` hint to add the key).
+
+### Use cases
+
+- **Before a refactor**: confirm you're in the expected source layout and see exactly what the migration command would be.
+- **After a refactor**: verify the migration landed in the layout you wanted.
+- **In CI/agents**: parse the JSON to branch on layout (e.g., "if `layout == feature`, scaffold to `app/<r>/`").
+- **In an unfamiliar repo**: orient yourself without grepping the source.
+
+`status` is safe in any state — dirty tree, half-migrated, missing files. It will tell you what it sees and exit non-zero only if it can't find a gofasta project root (no `config.yaml` and no `app/models/`).
+
+---
+
+## feature
+
+Migrates the project from **layered** to **feature-package** layout. Aliased as `feature-package` for compatibility with the original name.
+
+### Usage
+
+```bash
+gofasta refactor feature <Resource>             # one resource
+gofasta refactor feature --all                  # every resource in app/models/
+gofasta refactor feature User --dry-run         # preview, no writes
+gofasta refactor feature --all --force          # skip dirty-tree check
+gofasta refactor feature-package --all          # back-compat alias
+```
+
+### What gets moved (per resource)
+
+| From (layered) | To (feature) |
+|----------------|--------------|
+| `app/dtos/<r>.dtos.go` | `app/<r>/dtos.go` |
+| `app/repositories/<r>.repository.go` | `app/<r>/repository.go` |
+| `app/repositories/interfaces/<r>_repository.go` | `app/<r>/repository_iface.go` |
+| `app/services/<r>.service.go` | `app/<r>/service.go` |
+| `app/services/interfaces/<r>_service.go` | `app/<r>/service_iface.go` |
+| `app/services/<r>_errors.go` | `app/<r>/errors.go` |
+| `app/services/<r>_inputs.go` | `app/<r>/inputs.go` |
+| `app/rest/controllers/<r>.controller.go` | `app/<r>/controller.go` |
+| `app/rest/routes/<r>.routes.go` | `app/<r>/routes.go` |
+| `app/di/providers/<r>.go` | `app/<r>/wire.go` |
+| `*_test.go` siblings of the above | matching `*_test.go` under `app/<r>/` |
+
+### What gets relocated (project-wide, once)
+
+| From | To |
+|------|-----|
+| `app/dtos/aliases.go` | `app/shared/dtos/aliases.go` |
+| `app/dtos/generated-types.dtos.go` | `app/shared/dtos/generated-types.dtos.go` (GraphQL projects only — gqlgen's generated models follow the shared dtos package) |
+| `app/services/password_generator.go` | `app/user/password_generator.go` (follows the User feature) |
+
+### What stays put
+
+- `app/models/<r>.model.go` — model types stay in `package models`. The DTO mapper (`UserFromModel`) takes `*models.User`; moving the model into the feature would create a `dtos → feature → dtos` import cycle.
+- `app/validators/<r>.validators.go` — per-resource validators stay in `app/validators/` because `register.go` calls package-private helpers (`isRecordExistByEmailForConflict`, etc.).
+- `app/jobs/`, `app/tasks/`, `app/devtools/` — not per-resource.
+- `app/graphql/` — resolvers and schema files never change PATH (gqlgen owns the resolver directory and generates every `{name}.resolvers.go` into it), but every `.go` file in `app/graphql/resolvers/` is rewritten in place — see below.
+
+### What gets rewritten in place
+
+These files stay at their paths but their content is patched to reflect the new layout:
+
+- `app/di/container.go` — drops the layered `repoInterfaces`/`svcInterfaces`/`controllers` imports; adds per-feature alias imports (`userpkg "<mod>/app/user"`); rewrites field types accordingly.
+- `app/di/wire.go` — replaces `providers.<R>Set` references with `<snake>pkg.<R>Set` and adds the per-feature import.
+- `app/rest/routes/index.routes.go` — replaces `<R>Routes(api, ...)` calls with `<snake>pkg.RegisterRoutes(api, ...)`.
+- `app/di/providers/core.go` — flips `services.NewDefaultPasswordGenerator` to `userpkg.NewDefaultPasswordGenerator`.
+- `app/validators/app_validator.go`, `app/rest/controllers/validator.go` — `<mod>/app/dtos` import becomes `<mod>/app/shared/dtos` (only the path; the `dtos.` qualifier stays).
+- **Every `.go` file in `app/graphql/resolvers/`** (GraphQL projects) — per-resource references re-qualify to the feature packages (`dtos.TCreateUserDto` → `userpkg.TCreateUserDto`, `services.ErrUserNotFound` → `userpkg.ErrUserNotFound`, `svcInterfaces.UserServiceInterface` → `userpkg.UserServiceInterface`); shared aliases and gqlgen-generated types keep the `dtos.` qualifier with the import path flipped to `<mod>/app/shared/dtos`. Files are discovered by globbing the directory, so custom resolvers for any resource are covered.
+- `gqlgen.yml` (GraphQL projects) — `model.filename` follows the generated-types relocation, and `autobind` becomes `<mod>/app/shared/dtos` plus one `<mod>/app/<r>` entry per resource (the hand-written DTOs the schema binds against now live in the feature packages).
+- `testutil/mocks/<r>_repository_mock.go`, `<r>_service_mock.go` — imports flip from the layered interface packages to the per-feature package.
+- `config.yaml` — `project.layout: layered` → `project.layout: feature`.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--all` | `false` | Migrate every resource discovered in `app/models/`. Without this flag a `<Resource>` argument is required. |
+| `--dry-run` | `false` | Print the migration plan (which files would move, which would be patched) and exit without writing anything. |
+| `--force` | `false` | Proceed even if the git working tree has uncommitted changes. By default the migration aborts on a dirty tree with `REFACTOR_DIRTY_TREE` so you have a clean checkpoint to revert to. |
+
+### Pipeline
+
+In order, for `refactor feature` (the `--all` case shows the full picture; single-resource skips the per-resource loop after the first iteration):
+
+1. **Preconditions** — `project.layout == "layered"` (or empty + `app/models/` exists); git tree clean (or `--force`); the [eligibility preflight](#eligibility-preflight) passes — blockers refuse the migration before anything is written.
+2. **Resolve resources** — explicit `<Resource>` argument, or `glob app/models/*.model.go` for `--all`. On GraphQL projects, migrating a subset prints a warning recommending `--all` (see [GraphQL projects](#graphql-projects)).
+3. **Per-resource loop** — for each resource, move + featurize-transform every file in the mapping table above; update mocks.
+4. **Relocate shared files** — `app/dtos/aliases.go` → `app/shared/dtos/aliases.go`, and (GraphQL) `app/dtos/generated-types.dtos.go` → `app/shared/dtos/`.
+5. **Relocate `password_generator.go`** to `app/user/`.
+6. **Patch cross-cutting files** — container, wire, index.routes, core.go (per the "rewritten in place" table).
+7. **Patch dtos consumers** — app_validator.go, validator.go.
+8. **Patch GraphQL files** (GraphQL projects) — re-qualify every `app/graphql/resolvers/*.go`, rewrite `gqlgen.yml`. Resources without a resolver file are listed as skipped.
+9. **Prune empty layered directories** — `app/services/interfaces`, `app/repositories/interfaces`, `app/di/providers`, etc.
+10. **Update config.yaml** — `project.layout: feature`.
+11. **Regenerate Wire** — delete `app/di/wire_gen.go`, run `go tool wire ./app/di/`.
+12. **Regenerate gqlgen** (GraphQL projects) — delete the stale `app/generated.go`, run `go tool gqlgen generate` against the rewritten config. Runs after wire, because gqlgen's validation pass compiles the module — which needs the freshly regenerated `wire_gen.go`.
+13. **Verify** — `go build ./...`. On failure: abort with `REFACTOR_ABORTED`, leave partial state in place.
+
+The migration is **not transactional**: if the verify step fails, files have already been moved and patched. The recovery path is `git restore .` — that's why the dirty-tree check exists.
+
+### Example: full workflow
+
+```bash
+# 1. Confirm the starting state
+gofasta refactor status
+# Layout: layered (from config.yaml)
+# Resources: 3 (User, Product, Order)
+# Migration target: feature
+# Command: gofasta refactor feature --all
+
+# 2. Preview the migration without writing
+gofasta refactor feature --all --dry-run
+
+# 3. Commit a checkpoint
+git add -A && git commit -m "checkpoint before feature migration"
+
+# 4. Run the migration
+gofasta refactor feature --all
+
+# 5. Run your tests
+go test ./...
+
+# 6. Commit the migrated state
+git add -A && git commit -m "migrate to feature-package layout"
+
+# 7. Verify the final state
+gofasta refactor status
+# Layout: feature (from config.yaml)
+# Resources: 3 (User, Product, Order)
+# Migration target: layered
+# Command: gofasta refactor layered --all
+```
+
+### Example: one resource at a time
+
+For larger projects, migrating per-resource is safer — each iteration is its own atomic build-check:
+
+```bash
+gofasta refactor feature User
+go test ./...
+git add -A && git commit -m "migrate User to feature layout"
+
+gofasta refactor feature Product
+go test ./...
+git add -A && git commit -m "migrate Product to feature layout"
+
+gofasta refactor feature Order
+# ... etc.
+```
+
+Each invocation only migrates the named resource; cross-cutting patches accumulate (container/wire/index.routes/core.go are touched on every run with the resources processed so far).
+
+---
+
+## layered
+
+Migrates the project from **feature-package** back to **layered** layout. Inverse of [`feature`](#feature) — same flags, same safety gates, same abort behavior, opposite direction.
+
+### Usage
+
+```bash
+gofasta refactor layered <Resource>             # one resource
+gofasta refactor layered --all                  # every feature dir under app/
+gofasta refactor layered User --dry-run         # preview
+gofasta refactor layered --all --force          # skip dirty-tree check
+```
+
+### What gets moved (per resource)
+
+Inverse of the forward table:
+
+| From (feature) | To (layered) |
+|----------------|--------------|
+| `app/<r>/dtos.go` | `app/dtos/<r>.dtos.go` |
+| `app/<r>/repository.go` | `app/repositories/<r>.repository.go` |
+| `app/<r>/repository_iface.go` | `app/repositories/interfaces/<r>_repository.go` |
+| `app/<r>/service.go` | `app/services/<r>.service.go` |
+| `app/<r>/service_iface.go` | `app/services/interfaces/<r>_service.go` |
+| `app/<r>/errors.go` | `app/services/<r>_errors.go` |
+| `app/<r>/inputs.go` | `app/services/<r>_inputs.go` |
+| `app/<r>/controller.go` | `app/rest/controllers/<r>.controller.go` |
+| `app/<r>/routes.go` | `app/rest/routes/<r>.routes.go` (`RegisterRoutes` renames back to `<R>Routes`) |
+| `app/<r>/wire.go` | `app/di/providers/<r>.go` |
+| `*_test.go` siblings | matching `*_test.go` under their layered destination |
+
+### What gets relocated back (project-wide, once)
+
+| From | To |
+|------|-----|
+| `app/shared/dtos/aliases.go` | `app/dtos/aliases.go` |
+| `app/shared/dtos/generated-types.dtos.go` | `app/dtos/generated-types.dtos.go` (GraphQL projects only) |
+| `app/user/password_generator.go` | `app/services/password_generator.go` |
+| (empty) `app/shared/dtos/` and `app/shared/` | pruned |
+
+### What gets rewritten in place
+
+Same files as the forward direction, with the inverse rewrites:
+
+- `app/di/container.go` — adds back `repoInterfaces`, `svcInterfaces`, `controllers` imports; drops per-feature aliases; rewrites field types from `userpkg.X` back to `repoInterfaces.X` / `svcInterfaces.X` / `*controllers.X`.
+- `app/di/wire.go` — `<snake>pkg.<R>Set` → `providers.<R>Set` (and the `providers` import is kept because `providers.CoreSet` still references it).
+- `app/rest/routes/index.routes.go` — `<snake>pkg.RegisterRoutes(...)` → `<R>Routes(...)` with the `controllers` import for the controller field types.
+- `app/di/providers/core.go` — `userpkg.NewDefaultPasswordGenerator` → `services.NewDefaultPasswordGenerator`.
+- `app/validators/app_validator.go`, `app/rest/controllers/validator.go` — `<mod>/app/shared/dtos` → `<mod>/app/dtos`.
+- **Every `.go` file in `app/graphql/resolvers/`** (GraphQL projects) — `<snake>pkg.X` references re-qualify back to `dtos.X` / `services.X` / `svcInterfaces.X`, the shared dtos import flips back to `<mod>/app/dtos`, and the per-feature imports are dropped.
+- `gqlgen.yml` (GraphQL projects) — `model.filename` and `autobind` restored to the layered shape (`<mod>/app/dtos` only; the per-resource entries are removed). The rewrite is byte-exact: a forward + reverse migration restores the original file.
+- `testutil/mocks/<r>_repository_mock.go`, `<r>_service_mock.go` — imports flip from the per-feature package back to the layered interface packages.
+- `config.yaml` — `project.layout: feature` → `project.layout: layered`.
+
+The reverse pipeline mirrors the forward one, including the `go tool gqlgen generate` step (after the config flip, before wire) on GraphQL projects.
+
+### Caveats specific to the reverse direction
+
+The forward direction works on the assumption that the project follows the scaffold's conventions. The reverse direction is *more sensitive to that assumption*. Specifically:
+
+- **Type names matter.** The reverse transformer recognizes `<Resource>Service`, `<Resource>Repository`, `<Resource>Controller`, `<Resource>ServiceInterface`, `Err<Resource>NotFound`, etc. If you've renamed these types in the feature package (e.g. `Service` instead of `UserService`), the reverse won't know to re-qualify them.
+- **The model is the canonical name.** `models.User` is preserved bidirectionally. If you renamed the model in the feature project, the reverse will produce broken references.
+- **Custom files added to a feature dir** that don't match the per-resource file naming (e.g. `app/user/repository_cache.go`) won't be moved — they'll be left in place and the user package will keep existing. The compile gate will catch this.
+
+If you've heavily customized a feature project, prefer the per-resource form (`gofasta refactor layered User`) over `--all` so you can inspect each step. `--dry-run` is your friend.
+
+### Example
+
+```bash
+# Inspect
+gofasta refactor status
+# Layout: feature
+
+# Commit checkpoint
+git add -A && git commit -m "checkpoint before unwind"
+
+# Reverse the migration
+gofasta refactor layered --all
+
+# Verify
+go test ./...
+gofasta refactor status
+# Layout: layered
+```
+
+---
+
+## Eligibility preflight
+
+Both migration commands run a full-project eligibility scan **before writing anything**. It traverses every `.go` file under `app/` and `testutil/mocks/`, cross-checks the layout state on disk against `config.yaml`, and validates the anchors the rewrites depend on. Findings come in two severities:
+
+- **Blockers** refuse the migration with `REFACTOR_PRECHECK_FAILED` (or `REFACTOR_NO_GIT`). Nothing is written. Blockers are **not** overridable — the one exception is `no-git`, which `--force` downgrades because it is a missing safety net rather than a broken project. `--force` otherwise keeps its original meaning: skip the dirty-tree check.
+- **Warnings** are printed and the migration proceeds. They tell you exactly which files and symbols fall outside the scaffold surface and what will happen to them.
+
+The same scan is surfaced read-only by [`gofasta refactor status`](#status) (an `Eligibility:` section, plus a `preflight` object in `--json`) and by `gofasta doctor` (project-health entries), so you can check eligibility without attempting a migration. `--dry-run` shows the findings but never refuses — it writes nothing.
+
+| Check | Severity | Fires when | How to fix |
+|---|---|---|---|
+| `layout-state` | blocker | the **same resource** has files in both layouts (`app/services/user.service.go` AND `app/user/service.go`) — an aborted migration or hand-moved files | `git restore .`, or reconcile the resource onto one side |
+| `layout-state` | warning | a resource is already fully on the target side (the legal one-resource-at-a-time workflow) | nothing — it will be skipped |
+| `parse-error` | blocker | a file the migration must rewrite does not parse as Go | fix the syntax error first |
+| `parse-error` | warning | an unmanaged file (which the migration ignores) does not parse | informational |
+| `gqlgen-anchors` | blocker | `gqlgen.yml` is missing the `model.filename` / `autobind` lines the rewrite anchors on | restore the scaffold-shaped lines, or migrate the file by hand first |
+| `no-git` | blocker (`--force` downgrades) | the project is not a git repository — an aborted migration cannot be undone | `git init && git add -A && git commit`, or `--force` |
+| `unmanaged-file` | warning | a `.go` file in a directory the migration drains isn't scaffold-generated (e.g. `app/services/custom_cache.go`) | it stays behind and keeps its package alive — verify the project compiles after migrating |
+| `renamed-symbols` | warning | a per-resource file's exports deviate from the scaffold names (`UserServiceInterface` renamed, extra exported helpers) | references to non-scaffold names are not rewritten — review those call sites after migrating |
+| `generator-markers` | warning | a `// gofasta:scaffold:*` marker comment was removed | the migration succeeds, but future `gofasta g scaffold` runs can't patch that file — restore the marker |
+| `gqlgen-custom` | warning | `gqlgen.yml` carries federation, a custom resolver dir, or a custom filename template | the GraphQL rewrite covers only the scaffold shape — review the file after migrating |
+| `generated-hand-edits` | warning | always, on GraphQL projects | `app/generated.go`, `wire_gen.go` and the generated models file are regenerated — hand edits to generated files are lost |
+
+### When not to refactor
+
+The preflight catches the detectable cases; some project shapes deserve a conscious decision even when only warnings fire:
+
+- **Hand-restructured DI or routing** — if `container.go` / `wire.go` / `index.routes.go` no longer follow the scaffold shape, the AST patches may only partially apply. The final `go build` gate catches hard breakage, but review the diff.
+- **Renamed scaffold types** — the engines recognize the generated names (`<R>Service`, `Err<R>NotFound`, `TCreate<R>Dto`, …). Renames migrate as-is, and every reference to the new names keeps its old package qualifier. Expect manual fixes, or rename back first.
+- **Heavily customized `gqlgen.yml`** — the rewrite targets exactly the scaffold's anchor lines; everything else passes through untouched.
+- **Uncommitted work anywhere in the tree** — the recovery story for any surprise is `git restore .`; keep the checkpoint discipline even with `--force` available.
+
+---
+
+## GraphQL projects
+
+Projects scaffolded with `--graphql` get full treatment in both directions. What's different from a REST-only migration:
+
+- **Resolver files never move.** gqlgen owns `app/graphql/resolvers/` (`gqlgen.yml` → `resolver.dir`) and generates every `{name}.resolvers.go` into it, so the directory is shared in both layouts. The migration rewrites the files' imports and selectors in place instead.
+- **`gqlgen.yml` is rewritten** so `gofasta g scaffold --graphql` and `make gqlgen` keep working after the migration: `autobind` points at `app/shared/dtos` plus each feature package, and `model.filename` follows the relocated generated-types file.
+- **gqlgen is re-run** as part of the pipeline (`go tool gqlgen generate`), after the stale `app/generated.go` is deleted. gqlgen preserves your resolver method bodies; the surrounding generated scaffolding is re-emitted against the migrated layout. Because gqlgen re-normalizes the files it owns, a forward + reverse round trip is *semantically* identical but not necessarily byte-identical for `*.resolvers.go` — `gqlgen.yml` itself round-trips byte-for-byte.
+- **Resources without a resolver file are skipped visibly.** A REST-only resource inside a GraphQL project is legal (`gofasta g scaffold Invoice` without `--graphql`); the migration prints a notice per missing `<r>.resolvers.go` and reports them in the JSON envelope's `graphql_skipped` field instead of failing — or silently ignoring them.
+- **Use `--all`.** Migrating a subset of resources splits the dtos package while `gqlgen.yml`'s autobind follows the migrated shape, so the resources left behind may not compile. The CLI warns and proceeds; the final `go build` is the backstop.
+
+---
+
+## Error codes
+
+`gofasta refactor` uses structured error codes so JSON consumers can branch on outcomes. The full reference is at [Error codes](/docs/cli-reference/error-codes); these are the refactor-specific ones:
+
+| Code | Meaning | What to do |
+|------|---------|------------|
+| `REFACTOR_INELIGIBLE` | Not in a gofasta project, or already in the target layout. | Run `gofasta refactor status` to see where you actually are. |
+| `REFACTOR_DIRTY_TREE` | Git working tree has uncommitted changes. | Commit, stash, or pass `--force`. |
+| `REFACTOR_RESOURCE_NOT_FOUND` | The named resource doesn't have a file at the expected source path. | Spell the resource name correctly (PascalCase), or use `--all`. |
+| `REFACTOR_ABORTED` | The migration started but the post-move `go build` failed. | `git restore .` to revert, then investigate. The output shows which files moved/patched before the failure. |
+| `REFACTOR_PRECHECK_FAILED` | The eligibility preflight found blocking conditions. Nothing was written. | Fix the findings listed in the output (`gofasta refactor status` re-checks), then re-run. Not overridable. |
+| `REFACTOR_NO_GIT` | Not a git repository — no recovery path for an aborted migration. | `git init && git add -A && git commit`, or pass `--force` to accept the risk. |
+
+---
+
+## Tips and rules
+
+These habits keep the project consistent across refactors:
+
+1. **Always use `gofasta refactor` to switch layouts.** Don't `git mv` files manually — the refactor is doing 13 distinct steps beyond moving (rewrite imports, patch cross-cutting and GraphQL wiring, regenerate gqlgen and Wire, update config.yaml, etc.). Hand-moving leaves the project in a state where the filesystem and `config.yaml` disagree.
+2. **Don't edit `config.yaml`'s `project.layout` field directly.** The CLI reads it on every `gofasta g *` invocation; if it disagrees with the filesystem, generators emit the wrong shape.
+3. **Commit before refactoring.** The migration aborts on a dirty tree (without `--force`) so you have a clean checkpoint to revert to. If a migration aborts mid-flight, `git restore .` reverts in one shot.
+4. **Don't run `go tool wire` manually right after a refactor.** The refactor regenerates `wire_gen.go` against the new layout as step 10. Running wire again before that completes hits a half-state.
+5. **Don't run `--all` on a heavily customized project the first time.** Try a single resource (`gofasta refactor feature User`), inspect, then either continue per-resource or use `--all`.
+6. **Run `gofasta refactor status` whenever you're unsure** — it's read-only and tells you exactly where you are.
+
+## See also
+
+- [Project structure — Choosing a layout](/docs/getting-started/project-structure#choosing-a-layout-layered-or-feature-package) — the conceptual treatment of layered vs. feature, with side-by-side diagrams and the full "what stays/moves" table.
+- [`gofasta new --layout=<feature|layered>`](/docs/cli-reference/new) — scaffold a fresh project in either layout from the start.
+- [Code Generation](/docs/guides/code-generation) — how `gofasta g *` emits the right shape based on `config.yaml`'s `project.layout`.
+- [Error codes](/docs/cli-reference/error-codes) — full reference for `REFACTOR_*` codes.
+
+<RelatedPages path="cli-reference/refactor" />

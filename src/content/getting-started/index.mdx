@@ -1,0 +1,51 @@
+---
+title: Getting Started
+description: Install the Gofasta CLI, scaffold a project, and understand the layout it generates. Four short pages take you from an empty directory to a running Go backend with migrations, authentication, and a hot-reloading dev loop.
+keywords:
+  - "getting started"
+  - "installation"
+  - "quick start"
+  - "scaffold Go project"
+  - "project structure"
+asIndexPage: true
+---
+
+# Getting Started
+
+Gofasta is a Go backend toolkit: a CLI that scaffolds projects and generates code, backed by a library of independent `pkg/*` packages you can adopt or replace one at a time. This section is the shortest path from an empty directory to a running service.
+
+Read the four pages in order the first time — each one assumes the previous.
+
+## The path
+
+1. **[Introduction](/docs/getting-started/introduction)** — What Gofasta is, what it generates, and the design decisions behind it: plain Go code, no runtime wrapper, and an agent-native surface (`AGENTS.md`, structured CLI output, a debug endpoint set) that AI coding assistants can drive directly.
+2. **[Installation](/docs/getting-started/installation)** — Install the CLI with `go install` or the pre-built binary script. Covers macOS, Linux, and Windows (WSL), verifying the install with `gofasta doctor`, and optional shell completion for bash, zsh, and fish.
+3. **[Quick Start](/docs/getting-started/quick-start)** — Scaffold a project, bring the whole dev loop up with one command, and generate your first resource. About five minutes end to end.
+4. **[Project Structure](/docs/getting-started/project-structure)** — A tour of what `gofasta new` writes: `app/` (models, services, controllers, DTOs, jobs, tasks), `db/migrations/`, `cmd/`, `config.yaml`, `compose.yaml`, and the supporting `testutil/` and `.github/workflows/` tree.
+
+## What you have at the end
+
+A Go module you own outright — a REST (and optionally GraphQL) service with database migrations, JWT authentication, dependency injection wired by Wire, background jobs, and a Docker Compose file for its dependencies. No generated code calls back into a hidden runtime; every file is ordinary Go you can read, edit, or delete.
+
+## Where to go next
+
+- **[Guides](/docs/guides)** — Task-focused walkthroughs: REST, GraphQL, migrations, authentication, background jobs, testing, deployment.
+- **[CLI Reference](/docs/cli-reference)** — Every command, flag, and output shape.
+- **[Package Library](/docs/api-reference)** — The `pkg/*` packages a scaffolded project imports by default.
+- **[White Paper](/docs/white-paper)** — The longer argument for the toolkit's design.
+
+<RelatedPages
+  path="getting-started"
+  extra={[
+    {
+      href: "/docs/cli-reference/new",
+      label: "gofasta new",
+      description: "The command that creates the project scaffold, including the --driver and --graphql flags.",
+    },
+    {
+      href: "/docs/cli-reference/dev",
+      label: "gofasta dev",
+      description: "Bring compose services, migrations, and Air hot reload up with a single command.",
+    },
+  ]}
+/>

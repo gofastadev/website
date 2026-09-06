@@ -1,60 +1,95 @@
 ---
 title: gofasta db
-description: Database management commands for resetting and managing your development database.
+description: Destructive database utilities, kept separate from `gofasta migrate` on purpose. `db reset` drops every table, re-applies all migrations from version 1, and re-runs the project's seeders — with per-step timing in the JSON output.
+keywords:
+  - "CLI"
+  - "database"
+  - "db reset"
+  - "drop tables"
+  - "reseed database"
+  - "database management"
+  - "gofasta db"
 ---
 
 # gofasta db
 
-Database management commands. Currently provides the `reset` subcommand for resetting your database to a clean state during development.
-
-## Usage
+Grouping for operations that wipe or recreate schema. These live under their own command rather than beside [`gofasta migrate`](/docs/cli-reference/migrate) precisely because they are destructive — the separation exists so nobody reaches for one by muscle memory while meaning to run a migration.
 
 ```bash
 gofasta db [command]
 ```
 
-## Subcommands
+Currently one subcommand: `reset`.
 
-### gofasta db reset
+## gofasta db reset
 
-Drop all tables, re-apply all migrations, and run seed functions. Useful during development when you want a clean database.
+Rebuilds the database from nothing.
 
 ```bash
 gofasta db reset
 ```
 
-#### Flags
+### Flags
 
 | Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--skip-seed` | bool | `false` | Skip running database seeds after migration |
+|---|---|---|---|
+| `--skip-seed` | bool | `false` | Stop after migrations — reset the schema without loading fixtures. |
 
-#### Examples
+The global `--json` flag applies as well.
 
-Reset database and re-seed:
+### What it does
+
+Three steps, in order, each timed:
+
+1. **`migrate drop -f`** — drops every table, including `schema_migrations`.
+2. **`migrate up`** — re-applies every migration from version 1.
+3. **`go run ./app/main seed`** — runs the project's registered seed functions. Skipped with `--skip-seed`.
+
+A failing step stops the run; the steps that already completed are reported with their status so you can see how far it got.
+
+Before any of that, `.env` is loaded into the environment. Scaffolded projects keep their credentials there, and Docker Compose maps the database to a host port that differs from the in-container port — loading `.env` first is what lets both the `migrate` shell-out and the spawned seed process reach the same database.
+
+### Examples
 
 ```bash
+# Full rebuild: drop, migrate, seed
 gofasta db reset
-```
 
-Reset database without seeding:
-
-```bash
+# Schema only — no fixtures
 gofasta db reset --skip-seed
 ```
 
-## How It Works
+### JSON output
 
-The `gofasta db reset` command performs these steps in order:
+```bash
+$ gofasta db reset --json
+{
+  "steps": [
+    { "name": "drop", "status": "ok", "duration_ms": 118 },
+    { "name": "migrate up", "status": "ok", "duration_ms": 342 },
+    { "name": "seed", "status": "ok", "duration_ms": 205 }
+  ],
+  "duration_ms": 665
+}
+```
 
-1. **Drop all tables** -- runs `migrate drop -f` to force-drop all database tables
-2. **Re-apply migrations** -- runs `migrate up` to apply all migrations from scratch
-3. **Run seeds** -- delegates to the project binary to run seed functions (unless `--skip-seed` is set)
+Each step's `status` is `ok`, `fail`, or `skip`, with `message` carrying the failure reason when one applies. Per-step timings make it obvious which phase is slow when a reset starts dragging in CI.
 
-The database connection details are read from `config.yaml` and can be overridden with `GOFASTA_` prefixed environment variables.
+## This is irreversible
 
-## Related
+`db reset` destroys all data in the configured database. There is no confirmation prompt and no undo. Never point it at a shared staging database or anything resembling production. If you are unsure which database your `config.yaml` and `.env` currently resolve to, run [`gofasta doctor`](/docs/cli-reference/doctor) first — it reports the resolved connection and whether the database is reachable.
 
-- [gofasta migrate](/docs/cli-reference/migrate) -- apply or rollback individual migrations
-- [gofasta seed](/docs/cli-reference/seed) -- run database seeders
-- [Database & Migrations Guide](/docs/guides/database-and-migrations)
+## Requirements and configuration
+
+Connection details are read from `config.yaml`, overridable with `GOFASTA_`-prefixed environment variables, using the same driver resolution as `gofasta migrate`. Schema work is delegated to [golang-migrate](https://github.com/golang-migrate/migrate), which must be installed and on your `PATH` — [`gofasta doctor`](/docs/cli-reference/doctor) checks for it.
+
+Failures surface as `DATABASE_RESET_FAILED`; see [Error codes](/docs/cli-reference/error-codes).
+
+<RelatedPages
+  path="cli-reference/db"
+  extra={[
+    { href: "/docs/guides/database-and-migrations", label: "Database & Migrations Guide", description: "Models, migration pairs, drivers, and relationships end to end." },
+    { href: "/docs/cli-reference/migrate", label: "gofasta migrate", description: "Non-destructive schema movement: up, down, explain, and dirty-state repair." },
+    { href: "/docs/cli-reference/seed", label: "gofasta seed", description: "Run the seeders on their own, without dropping anything." },
+  ]}
+/>

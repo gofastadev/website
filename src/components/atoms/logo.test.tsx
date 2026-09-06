@@ -26,6 +26,12 @@ describe("Logo", () => {
     expect(link).toHaveAttribute("href", "/");
   });
 
+  it("has an accessible name even when the wordmark is hidden on mobile", () => {
+    render(<Logo />);
+    const link = screen.getByRole("link", { name: "Gofasta home" });
+    expect(link).toHaveAttribute("aria-label", "Gofasta home");
+  });
+
   it("applies custom className", () => {
     render(<Logo className="my-custom-class" />);
     const link = screen.getByRole("link");

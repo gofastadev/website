@@ -23,6 +23,24 @@ jobs:
       - name: Lint
         run: yarn lint
 
+  # Nothing else type-checks: `next build` runs Turbopack, which does
+  # not, and there is no typecheck script.
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Type check
+        run: npx tsc --noEmit
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -46,6 +64,33 @@ jobs:
           slug: gofastadev/website
           files: coverage/lcov.info
           fail_ci_if_error: false
+
+  # Docs anti-drift gate. Installs the gofasta CLI at the exact version
+  # pinned in .cli-version, regenerates the facts document, and fails when
+  # the vendored src/data/cli-facts.json differs — then validates every
+  # `gofasta …` invocation in the docs MDX against those facts. Bumping
+  # the CLI the docs describe = bump .cli-version + re-vendor in one PR.
+  docs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+
+      - name: Install pinned gofasta CLI
+        run: go install "github.com/gofastadev/cli/cmd/gofasta@v$(cat .cli-version)"
+
+      - name: Vendored facts match the pinned CLI
+        run: gofasta --json facts | node scripts/sync-cli-facts.mjs --check
+
+      - name: Validate gofasta invocations in docs
+        run: node scripts/check-cli-docs.mjs
 
   build:
     runs-on: ubuntu-latest

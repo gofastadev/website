@@ -8,59 +8,44 @@ import "server-only";
 import Link from "next/link";
 import { getPageMap } from "nextra/page-map";
 
-// ─────────────────────────────────────────────────────────────────────
-// <RelatedPages /> — the docs-site "Related" footer.
-//
-// Renders an auto-generated list of sibling pages from the same section
-// (sourced from Nextra's page map at request time, so adding a new
-// MDX file under e.g. cli-reference/ automatically appears in every
-// other cli-reference page's Related list — zero per-page edits).
-//
-// Authors pass `path` to anchor the component to the current page, and
-// optionally `extra` to add curated cross-section links. The component
-// is a server component — no client JS — so the link list lands in the
-// initial HTML where Google's crawler reads it.
-//
-// Why an explicit `path` prop and not auto-detection?
-//
-//   Server components rendered through MDX don't have a clean handle
-//   on the current request path (no useRouter, headers() doesn't carry
-//   it by default). Threading the path through React Context would
-//   require turning the dynamic route into a client subtree, which we
-//   don't want for SEO. A one-line `path="cli-reference/dev"` from the
-//   author is the cheapest robust answer.
-// ─────────────────────────────────────────────────────────────────────
+// `path` is passed explicitly rather than auto-detected: a server
+// component rendered through MDX has no clean handle on the current
+// request path, and threading it through Context would turn the route
+// into a client subtree, costing the server-rendered links that Google
+// reads from the initial HTML.
 
 /** A curated cross-section link rendered alongside the auto-generated siblings. */
 export interface RelatedExtra {
   href: string;
   label: string;
+  /** Rendered next to the link; the link is title-only without it. */
+  description?: string;
 }
 
 interface RelatedPagesProps {
   /**
-   * Path of the page this component is rendered on, relative to /docs.
-   * Examples: "cli-reference/dev", "api-reference/cache",
-   * "guides/debugging/architecture". The component lists siblings of
-   * the final segment.
+   * Page this is rendered on, relative to /docs, e.g.
+   * "cli-reference/dev". Siblings of the final segment are listed.
    */
   path: string;
 
   /**
-   * Optional curated cross-section links rendered AFTER the
-   * auto-generated sibling list. Use for "this CLI command relates to
-   * this API package" — the kind of cross-link the directory-based
-   * auto-list cannot infer.
+   * Curated links appended after the siblings, for cross-section
+   * relationships the directory layout cannot infer.
    */
   extra?: RelatedExtra[];
 }
 
-// PageMapItem shape we need — Nextra's exported type tree includes
-// folders, MDX files, and meta files. We only render MDX files.
+// Nextra's page map mixes folders, MDX files, and meta files; only MDX
+// leaves are rendered.
 interface MdxLikeItem {
   name: string;
   route: string;
-  frontMatter?: { title?: string; [key: string]: unknown };
+  frontMatter?: {
+    title?: string;
+    description?: string;
+    [key: string]: unknown;
+  };
   children?: unknown;
 }
 
@@ -76,6 +61,27 @@ function isRenderableMdx(item: unknown): item is MdxLikeItem {
   // for safety.
   if (obj.name.startsWith("_") || obj.name === "index") return false;
   return true;
+}
+
+// Frontmatter descriptions are sized for the meta tag and run 2-3
+// sentences, which is visually heavy in this footer. Trimming here is
+// presentational only — the meta tag still carries the full text.
+function trimSentence(s: string, max = 140): string {
+  const trimmed = s.trim();
+  if (trimmed.length === 0) return "";
+  // Look for the first sentence-terminator within the budget.
+  const slice = trimmed.slice(0, max + 60);
+  const m = slice.match(/^[\s\S]+?[.!?](?=\s|$)/);
+  if (m && m[0].length <= max + 30) {
+    return m[0];
+  }
+  if (trimmed.length <= max) return trimmed;
+  // No sentence break in budget, so hard-truncate on a word boundary. The
+  // suffix counts against `max` so the rendered string never exceeds it.
+  const suffix = "...";
+  const hardCut = trimmed.slice(0, max - suffix.length);
+  const lastSpace = hardCut.lastIndexOf(" ");
+  return (lastSpace > 0 ? hardCut.slice(0, lastSpace) : hardCut) + suffix;
 }
 
 export async function RelatedPages({ path, extra = [] }: RelatedPagesProps) {
@@ -101,12 +107,16 @@ export async function RelatedPages({ path, extra = [] }: RelatedPagesProps) {
     .map((item) => ({
       href: item.route,
       label: (item.frontMatter?.title as string | undefined) ?? item.name,
+      description: trimSentence((item.frontMatter?.description as string | undefined) ?? ""),
     }));
 
   if (siblings.length === 0 && extra.length === 0) {
     return null;
   }
 
+  // The description sits outside the <a> deliberately: anchor text stays
+  // just the page title, while the surrounding prose still gives Google
+  // context for the link.
   return (
     <nav
       aria-label="Related pages"
@@ -115,25 +125,35 @@ export async function RelatedPages({ path, extra = [] }: RelatedPagesProps) {
       <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
         Related Pages
       </h3>
-      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
         {siblings.map((sibling) => (
-          <li key={sibling.href}>
+          <li key={sibling.href} className="leading-snug">
             <Link
               href={sibling.href}
-              className="text-sm text-gray-700 transition-colors hover:text-foreground hover:underline dark:text-gray-300"
+              className="text-sm font-medium text-gray-800 transition-colors hover:text-foreground hover:underline dark:text-gray-200"
             >
               {sibling.label}
             </Link>
+            {sibling.description ? (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {sibling.description}
+              </p>
+            ) : null}
           </li>
         ))}
         {extra.map((item) => (
-          <li key={item.href}>
+          <li key={item.href} className="leading-snug">
             <Link
               href={item.href}
-              className="text-sm text-gray-700 transition-colors hover:text-foreground hover:underline dark:text-gray-300"
+              className="text-sm font-medium text-gray-800 transition-colors hover:text-foreground hover:underline dark:text-gray-200"
             >
               {item.label}
             </Link>
+            {item.description ? (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {trimSentence(item.description)}
+              </p>
+            ) : null}
           </li>
         ))}
       </ul>

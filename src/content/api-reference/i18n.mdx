@@ -1,6 +1,17 @@
 ---
-title: i18n
-description: Internationalization with YAML locale files, message translation, and Accept-Language header detection.
+title: pkg/i18n — go-i18n with YAML locale files
+description: Internationalization backed by go-i18n — load translations from per-locale YAML files under locales/, resolve language preference from the Accept-Language header, and render messages with pluralization and template variables.
+keywords:
+  - "i18n API"
+  - "internationalization"
+  - "localization"
+  - "translations"
+  - "go-i18n"
+  - "Accept-Language"
+  - "pluralization"
+  - "YAML locales"
+  - "multilingual"
+  - "language detection"
 ---
 
 # i18n
@@ -125,8 +136,4 @@ i18n:
 
 Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_I18N_DEFAULT_LANGUAGE`).
 
-## Related Pages
-
-- [Middleware](/docs/api-reference/middleware) -- Locale detection middleware
-- [Errors](/docs/api-reference/errors) -- Localized error messages
-- [Mailer](/docs/api-reference/mailer) -- Localized email templates
+<RelatedPages path="api-reference/i18n" />

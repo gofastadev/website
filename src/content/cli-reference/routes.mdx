@@ -1,11 +1,23 @@
 ---
 title: gofasta routes
-description: Display all registered API routes in a formatted table.
+description: Print every registered REST route in the project as a formatted table — method, path, and source file. Reads the chi route registrations statically, with no running server, so you can audit your API surface locally or in CI.
+keywords:
+  - "CLI"
+  - "routes"
+  - "REST routes"
+  - "route listing"
+  - "route table"
+  - "API audit"
+  - "chi routes"
+  - "static route scan"
+  - "gofasta routes"
 ---
 
 # gofasta routes
 
-Parses route files in `app/rest/routes/` and displays a formatted table of all registered routes, including HTTP method, path, and source file.
+Statically parses your project's route files and prints every registered REST route as a table: HTTP method, the full path including the mounted API prefix, and the file the registration lives in.
+
+The command never imports or runs your code. It is a parse-and-format pass over the route files, so it needs no database, no Redis, and no running server.
 
 ## Usage
 
@@ -13,29 +25,82 @@ Parses route files in `app/rest/routes/` and displays a formatted table of all r
 gofasta routes
 ```
 
-Run this command from the root directory of your Gofasta project.
+Run it from the root of a Gofasta project. The command takes no flags of its own; the root command's global flags — notably `--json` — apply.
 
-This command takes no flags.
+## Example
 
-## Examples
+For a freshly scaffolded project with one generated `User` resource:
 
 ```bash
 $ gofasta routes
-METHOD   PATH                    FILE
-GET      /health                 routes/index.routes.go
-GET      /api/v1/users           routes/user.routes.go
-POST     /api/v1/users           routes/user.routes.go
-GET      /api/v1/users/:id       routes/user.routes.go
-PUT      /api/v1/users/:id       routes/user.routes.go
-DELETE   /api/v1/users/:id       routes/user.routes.go
+METHOD   PATH                  FILE
+GET      /health               index.routes.go
+GET      /health/live          index.routes.go
+GET      /health/ready         index.routes.go
+GET      /swagger/*            index.routes.go
+GET      /api/v1/users         user.routes.go
+POST     /api/v1/users         user.routes.go
+GET      /api/v1/users/{id}    user.routes.go
+PUT      /api/v1/users/{id}    user.routes.go
+DELETE   /api/v1/users/{id}    user.routes.go
 ```
 
-## How It Works
+Paths use chi's pattern syntax, so URL parameters appear as `{id}` — exactly as written in the route file.
 
-The command scans all `.go` files in `app/rest/routes/` and parses route registration calls (e.g., `GET`, `POST`, `PUT`, `DELETE`) to build the table. It does not start the server — it performs static analysis of the route files.
+## What it parses
 
-## Related
+| Registration | Recognized as |
+|---|---|
+| `r.Get` / `r.Post` / `r.Put` / `r.Delete` / `r.Patch` / `r.Head` / `r.Options` | One row per call, with the method uppercased. |
+| `r.Mount("/api/v1", api)` in `index.routes.go` | The API prefix, prepended to every route registered outside `index.routes.go`. |
+| `r.Handle("/swagger/*", …)` | A wildcard-mounted handler. Reported as `GET`, since these serve content. |
 
-- [REST API Guide](/docs/guides/rest-api) -- build and customize REST endpoints
-- [gofasta generate route](/docs/cli-reference/generate/route) -- generate a route file
-- [gofasta serve](/docs/cli-reference/serve) -- start the HTTP server
+Routes registered in `index.routes.go` itself — the health probes, the WebSocket upgrade endpoint, the Swagger UI — print without the API prefix, because they are mounted on the root router rather than inside the `/api/v1` subrouter.
+
+The scan is layout-aware. In the layered layout it reads `app/rest/routes/*.routes.go`; in the feature-package layout it reads the per-resource route files that [`gofasta refactor`](/docs/cli-reference/refactor) produces.
+
+## JSON output
+
+`--json` emits an array — always an array, empty when nothing matched — with a stable field shape:
+
+```bash
+$ gofasta routes --json
+[
+  { "method": "GET", "path": "/api/v1/users", "file": "user.routes.go" },
+  { "method": "POST", "path": "/api/v1/users", "file": "user.routes.go" },
+  { "method": "GET", "path": "/api/v1/users/{id}", "file": "user.routes.go" }
+]
+```
+
+This is the contract agents and CI steps read. The text table above it is for humans and may be reformatted in a future release; the JSON field names will not change.
+
+## Using it in CI
+
+The output is deterministic, so `gofasta routes --json` works as an API-surface snapshot. Commit it and diff in CI to catch a route that was added, removed, or silently re-pathed:
+
+```bash
+gofasta routes --json > .api-surface.json
+git diff --exit-code .api-surface.json
+```
+
+## Errors
+
+| Code | When |
+|---|---|
+| `ROUTES_DIR_MISSING` | `app/rest/routes/` does not exist — you are outside a Gofasta project, or the project uses the feature layout and has no route files yet. |
+| `FILE_IO` | The routes directory exists but could not be read; usually a permissions problem. |
+
+See [Error codes](/docs/cli-reference/error-codes) for the full list.
+
+## Limitations
+
+Static parsing means routes registered dynamically — built from a slice at runtime, or wrapped in a helper that hides the chi call — are not detected, because rows come from matching the chi method-call form directly. GraphQL operations are not routes in this sense; use the `/graphql-playground` endpoint to introspect the schema instead.
+
+<RelatedPages
+  path="cli-reference/routes"
+  extra={[
+    { href: "/docs/guides/rest-api", label: "REST API Guide", description: "How controllers, routes, and DTOs fit together in a generated resource." },
+    { href: "/docs/cli-reference/generate/route", label: "gofasta g route", description: "Generate a per-resource routes file and mount it on the index router." },
+    { href: "/docs/cli-reference/inspect", label: "gofasta inspect", description: "The wider view: model fields, DTOs, service and controller methods alongside routes." },
+  ]}
+/>

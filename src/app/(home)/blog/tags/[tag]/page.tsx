@@ -1,0 +1,120 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { LandingTemplate } from "@/components/templates";
+import { BlogPostCard } from "@/components/molecules/blog-post-card";
+import { getAllTags, getPostsByTag, slugifyTag } from "@/lib/blog";
+import { SITE_URL, withBaseKeywords } from "@/lib/seo";
+import { buildTagPageJsonLd, serializeJsonLd } from "@/lib/structured-data";
+
+// See the [slug] route for rationale — Pagefind only indexes static
+// routes, and prerendering at build time keeps the tag page on the
+// CDN edge.
+export const dynamic = "force-static";
+export const dynamicParams = false;
+
+export async function generateStaticParams() {
+  return getAllTags().map(({ tag }) => ({ tag }));
+}
+
+function tagUrl(tag: string): string {
+  return `${SITE_URL}/blog/tags/${tag}`;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ tag: string }>;
+}): Promise<Metadata> {
+  const { tag } = await params;
+  const normalized = slugifyTag(tag);
+  const posts = getPostsByTag(normalized);
+  if (posts.length === 0)
+    return {
+      title: "Tag not found - Gofasta Blog",
+      robots: { index: false, follow: false },
+    };
+
+  const title = `#${normalized} - Gofasta Blog`;
+  const description = `Posts tagged ${normalized} on the Gofasta blog.`;
+  const url = tagUrl(normalized);
+  const ogImage = `/api/og?title=${encodeURIComponent(`#${normalized}`)}&section=Blog`;
+
+  return {
+    title,
+    description,
+    keywords: withBaseKeywords("blog", normalized, "tag archive", "tag"),
+    alternates: {
+      canonical: url,
+      types: {
+        "application/rss+xml": "/blog/rss.xml",
+        "application/feed+json": "/blog/feed.json",
+      },
+    },
+    openGraph: {
+      type: "website",
+      url,
+      siteName: "Gofasta",
+      title,
+      description,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
+}
+
+export default async function BlogTagPage({
+  params,
+}: {
+  params: Promise<{ tag: string }>;
+}) {
+  const { tag } = await params;
+  const normalized = slugifyTag(tag);
+  const posts = getPostsByTag(normalized);
+  if (posts.length === 0) notFound();
+
+  const jsonLd = buildTagPageJsonLd({
+    tag: normalized,
+    posts: posts.map((p) => ({ slug: p.slug, title: p.title })),
+  });
+
+  return (
+    <LandingTemplate>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+      />
+      <main
+        className="mx-auto max-w-6xl px-6 pt-32 pb-24"
+        data-pagefind-body
+      >
+        <header className="mb-10">
+          <Link
+            href="/blog"
+            className="mb-4 inline-block text-sm text-gray-700 hover:text-primary dark:text-gray-400"
+          >
+            Back to all posts
+          </Link>
+          <h1 className="text-4xl font-bold text-foreground sm:text-5xl">
+            #{normalized}
+          </h1>
+          <p className="mt-3 text-lg text-gray-800 dark:text-gray-300">
+            {posts.length} {posts.length === 1 ? "post" : "posts"} tagged
+            {" "}<span className="font-medium text-primary">{normalized}</span>.
+          </p>
+        </header>
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {posts.map((post) => (
+            <BlogPostCard key={post.slug} post={post} />
+          ))}
+        </div>
+      </main>
+    </LandingTemplate>
+  );
+}

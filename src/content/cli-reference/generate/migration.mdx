@@ -1,6 +1,17 @@
 ---
 title: gofasta g migration
-description: Generate up and down SQL migration files for a database table.
+description: Generate a `.up.sql` / `.down.sql` migration pair under `db/migrations/` for a database table — with per-driver SQL flavor (postgres, mysql, sqlite, sqlserver, clickhouse) picked from `config.yaml`. Use this when you want a schema change without a corresponding Go model.
+keywords:
+  - "generate migration"
+  - "database migration"
+  - "schema change"
+  - "up.sql"
+  - "down.sql"
+  - "golang-migrate"
+  - "per-driver SQL"
+  - "postgres migration"
+  - "mysql migration"
+  - "gofasta generate"
 ---
 
 # gofasta g migration
@@ -89,8 +100,9 @@ To roll back:
 gofasta migrate down
 ```
 
-## Related
-
-- [gofasta migrate](/docs/cli-reference/migrate) -- run migration files
-- [gofasta g model](/docs/cli-reference/generate/model) -- generate the corresponding model
-- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers including migrations
+<RelatedPages
+  path="cli-reference/generate/migration"
+  extra={[
+    { href: "/docs/cli-reference/migrate", label: "gofasta migrate" },
+  ]}
+/>

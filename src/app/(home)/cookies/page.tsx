@@ -10,7 +10,7 @@ import { CookiePreferences } from "@/components/organisms/cookie-preferences";
 export const metadata: Metadata = {
   title: "Cookie preferences",
   description:
-    "Manage cookie and analytics preferences for gofasta.dev. We use Google Analytics and Microsoft Clarity only with consent — both are off by default.",
+    "Manage cookie and analytics preferences for gofasta.dev. We use Google Analytics and Microsoft Clarity only with consent, and both are off by default.",
   alternates: {
     canonical: "https://gofasta.dev/cookies",
   },
@@ -23,12 +23,12 @@ export default function CookiesPage() {
   return (
     <LandingTemplate>
       <section className="mx-auto max-w-3xl px-6 pt-32 pb-20">
-        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+        <h1 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
           Cookie preferences
         </h1>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
           We collect anonymous analytics to understand how the documentation
-          gets used and to fix issues we can&rsquo;t see from logs alone. Both
+          gets used and to fix issues we can&apos;t see from logs alone. Both
           tools are opt-in and only run after you accept below.
         </p>
 
@@ -63,7 +63,7 @@ export default function CookiesPage() {
             <p className="mt-2 text-sm">
               Session replay, heatmaps, and rage-click detection. We use this
               to find pages where users get stuck. Clarity is loaded only
-              after you accept below — it does not contact{" "}
+              after you accept below. It does not contact{" "}
               <code className="rounded bg-gray-100 px-1 text-xs dark:bg-gray-800">
                 clarity.ms
               </code>{" "}
@@ -79,7 +79,7 @@ export default function CookiesPage() {
             </p>
           </section>
 
-          <section className="rounded-lg border border-gray-200 p-6 dark:border-gray-800">
+          <section>
             <h2 className="text-lg font-semibold text-foreground">
               Your choice
             </h2>
@@ -98,7 +98,7 @@ export default function CookiesPage() {
 
           <p className="text-sm text-gray-600 dark:text-gray-400">
             For California residents under CPRA: this page is the
-            &ldquo;Do Not Sell or Share My Personal Information&rdquo;
+            &quot;Do Not Sell or Share My Personal Information&quot;
             destination. We do not sell or share personal information; the
             controls above let you opt out of the analytics that exists.
           </p>

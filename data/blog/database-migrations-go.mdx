@@ -1,0 +1,121 @@
+---
+draft: true
+title: "Database migrations in Go done right: one workflow, five databases"
+description: >-
+  Why GORM's AutoMigrate doesn't survive production, how golang-migrate keeps
+  five databases in step, and the trigger-level invariants a gofasta scaffold
+  ships on day one.
+publishedAt: 2026-06-26T10:00:00.000Z
+author: Gofasta Team
+authorUrl: https://gofasta.dev
+tags:
+  - golang
+  - database
+  - migrations
+series: Production Go, step by step
+seriesPart: 3
+cover: /blog/covers/database-migrations-go/cover.png
+---
+## The schema outlives everything
+
+Code is replaceable. We rewrite services, rename packages and delete whole layers without much ceremony, because the compiler and the test suite have our backs. The database is different. The `users` table you create this week will still be holding real people's data in five years, and every change you make to it between now and then has to happen in place, on a live system, without losing a row.
+
+That is why we think migrations are the least skippable part of a Go backend, and why they are worth doing with plain SQL files rather than something cleverer. This post covers how gofasta handles them: what the CLI actually wraps, what a fresh scaffold ships for each supported database, and the piece we think is genuinely underrated, which is the set of invariants the database enforces on its own no matter which client is talking to it.
+
+This is part 3 of *Production Go, step by step*. Part 1 [built the API](/blog/build-production-rest-api-go) and part 2 [put authentication in front of it](/blog/jwt-authentication-rbac-go). Today we go below the ORM.
+
+## The honest section about auto-migrate
+
+GORM ships an `AutoMigrate` function, and if you have prototyped in Go you have probably used it. Point it at your structs and it diffs them against the live schema, creating tables and adding columns until the two agree. For a spike or a weekend project it is great, and we use it that way ourselves.
+
+Here is what it does not do and by design cannot. It never drops a column, so a rename quietly becomes two columns. It has no ordering, so two environments that ran different builds end up with schemas that agree in shape but not in history. There is no down path, so no rollback story exists at all. And it leaves no record of what changed when, which turns debugging a production schema into archaeology rather than `git log`.
+
+None of that is a bug. Auto-migration answers the question "make the database match my structs, I do not care how." Production needs a different question answered: what exactly will change, in what order, and how do we undo it? Those are different tools. Pretending one can be the other is how you end up reconstructing schema history from an old `pg_dump` at midnight.
+
+So gofasta scaffolds do not auto-migrate. They ship versioned SQL files, applied in order, tracked in a table. The boring thing.
+
+## Plain SQL, applied in order
+
+We did not reinvent migration tracking either. The `gofasta migrate` commands shell out to [golang-migrate](https://github.com/golang-migrate/migrate), the closest thing the Go ecosystem has to a standard, with connection details read from your project's `config.yaml` so you are not juggling flags or environment variables. The CLI is a thin wrapper on purpose. If you ever drop gofasta, your migrations still run under the `migrate` binary alone, because they were always just its file format.
+
+Every migration is a pair of files. The up file moves the schema forward and the down file undoes it:
+
+```sql
+-- 20260831_add_status_to_articles.up.sql
+ALTER TABLE articles ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'draft';
+
+-- 20260831_add_status_to_articles.down.sql
+ALTER TABLE articles DROP COLUMN status;
+```
+
+Writing the down file feels like busywork right up until the moment it does not. A migration that cannot be reversed is a one-way door, and you want to know a door is one-way *before* you walk through it, preferably in code review.
+
+The day-to-day loop is three commands:
+
+```bash
+gofasta migrate up      # apply everything pending
+gofasta migrate down    # step back
+gofasta db reset        # drop it all and rebuild from zero (development only, obviously)
+```
+
+There is one more command for the bad day. When a migration fails halfway, golang-migrate marks the database *dirty* and refuses to touch it again. That is the right default, since it cannot know how much of your DDL actually committed. You fix the underlying problem, then run `gofasta migrate repair` to clear the flag and return to a known version. The [migrate reference](/docs/cli-reference/migrate) covers the full flow.
+
+New migrations come from the generator, so nobody hand-types timestamps:
+
+```bash
+gofasta g migration add_status_to_articles
+```
+
+When you scaffold a whole resource with `gofasta g scaffold`, the migration pair arrives alongside the model, repository, service and controller. One command, every layer, this one included.
+
+## Five databases, one workflow
+
+Here is where this gets more interesting than the average migrations post. `gofasta new` takes a `--driver` flag accepting `postgres` (the default), `mysql`, `sqlite`, `sqlserver` or `clickhouse`. That flag does more than swap a connection string. The CLI carries a separate set of foundational migrations for every driver and copies the matching set into your new project's `db/migrations/` at scaffold time.
+
+A Postgres project starts with five migrations. One enables `citext` for case-insensitive text, three define shared PL/pgSQL functions, and the last creates the `users` table wired up to those functions. A MySQL project gets a single migration with its logic inlined, because MySQL has no equivalent of shared trigger functions worth the ceremony. SQLite, SQL Server and ClickHouse each get their own variant, written for what that engine can actually do rather than translated word for word from the Postgres version.
+
+The generators follow the same rule. Declare a field as `price:float` and the emitted migration says `DECIMAL(10,2)` on Postgres and the appropriate type on each other engine, keyed off the `database.driver` value in `config.yaml`. You write the field list once and the SQL dialect becomes the toolkit's problem. The [driver reference](/docs/cli-reference/new/driver) has the full type table.
+
+Why support five engines at all? Because real projects do not get to choose. The startup is on Postgres, the enterprise customer mandates SQL Server, the analytics pipeline wants ClickHouse, and the CLI you use to move a schema forward should not be the reason any of those conversations is hard.
+
+## The invariants your database enforces on its own
+
+This is the part we would point at if someone asked why the scaffold bothers shipping triggers.
+
+Every gofasta model embeds a base model carrying `UpdatedAt`, `RecordVersion` and `IsDeletable` alongside the usual ID and timestamps. Application code maintains those fields, and GORM hooks and repository methods do the right thing on every write. But your application is not the only client your database will ever have. There is `psql`. There is the GUI tool someone on the team swears by. There is the late-night data-fix script, the BI integration holding a read-write credential it should not have, and in the worst case an intruder who found a connection string.
+
+So the foundational migrations push three invariants into the database itself:
+
+* **`updated_at` always moves.** Any UPDATE from any client refreshes the timestamp, so "when did this row last change" stays answerable forever.
+* **`record_version` always increments.** Every UPDATE bumps the counter, whether or not the writer bothered to.
+* **Protected rows stay put.** Rows flagged not-deletable cannot be deleted, even by a client that never heard of your application layer.
+
+How each engine gets there differs, and the differences are worth knowing. Postgres routes per-table triggers through those shared PL/pgSQL functions, keeping the logic in one place. MySQL handles `updated_at` with a column attribute and covers the other two with per-table triggers. SQLite does all three with `AFTER UPDATE` and `BEFORE DELETE ... WHEN` triggers. SQL Server combines the update work into one `AFTER UPDATE` trigger and blocks deletion with an `INSTEAD OF DELETE` trigger, which is the idiomatic way to veto a delete there.
+
+ClickHouse gets none of this and the scaffold says so plainly. Its engine has no row-level triggers, so on ClickHouse the invariants hold only at the application layer. We would rather tell you that than generate SQL that pretends otherwise.
+
+One more layer stacks on top. The generated repository's update method puts `record_version` into the WHERE clause, the classic optimistic lock, so a stale write is rejected *before* it reaches the database and you get a clean conflict error to surface. The trigger sits behind that as a backstop: even if some other client writes around the repository entirely, the version still moves forward. The lock catches honest races and the trigger catches everything else.
+
+That is defense in depth, and it is tedious to hand-write for one engine, let alone five. Which is exactly why it belongs in a scaffold.
+
+## Rules we follow when writing migrations
+
+The tooling above makes migrations cheap to run. It cannot make a bad migration good, so here are the habits we hold ourselves to. None are original and all were earned.
+
+**Expand, then contract.** Renaming a column in one step leaves a moment where old code queries a name that no longer exists. The safe sequence takes three deploys: add the new column and write to both, move readers over, then drop the old one. More steps, zero moments of disagreement between code and schema. It feels slow exactly once.
+
+**Keep migrations small and single-purpose.** One logical change per pair of files. When migration 47 fails in staging, "add the orders index" is something you can reason about. "Restructure billing" is not. Small migrations also keep the down files honest, since a fifty-line up file rarely has a down file anyone believes.
+
+**Never edit an applied migration.** Once it has run anywhere beyond your laptop it is history, and history is append-only. Fix a mistake with a new migration. Editing the old file guarantees that databases which applied it and databases which did not will disagree forever, while the tracking table swears they are identical.
+
+**Separate schema from data.** DDL belongs in migrations and rows belong in seeds. `gofasta seed` runs the project's registered seeders, and `--fresh` rebuilds from a clean slate. Mixing the two means you cannot rebuild a schema without also deciding what data belongs in it, which is two questions pretending to be one.
+
+**Review migrations harder than code.** A bad function ships, breaks, gets reverted and is forgotten by Thursday. A bad migration that drops the wrong column is an incident with a restore step. Review the down file too, since it is the code path you will run at your worst moment.
+
+## Make it boring
+
+The whole point is that schema change stops being an event. `gofasta dev` applies pending migrations when it brings your stack up, so a teammate's migration is simply there after a pull. CI runs the same files, production runs the same files, and one `git log db/migrations/` gives you the schema's entire history with authorship.
+
+The [database guide](/docs/guides/database-and-migrations) walks through the full workflow against a fresh project if you want to try it end to end. In the next part of this series those migrations ride along on a real release: [deploying to a plain VPS with health checks and automatic rollback](/blog/deploy-go-app-vps).
+
+Schemas outlive code. Treat yours like it.

@@ -1,6 +1,11 @@
 ---
 title: gofasta wire
 description: Regenerate Google Wire dependency injection code for your Gofasta project.
+keywords:
+  - "CLI"
+  - "wire"
+  - "dependency injection"
+  - "gofasta wire"
 ---
 
 # gofasta wire
@@ -111,8 +116,10 @@ Run `gofasta wire` after:
 
 **Cycle detected** -- Wire does not allow circular dependencies. Refactor your code to break the cycle.
 
-## Related
-
-- [gofasta g provider](/docs/cli-reference/generate/provider) -- generate a new Wire provider
-- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource with providers
-- [gofasta init](/docs/cli-reference/init) -- initialize a project including Wire generation
+<RelatedPages
+  path="cli-reference/wire"
+  extra={[
+    { href: "/docs/cli-reference/generate/provider", label: "gofasta g provider" },
+    { href: "/docs/cli-reference/generate/scaffold", label: "gofasta g scaffold" },
+  ]}
+/>

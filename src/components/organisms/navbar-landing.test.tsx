@@ -1,6 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { NavbarLanding } from "./navbar-landing";
+
+// NavLinks (rendered inside the navbar) reads usePathname() for its
+// active-link state — stub it so this file stays focused on chrome
+// rendering, not routing behavior (covered in nav-links.test.tsx).
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+}));
 
 describe("NavbarLanding", () => {
   it("renders the logo", () => {

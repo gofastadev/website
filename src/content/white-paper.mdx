@@ -1,6 +1,72 @@
 ---
 title: "Technical White Paper"
 description: "Gofasta technical white paper — design principles, architecture, code generation strategy, dependency injection with Google Wire, database layer with GORM, HTTP routing with chi, authentication, background processing, real-time communication, email and notifications, file storage, internationalization, feature flags, observability, resilience patterns, security defaults, testing, deployment, and adoption path for Go web services."
+keywords:
+  - "white paper"
+  - "technical paper"
+  - "architecture"
+  - "design principles"
+  - "code generation"
+  - "dependency injection"
+  - "Google Wire"
+  - "GORM"
+  - "chi router"
+  - "compile-time DI"
+  - "scaffolding"
+  - "REST API"
+  - "GraphQL"
+  - "authentication"
+  - "JWT"
+  - "RBAC"
+  - "background jobs"
+  - "task queue"
+  - "asynq"
+  - "observability"
+  - "Prometheus"
+  - "OpenTelemetry"
+  - "circuit breaker"
+  - "resilience"
+  - "retry"
+  - "database migrations"
+  - "PostgreSQL"
+  - "MySQL"
+  - "SQLite"
+  - "deployment"
+  - "Docker"
+  - "CI/CD"
+  - "health checks"
+  - "middleware"
+  - "CORS"
+  - "rate limiting"
+  - "email"
+  - "notifications"
+  - "WebSocket"
+  - "caching"
+  - "Redis"
+  - "feature flags"
+  - "i18n"
+  - "encryption"
+  - "sessions"
+  - "file storage"
+  - "S3"
+  - "validation"
+  - "open source"
+  - "MIT license"
+  - "production-ready"
+  - "batteries-included"
+  - "AI coding agent"
+  - "agent-native"
+  - "Claude Code"
+  - "Cursor"
+  - "OpenAI Codex"
+  - "Aider"
+  - "Windsurf"
+  - "AGENTS.md"
+  - "llms.txt"
+  - "llms-full.txt"
+  - "structured errors"
+  - "stable error codes"
+  - "--json flag"
 ---
 
 # Gofasta: Code Generation and Composable Packages for Go Backend Services
@@ -15,7 +81,7 @@ description: "Gofasta technical white paper — design principles, architecture,
 
 ## Abstract
 
-Go is an excellent language for building backend services, but starting a new production project still involves significant repetitive setup: wiring routers, configuring databases, setting up authentication, writing CRUD boilerplate, organizing project structure, and preparing deployment manifests. Each team reinvents these patterns independently, leading to inconsistency and wasted effort.
+Go is an excellent language for building backend services, but starting a new production project still involves significant repetitive setup: wiring routers, configuring databases, setting up authentication, writing CRUD boilerplate, organizing project structure, and preparing deployment manifests. Go's explicitness — every behavior visible in source, no hidden control flow — is precisely why engineers choose it; the setup cost is the price of that property, but it does not require each team to pay it independently. Each team reinvents these patterns anyway, producing inconsistent architectures and wasted effort across the ecosystem.
 
 Gofasta is an open-source toolkit that eliminates this setup overhead. It consists of two components: a **CLI tool** (`gofastadev/cli`) that scaffolds projects and generates idiomatic Go code, and a **library** (`gofastadev/gofasta`) of production-ready packages covering common backend concerns. Generated code is plain Go — no custom syntax, no transpilation, no runtime magic. Developers own every line of output and can modify or replace any component independently.
 
@@ -51,7 +117,8 @@ This paper describes the technical architecture, design principles, agent-ergono
 22. [Adoption and Migration Path](#22-adoption-and-migration-path)
 23. [Comparison with Existing Tools](#23-comparison-with-existing-tools)
 24. [Roadmap](#24-roadmap)
-25. [Contributing](#25-contributing)
+25. [Conclusion](#25-conclusion)
+26. [Contributing](#26-contributing)
 
 ---
 
@@ -153,48 +220,102 @@ The design constraint follows from a simple observation: AI-assisted development
 
 ### 3.1 Project Structure
 
-A Gofasta project follows a layered architecture with clear separation of concerns:
+Gofasta projects ship in one of **two layouts**, picked at scaffold time via `gofasta new --layout=<layered|feature>` and persisted to `config.yaml`'s `project.layout` field. The choice is reversible at any time with `gofasta refactor feature` (layered → feature) or `gofasta refactor layered` (feature → layered) — an AST-based migration tool that moves files, rewrites imports, patches Wire bindings, and regenerates `wire_gen.go` in a single transactional pass.
+
+Both layouts produce a fully working REST/GraphQL backend with the same Wire dependency graph, the same HTTP routes, and the same runtime behavior. They differ only in how files are organized on disk:
+
+- **Layered** (the default) groups files by their architectural role: `app/models/`, `app/services/`, `app/repositories/`, `app/rest/controllers/`, etc. Adding a `Subscription` resource touches one file in each of those directories. This is the familiar shape of classic MVC backends — the "controller → service → repository → database" pipeline is one directory per layer, with one file per resource inside each.
+- **Feature-package** groups files by business domain: `app/user/`, `app/product/`, `app/order/` — each containing its own service, repository, controller, routes, DTOs, and Wire provider. This is the shape advocated by Ben Johnson's ["Standard Package Layout"](https://www.gobeyond.dev/standard-package-layout/) and the package-by-feature / vertical-slice tradition. Adding a `Subscription` resource creates one directory.
+
+The feature-package layout is a deliberate **hybrid**, not a wholesale collapse. Four categories of files stay in their layered locations even in feature mode:
+
+1. **Models** (`app/models/<r>.model.go`) — DTO mappers (`UserFromModel(m *models.User) *User`) take the model as input; if the model moved into the feature package and the per-resource DTOs also moved there, the controller's `dtos.TPaginationObjectDto` import would create a `dtos → feature → dtos` cycle through the mapper. Keeping models layered breaks the cycle.
+2. **Per-resource validators** (`app/validators/<r>.validators.go`) — `app/validators/register.go` calls package-private helpers (`isRecordExistByEmailForConflict`, `doesRecordExistByEmailForVerification`, etc.). Scattering them across feature packages breaks the registration wiring.
+3. **Validator infrastructure** (`app/validators/{app_validator,register,custom-messages,validator.utils}.go`) — cross-cutting setup that every feature consumes.
+4. **The `Validator` interface** (`app/rest/controllers/validator.go`) — referenced by every feature's controller and bound to `*validators.AppValidator` via `wire.Bind`. Genuinely cross-feature.
+
+Two other things relocate without changing package identity: `app/dtos/aliases.go` (re-exports of `pkg/types`) moves to `app/shared/dtos/aliases.go` (package still `dtos`, just a new import path); `app/services/password_generator.go` moves to `app/user/password_generator.go` (its only consumer in the bootstrap scaffold is the User feature).
+
+Layered shape:
 
 ```
+# Layered — `gofasta new myapp` (or `--layout=layered`)
 myapp/
-├── app/                        # Application code
+├── app/
 │   ├── main/main.go            # Entry point
-│   ├── models/                 # GORM database models
-│   ├── dtos/                   # Request/response data transfer objects
-│   ├── repositories/           # Data access layer
+│   ├── models/                 # GORM models (one file per resource)
+│   ├── dtos/                   # Request/response DTOs + shared aliases.go
+│   ├── repositories/
 │   │   └── interfaces/         # Repository contracts
-│   ├── services/               # Business logic layer
-│   │   └── interfaces/         # Service contracts
+│   ├── services/
+│   │   ├── interfaces/         # Service contracts
+│   │   ├── <r>.service.go      # Business logic
+│   │   ├── <r>_errors.go       # Sentinel errors
+│   │   ├── <r>_inputs.go       # Domain inputs (CreateUserInput, etc.)
+│   │   └── password_generator.go  # Shared infra
 │   ├── rest/
-│   │   ├── controllers/        # HTTP handlers
-│   │   └── routes/             # Route registration
-│   ├── graphql/                    # Only with --graphql
-│   │   ├── schema/             # .gql schema files
-│   │   └── resolvers/          # GraphQL resolvers
-│   ├── validators/             # Input validation rules
-│   ├── di/                     # Dependency injection (Google Wire)
-│   │   ├── container.go        # Container struct
-│   │   ├── wire.go             # Wire build configuration
-│   │   ├── wire_gen.go         # Generated wiring (do not edit)
-│   │   └── providers/          # Provider sets per resource
-│   └── jobs/                   # Background jobs and scheduled tasks
-├── cmd/                        # CLI commands (Cobra)
-│   ├── root.go
-│   ├── serve.go                # HTTP server startup
-│   └── seed.go                 # Database seeding
-├── db/
-│   ├── migrations/             # SQL migration pairs (.up.sql / .down.sql)
-│   └── seeds/                  # Seed data functions
-├── configs/                    # RBAC policies, feature flag definitions
-├── deployments/                # Docker, CI/CD workflows, nginx, systemd
-├── templates/emails/           # HTML email templates
-├── locales/                    # Translation files (i18n)
-├── config.yaml                 # Application configuration
-├── compose.yaml                # Docker Compose
-├── Dockerfile                  # Production image
-├── Makefile                    # Development shortcuts
-└── gqlgen.yml                  # GraphQL code generation config (only with --graphql)
+│   │   ├── controllers/        # HTTP handlers + Validator interface
+│   │   └── routes/             # Per-resource routes + index.routes.go
+│   ├── validators/             # AppValidator + per-resource rules
+│   ├── di/
+│   │   ├── container.go        # ServiceContainer struct
+│   │   ├── wire.go             # wire.Build directives
+│   │   ├── wire_gen.go         # Generated — do not edit
+│   │   └── providers/          # One Wire provider per resource
+│   ├── graphql/                # Only with --graphql
+│   ├── jobs/                   # Cron jobs (never per-resource)
+│   └── tasks/                  # Async asynq handlers (never per-resource)
+├── cmd/                        # Cobra CLI (serve, migrate, seed)
+├── db/{migrations/, seeds/}
+├── configs/                    # RBAC + feature flags
+├── deployments/                # Docker, CI, nginx, systemd
+├── templates/emails/
+├── locales/
+├── config.yaml                 # project.layout: layered
+├── compose.yaml
+├── Dockerfile
+├── Makefile
+└── gqlgen.yml                  # --graphql only
 ```
+
+Feature-package shape — same project, files reorganized by domain:
+
+```
+# Feature-package — `gofasta new myapp --layout=feature`
+myapp/
+├── app/
+│   ├── main/main.go
+│   ├── models/                 # ← stays layered
+│   │   └── user.model.go
+│   ├── shared/dtos/            # ← shared aliases relocate here
+│   │   └── aliases.go
+│   ├── user/                   # ← per-feature directory
+│   │   ├── dtos.go             # DTOs collapsed in
+│   │   ├── repository.go + repository_iface.go
+│   │   ├── service.go + service_iface.go
+│   │   ├── errors.go
+│   │   ├── inputs.go
+│   │   ├── controller.go
+│   │   ├── routes.go           # exports RegisterRoutes(...)
+│   │   ├── wire.go             # exports UserSet
+│   │   ├── password_generator.go  # follows the user feature
+│   │   └── *_test.go
+│   ├── validators/             # ← stays layered (shared infra + register.go)
+│   ├── rest/
+│   │   ├── controllers/validator.go    # ← stays layered (Validator interface)
+│   │   └── routes/index.routes.go      # calls userpkg.RegisterRoutes(...)
+│   ├── di/
+│   │   ├── container.go        # imports app/user; field types use userpkg
+│   │   ├── wire.go             # references userpkg.UserSet
+│   │   └── providers/core.go   # CoreSet only — no per-resource providers
+│   ├── graphql/                # Same path as layered, different imports
+│   ├── jobs/, tasks/           # Same as layered
+├── cmd/, db/, configs/, deployments/, templates/, locales/   # All identical
+├── config.yaml                 # project.layout: feature
+├── compose.yaml, Dockerfile, Makefile, gqlgen.yml
+```
+
+The full reference — including how `gofasta refactor` performs the bidirectional AST migration, what gets patched in the cross-cutting wiring files, the safety gates that protect the working tree, and the rules to follow to avoid drift — is in [Project structure → Choosing a layout](/docs/getting-started/project-structure#choosing-a-layout-layered-or-feature-package) and [`gofasta refactor`](/docs/cli-reference/refactor).
 
 ### 3.2 Request Flow
 
@@ -232,11 +353,12 @@ When GraphQL is enabled, the project includes:
 # Option A: Go install (recommended for Go developers)
 go install github.com/gofastadev/cli/cmd/gofasta@latest
 
-# Option B: Pre-built binary (no Go toolchain needed)
-curl -fsSL https://raw.githubusercontent.com/gofastadev/cli/main/dist/install.sh | sh
+# Option B: Pre-built binary (no Go toolchain needed) — download the
+# archive for your platform from the GitHub Releases page and unpack
+# the `gofasta` binary onto your PATH.
 ```
 
-**Requirement:** Go 1.25.0 or later (Option A only). Option B downloads a self-contained binary.
+**Requirement:** Go 1.25.0 or later (Option A only). Option B is a self-contained binary from [GitHub Releases](https://github.com/gofastadev/cli/releases).
 
 ### 4.2 Commands
 
@@ -246,7 +368,7 @@ The CLI exposes ~40 commands and subcommands, grouped below by purpose. Every co
 
 | Command | Description |
 |---------|-------------|
-| `gofasta new <name>` | Bootstrap a new project (~78 files) with full structure, Go module, and starter User resource. Accepts a plain name (`myapp`) or a full module path (`github.com/myorg/myapp`). Add `--graphql` / `--gql` to include gqlgen schema and resolvers. |
+| `gofasta new <name>` | Bootstrap a new project (~<Fact name="skeleton.fileCount" /> files) with full structure, Go module, and starter User resource. Accepts a plain name (`myapp`) or a full module path (`github.com/myorg/myapp`). Add `--graphql` / `--gql` to include gqlgen schema and resolvers. |
 | `gofasta init` | Initialize a freshly cloned project: create `.env` from `.env.example`, run `go mod tidy`, generate Wire DI, generate GraphQL code (if `gqlgen.yml` exists), run database migrations, and verify the build. |
 | `gofasta doctor` | Check system prerequisites (Go, migrate, Docker, air, wire, gqlgen, swag) and project health (`config.yaml`, database connectivity). Useful for bug reports. |
 | `gofasta upgrade` | Self-update to the latest CLI release. Detects whether the binary was installed via `go install` or a pre-built binary and runs the right upgrade path. |
@@ -302,15 +424,15 @@ Supported field types are `string`, `text`, `int`, `float`, `bool`, `uuid`, and 
 
 #### Deployment
 
-All deploy commands read configuration from the `deploy:` section of `config.yaml` and support `--host`, `--method` (`docker` or `binary`), `--port`, `--path`, `--arch`, and `--dry-run` flags.
+All deploy commands read configuration from the `deploy:` section of `config.yaml` and share one persistent flag set — `--host`, `--method` (`docker` or `binary`), `--port`, `--path`, `--arch`, and `--dry-run` work on the parent command and on every subcommand.
 
 | Command | Description |
 |---------|-------------|
-| `gofasta deploy` | Deploy the application to a remote server via SSH. Defaults to the `docker` method (transfers a built Docker image); `--method binary` cross-compiles a Go binary and manages it via systemd. |
-| `gofasta deploy setup` | Prepare a fresh VPS for deployment: install system packages, Docker (for docker method) or service user (for binary method), create directory structure, install nginx reverse proxy config. |
+| `gofasta deploy` | Deploy the application to a remote server via SSH. Defaults to the `docker` method (transfers a built Docker image and restarts onto it); `--method binary` cross-compiles a Go binary and manages it via systemd. A release that fails its migrations or health check is automatically rolled back to the previous release. |
+| `gofasta deploy setup` | Prepare a fresh VPS for deployment: install system packages, Docker (for docker method) or service user + migrate CLI (for binary method), and create the directory structure. Installs the nginx reverse-proxy vhost only when `deploy.domain` is set in `config.yaml`. |
 | `gofasta deploy status` | Check the status of the deployed application (current release, container/service state). |
 | `gofasta deploy logs` | Tail application logs from the remote server (streams `docker compose logs -f` or `journalctl -u <app> -f`). |
-| `gofasta deploy rollback` | Roll back to the previous release on the remote server. |
+| `gofasta deploy rollback` | Restart the service on the newest release older than the current one, verify its health, and only then move the `current` pointer. |
 
 #### Shell integration
 
@@ -337,7 +459,7 @@ gofasta new myapp
 This command:
 1. Creates the project directory with the full structure
 2. Runs `go mod init`
-3. Copies ~92 template files (REST-only by default)
+3. Copies ~<Fact name="skeleton.fileCount" /> template files (REST-only by default)
 4. Installs dependencies (`go mod tidy`)
 5. Generates Wire dependency injection code
 6. Includes a starter `User` resource so the project compiles and runs immediately
@@ -561,8 +683,8 @@ The CLI uses Go's `text/template` package to produce source files. Templates are
 
 | Generator | Input | Output |
 |-----------|-------|--------|
-| `new` | Project name, module path, driver | ~78 files: full project structure |
-| `scaffold` | Resource name, field definitions | 11 new files + 4 patched files |
+| `new` | Project name, module path, driver | ~<Fact name="skeleton.fileCount" /> files: full project structure |
+| `scaffold` | Resource name, field definitions | <Fact name="scaffold.createdCount" /> new files (tests included) + <Fact name="scaffold.patchedCount" /> patched files |
 | `model` | Resource name, field definitions | Model struct + migration pair |
 | `migration` | Migration name, optional fields | SQL migration pair (up/down) |
 | `repository` | Resource name, field definitions | Interface + GORM implementation |
@@ -1415,37 +1537,48 @@ deployments/
 ├── ci/              # GitHub Actions workflow templates (test, release, deploy-vps)
 ├── docker/          # Production compose file + dev Dockerfile with hot reload
 ├── nginx/           # Reverse proxy configuration
-└── systemd/         # Service unit and reference deploy script
+└── systemd/         # Service unit for binary-method deploys
 ```
 
 Cloud-managed platforms (ECS, Cloud Run, App Service) are out of scope for the current release. Projects that require them are expected to import their own infrastructure-as-code manifests — `pkg/*` packages impose no runtime assumptions that prevent this.
 
+Because the generated `Dockerfile` and compose file are standard, unmodified Docker artifacts, they also deploy as-is to self-hosted platforms such as Coolify, Dokploy, and Kamal — no gofasta-specific adapters or extra configuration files required. The documentation ships step-by-step guides for each.
+
 ### 21.2 Docker
 
-The generated `Dockerfile` uses a multi-stage build:
+The generated `Dockerfile` uses a multi-stage build. The builder stage caches module downloads (`go.mod`/`go.sum` first), compiles a static binary, and installs the golang-migrate CLI with the project's driver tag; the runtime stage is minimal Alpine running as a non-root user:
 
 ```dockerfile
 # Build stage
 FROM golang:1.25.0-alpine AS builder
-WORKDIR /app
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o server ./app/main
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app ./app/main
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.1
 
 # Production stage
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata
-COPY --from=builder /app/server /server
-COPY --from=builder /app/config.yaml /config.yaml
+COPY --from=builder /app /app
+COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
+COPY db/migrations /migrations
+COPY config.yaml /config.yaml
+COPY templates /templates
+RUN addgroup -S app && adduser -S -G app app
+USER app
 EXPOSE 8080
-CMD ["/server", "serve"]
+ENTRYPOINT ["/app"]
+CMD ["serve"]
 ```
 
-`compose.yaml` includes the application, PostgreSQL, Redis (cache profile), and asynqmon (queue profile) with health checks. The development loop is driven by a single command:
+The development `compose.yaml` includes the application, the configured database, Redis (cache profile), and asynqmon (queue profile); the database and cache services carry container health checks. The development loop is driven by a single command:
 
 ```bash
-gofasta dev                 # db + cache + queue + Air on the host, auto-on profiles
-gofasta dev --all-in-docker # everything inside Docker, including Air
-gofasta dev --no-services   # Air only, bring your own database
+gofasta dev                 # host-first: Air on the host, preflight + interactive recovery
+gofasta dev --services db   # database in Docker, app stays on the host
+gofasta dev --services all  # everything inside Docker, including Air
 ```
 
 `gofasta dev` orchestrates the full pipeline — preflight, service-start with health-wait, migration apply, optional seed, Air hot-reload — and exposes interactive controls (`r` to restart from scratch, `q` to quit, `h` for help) plus a `--dashboard` flag that mounts a live request inspector with trace waterfalls, EXPLAIN-on-click, N+1 detection, and HAR export.
@@ -1463,18 +1596,18 @@ gofasta deploy rollback        # Roll back to previous release
 ```
 
 Two deployment methods are supported:
-- **Docker** (default): builds a Docker image locally, transfers it via SSH (`docker save | ssh docker load` — no registry required), runs via Docker Compose on the server.
-- **Binary**: cross-compiles a Go binary, transfers it via SCP, manages it via systemd.
+- **Docker** (default): builds a Docker image locally, transfers it via SSH (`docker save | ssh docker load` — no registry required), and restarts a fixed Docker Compose project onto the pinned per-release image. The stable project name keeps container names, the network, and the database volume identical across releases.
+- **Binary**: cross-compiles a Go binary, transfers it via SCP, manages it via systemd. Migrations run before cutover with the release's own binary, so a failed migration aborts without touching the running service.
 
-Both methods use a Capistrano-style release-directory layout (`/opt/<app>/releases/<timestamp>/` plus a `current` symlink atomically flipped after the health check passes), support zero-downtime rollback via `gofasta deploy rollback`, and optionally front the application with the generated nginx reverse-proxy config.
+Both methods use a Capistrano-style release-directory layout: `/opt/<app>/releases/<timestamp>/` plus a `current` symlink pointing at the live release. Cutover is restart-based — the service restarts onto the new release (a brief blip, not zero-downtime) and the deploy then gates on the health endpoint (`/health/ready` by default, which verifies real database and cache connectivity). If the new release fails its migrations or health check, gofasta **automatically rolls back** to the previous release and removes the failed release directory; `gofasta deploy rollback` reverts manually using the same mechanics, health-checking the target before committing the pointer to it. Old releases are pruned by name order, always excluding whichever release `current` points at, and each pruned docker release's image is removed with it. The application can optionally be fronted by the generated nginx reverse-proxy config (`gofasta deploy setup` installs it when `deploy.domain` is set).
 
 ### 21.4 CI/CD
 
 GitHub Actions workflow templates ship under `deployments/ci/` as inert YAML — they do not run until the developer copies them into `.github/workflows/`. This opt-in pattern prevents a first push from triggering deploys against unset secrets. The templates provided:
 
-- **Test** — runs on push/PR with a PostgreSQL service container; uploads coverage to Codecov.
-- **Release** — on `v*` tag push, builds and pushes a Docker image to GHCR using the default `GITHUB_TOKEN`.
-- **Deploy (VPS)** — on push to `main` or manual dispatch, runs `gofasta deploy` against the configured VPS. Requires `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, and `DEPLOY_PORT` repository secrets.
+- **Test** — runs on push/PR with a service container matching the project's database driver (SQLite runs container-free); executes the project's full preflight plus `gofasta test --coverage`, uploads coverage to Codecov, and runs `govulncheck`.
+- **Release** — on `v*` tag push, cross-compiles binaries for five platforms (linux/darwin/windows), generates checksums, and publishes a GitHub Release.
+- **Deploy (VPS)** — on push to `main` or manual dispatch (`workflow_dispatch`), installs the gofasta CLI and runs `gofasta deploy` against the configured VPS — the same command, release layout, health gate, and automatic rollback as a local deploy. Requires `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, and `DEPLOY_PORT` repository secrets.
 
 ---
 
@@ -1626,7 +1759,7 @@ The following matrix compares Gofasta against the tools a Go backend developer i
 
 **vs. GoFrame:** GoFrame is a comprehensive runtime toolkit originating from the Chinese Go community. It provides an HTTP server, ORM (`gdb`), configuration, logging, caching, i18n, and a CLI (`gf`) that can reverse-engineer database schemas into Go code. Its feature breadth is comparable to Gofasta's, and it supports six database drivers. The key difference is architectural: GoFrame is a runtime toolkit — the HTTP server, ORM, config loader, and logger are all GoFrame-specific APIs that your application imports and runs inside. Replacing one component (swapping the ORM, or using a different config loader) means fighting the integration between modules. Gofasta generates standalone Go code that uses well-known community libraries (chi, GORM, slog) rather than toolkit-specific equivalents. Each `pkg/*` package can be replaced individually because it builds on standard Go interfaces — swapping `pkg/cache` does not require changing `pkg/config` or `pkg/middleware`. GoFrame's English documentation is significantly weaker than its Chinese documentation, which limits adoption outside Chinese-speaking teams.
 
-**vs. Kratos:** Kratos is a microservices toolkit from Bilibili that shares several design choices with Gofasta: both use Google Wire for compile-time dependency injection, and both enforce layered architecture with clean separation between transport, service, and data layers. The fundamental difference is the API definition workflow. Kratos requires Protocol Buffers for service definitions and generates both HTTP and gRPC transport from `.proto` files — this is powerful for teams that need dual-protocol support but adds significant ceremony for REST-only projects. Gofasta defines APIs in standard Go code with explicit route registration, which requires no schema language and no code generation step for the HTTP layer itself. Kratos provides first-class service discovery (etcd, Consul, Kubernetes) and is built for distributed microservice deployments; Gofasta provides first-class deployment automation (Docker, Kubernetes manifests, VPS deployment) and a wider set of application-level packages (email, notifications, file storage, i18n, feature flags) for teams building complete backend services rather than individual microservice components.
+**vs. Kratos:** Kratos is a microservices toolkit from Bilibili that shares several design choices with Gofasta: both use Google Wire for compile-time dependency injection, and both enforce layered architecture with clean separation between transport, service, and data layers. The fundamental difference is the API definition workflow. Kratos requires Protocol Buffers for service definitions and generates both HTTP and gRPC transport from `.proto` files — this is powerful for teams that need dual-protocol support but adds significant ceremony for REST-only projects. Gofasta defines APIs in standard Go code with explicit route registration, which requires no schema language and no code generation step for the HTTP layer itself. Kratos provides first-class service discovery (etcd, Consul, Kubernetes) and is built for distributed microservice deployments; Gofasta provides first-class deployment automation (Docker, VPS deployment with automatic rollback) and a wider set of application-level packages (email, notifications, file storage, i18n, feature flags) for teams building complete backend services rather than individual microservice components.
 
 **vs. Goa:** Goa takes a design-first approach: developers describe their API using a Go DSL, and the `goa` CLI generates server handlers, client packages, and OpenAPI documentation from that single source of truth. This ensures documentation and code never drift apart — a genuine advantage for API-first organizations. Goa generates both HTTP and gRPC transport from one design, and its generated code is clean and idiomatic. However, Goa's scope is limited to the API layer. It does not provide database access, migrations, authentication, caching, background jobs, email, file storage, or deployment manifests — the developer must assemble these independently. Gofasta covers the full backend stack, from database migrations and GORM repositories through authentication and background processing to deployment automation. Goa's DSL also has a significant learning curve; Gofasta uses standard Go code for everything, so the developer's existing Go knowledge applies directly.
 
@@ -1661,7 +1794,6 @@ Gofasta is under active development. The roadmap is organized by impact on produ
 - **Service architecture diagram generation** — `gofasta diagram` command that parses route files, the DI container, and model relationships to generate a Mermaid or DOT architecture diagram. Output as SVG, Markdown, or embeddable in Swagger UI. Purely a CLI analysis tool with zero runtime cost.
 - **Machine-readable route output** — Extend `gofasta routes` with a `--json` flag for CI/CD integration, API gateway configuration, and tooling that consumes route definitions programmatically.
 - **Secrets management** — `gofasta secret set <KEY>` command that encrypts secrets locally (`.env.enc`) for safe version control, with decryption at startup via a master key from the environment. Integration with cloud secret managers (AWS Secrets Manager, GCP Secret Manager) as optional deployment targets. The CLI manages the workflow; the project reads secrets through standard environment variables at runtime — no proprietary secrets API in application code.
-- **PaaS adapter generators** (`gofasta deploy init <tool>`) — Generate the configuration file each popular self-hosted VPS PaaS expects so teams already running one can adopt gofasta without rebuilding their deploy pipeline: `app.json` + `CHECKS` for Dokku, `captain-definition` for CapRover, a Coolify-flavored Compose file with domain labels, a Dokploy-flavored Compose file with Swarm deploy keys, and `config/deploy.yml` + `.kamal/secrets.example` for Kamal. Each adapter writes files to `deployments/<tool>/` (or the path the tool requires at repo root) and a local `README.md` listing the exact follow-up commands to run with that PaaS's native tooling. Gofasta does not wrap these platforms' CLIs or call their APIs — the generated files are standard, ownable config the developer commits and deploys with the PaaS itself. This makes `gofasta deploy` expandable to the broader open-source VPS ecosystem without turning gofasta into a PaaS competitor; the direct-SSH `gofasta deploy` path remains the default, zero-dependency option.
 
 ### Long-term — Scale and Enterprise
 
@@ -1671,7 +1803,6 @@ Gofasta is under active development. The roadmap is organized by impact on produ
 - **IDE extensions** — VS Code and GoLand extensions for running generators, viewing routes, and navigating the project structure from the editor.
 - **MongoDB support** — First-class document-database driver as a peer to the existing SQL drivers. Because MongoDB is not a SQL dialect, this is a larger shift than adding another GORM driver: `pkg/config` gains a parallel `SetupMongo()` alongside `SetupDB()`, the scaffold generators emit BSON-tagged structs and collection/index setup in place of GORM models and SQL migrations, and `gofasta migrate` becomes an index-and-collection setup runner for Mongo projects. The intended client is the official `go.mongodb.org/mongo-driver/v2` (no ODM) so generated code stays plain, explicit, and swappable. Targeted at teams whose domain is a natural fit for document storage (flexible schemas, nested documents, event/log stores) without forcing them off gofasta's scaffolding and generator ergonomics.
 - **Kubernetes manifests** — Generated `deployment.yaml`, `service.yaml`, and `ingress.yaml` scoped to the project's configured database and cache backends, as an optional complement to the existing VPS deploy flow for teams running Kubernetes clusters.
-- **Cloud deployment manifests** — `gofasta deploy aws` and `gofasta deploy gcp` commands that generate Terraform or CDK definitions for ECS/Fargate, Cloud Run, or equivalent managed container services. Following the "generate then own" principle, these commands would produce infrastructure-as-code files the developer commits and manages — not a managed cloud platform.
 
 ### Explicitly out of scope
 
@@ -1686,7 +1817,29 @@ The roadmap is driven by community feedback. Feature requests and contributions 
 
 ---
 
-## 25. Contributing
+## 25. Conclusion
+
+Gofasta is a deliberate trade-off, not a maximalist tool. The trade-off is: accept a curated set of Go libraries — chi, GORM, Wire, slog, OpenTelemetry, and the rest of the `pkg/*` defaults — as the starting point, in exchange for hours-to-minutes setup time and a generated project structure that compiles, tests, and deploys with standard Go tooling. The defaults are swappable in isolation. The toolkit shapes the start of a project, not the end.
+
+**Use Gofasta when:**
+
+- You are starting a new Go backend service — REST, GraphQL, or both — and want to write the first business endpoint within an hour rather than the first week.
+- Your project will grow into a modular monolith or a small set of services, and you want the option to split later without committing to a microservice runtime today.
+- You want toolkit-level acceleration (scaffolding, code generation, deployment manifests) without surrendering toolchain control: `go build`, `go test`, standard `net/http` middleware, and individually replaceable packages.
+- You expect AI coding agents to contribute meaningfully to the project, and you want a toolchain those agents can drive through structured commands rather than scrape from prose.
+
+**Use something else when:**
+
+- You are building a pure-microservices system with first-class gRPC, Protocol Buffers, and service discovery — [Kratos](https://github.com/go-kratos/kratos) or [go-zero](https://github.com/zeromicro/go-zero) are purpose-built for that workload.
+- Your organization is API-design-first and needs OpenAPI plus gRPC generated from a single source of truth — use [Goa](https://goa.design).
+- You want a fully managed cloud platform where infrastructure is provisioned from your code at deploy time — use [Encore](https://encore.dev), accepting its proprietary compiler and runtime.
+- You are writing a one-off script, CLI utility, or library that does not need a backend service at all — use the standard library directly.
+
+For the broad case in between — a production-ready Go backend that needs to ship quickly, remain readable to anyone familiar with standard Go, and stay portable across hosting environments — Gofasta compresses the setup step without becoming the system. After scaffolding, the project is plain Go. The developer owns it, modifies it, and ships it on their own terms.
+
+---
+
+## 26. Contributing
 
 Gofasta is open source under the [MIT License](https://opensource.org/licenses/MIT).
 
@@ -1733,16 +1886,4 @@ Gofasta is open source under the [MIT License](https://opensource.org/licenses/M
 
 *Copyright 2025–2026 Gofasta Authors. Released under the MIT License.*
 
-## Related
-
-<RelatedPages
-  path="white-paper"
-  extra={[
-    { href: "/docs/getting-started/introduction", label: "Introduction" },
-    { href: "/docs/getting-started/quick-start", label: "Quick Start" },
-    { href: "/docs/cli-reference/dev", label: "gofasta dev" },
-    { href: "/docs/cli-reference/generate/scaffold", label: "gofasta g scaffold" },
-    { href: "/docs/api-reference/auth", label: "pkg/auth" },
-    { href: "/docs/api-reference/observability", label: "pkg/observability" },
-  ]}
-/>
+<RelatedPages path="white-paper" />

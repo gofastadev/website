@@ -261,9 +261,13 @@ The home page hits target. The doc-page performance gap is dominated by Nextra v
 - **`color-contrast` audit on the landing's ambient code spans** (`gofasta-code-breath`). The spans are decorative atmosphere set inside an `aria-hidden="true"` parent, with each span individually marked `aria-hidden="true"` as well. Lighthouse / axe-core still flags them because contrast checks run on visually-rendered text regardless of `aria-hidden` (the rule is about low-vision sighted users, not screen readers). The contrast is design-intentional. Score impact: −4 on accessibility for the home page.
 - **`unused-javascript`** opportunities (~450ms on home, ~600ms on docs). Most of this is Next.js / Nextra runtime code that is genuinely loaded; some is React Compiler emit. Aggressively code-splitting beyond what Next does by default usually trades one Lighthouse number for another.
 
-
+## Maintenance and sustainability
 
 Gofasta is currently maintained by one person; sustainability planning — release cadence, security SLOs, the solo-to-team transition, and the automation arc that retires manual steps as the project matures — is documented in the [release coordination repo](https://github.com/gofastadev/release), specifically in [`CADENCE.md`](https://github.com/gofastadev/release/blob/main/CADENCE.md), [`RELEASING.md`](https://github.com/gofastadev/release/blob/main/RELEASING.md), and [`COMMUNITY.md`](https://github.com/gofastadev/release/blob/main/COMMUNITY.md). Read those three together for the full picture.
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 

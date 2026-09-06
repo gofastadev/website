@@ -1,6 +1,11 @@
 ---
 title: gofasta g dto
 description: Generate request and response Data Transfer Objects (DTOs) for a resource.
+keywords:
+  - "generate DTO"
+  - "data transfer object"
+  - "request body"
+  - "response body"
 ---
 
 # gofasta g dto
@@ -118,9 +123,4 @@ func ToPaginatedProductResponse(products []models.Product, total int64, page, li
 - **Response DTOs** expose only the fields intended for the API consumer, hiding internal fields like `DeletedAt`
 - **Converter functions** (`ToProductResponse`, `ToPaginatedProductResponse`) handle model-to-DTO transformation
 
-## Related
-
-- [gofasta g model](/docs/cli-reference/generate/model) -- generate the model that DTOs map to
-- [gofasta g controller](/docs/cli-reference/generate/controller) -- generate the controller that uses these DTOs
-- [gofasta g service](/docs/cli-reference/generate/service) -- generate the service that converts between DTOs and models
-- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers at once
+<RelatedPages path="cli-reference/generate/dto" />

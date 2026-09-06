@@ -1,6 +1,13 @@
 ---
 title: gofasta doctor
 description: Check system prerequisites, project configuration, and database connectivity.
+keywords:
+  - "CLI"
+  - "doctor"
+  - "diagnostics"
+  - "environment check"
+  - "prerequisites"
+  - "gofasta doctor"
 ---
 
 # gofasta doctor
@@ -62,8 +69,11 @@ When run inside a project directory (where `config.yaml` exists):
 |-------|-----------------|
 | `config.yaml` | Configuration file exists |
 | `database` | Database is reachable using the connection details from config |
+| `refactor` | Layout-migration eligibility — runs the same full-project preflight as [`gofasta refactor status`](/docs/cli-reference/refactor#eligibility-preflight): a summary line, one `✗` entry per blocker (torn layout state, unparseable files, non-scaffold `gqlgen.yml`, no git repository), one info entry per warning (unmanaged files, renamed scaffold symbols, missing generator markers). These entries never fail the doctor run — they describe the project's shape, not broken prerequisites |
 
-## Related
-
-- [Installation](/docs/getting-started/installation) -- install the CLI and prerequisites
-- [gofasta init](/docs/cli-reference/init) -- initialize a project after cloning
+<RelatedPages
+  path="cli-reference/doctor"
+  extra={[
+    { href: "/docs/getting-started/installation", label: "Installation" },
+  ]}
+/>

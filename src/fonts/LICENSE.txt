@@ -1,0 +1,21 @@
+Fonts: Cabinet Grotesk and Satoshi
+Foundry: Indian Type Foundry, distributed via Fontshare (https://www.fontshare.com)
+
+License: Fontshare Free Font License (FFL)
+https://www.fontshare.com/licenses/itf-ffl
+
+Free for personal and commercial use, including in end products (websites,
+apps, branding, print) without attribution required. Redistribution of the
+font files themselves (as fonts, not embedded in a product) is not permitted
+under the FFL — see the license text above for full terms.
+
+Downloaded: 2026-08-04
+Source: https://api.fontshare.com/v2/fonts/download/cabinet-grotesk
+        https://api.fontshare.com/v2/fonts/download/satoshi
+
+Files vendored in this directory:
+- CabinetGrotesk-Variable.woff2 (variable weight 100-900, normal style)
+- Satoshi-Variable.woff2 (variable weight 300-900, normal style)
+- Satoshi-VariableItalic.woff2 (variable weight 300-900, italic style)
+- og/CabinetGrotesk-Extrabold.ttf (static cut, for the OG image route — Satori/@vercel/og cannot read woff2 or variable fonts)
+- og/Satoshi-Medium.ttf (static cut, for the OG image route)

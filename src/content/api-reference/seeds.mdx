@@ -1,6 +1,17 @@
 ---
-title: Seeds
-description: Database seeding with GORM using a simple registry of seed functions with ordered execution.
+title: pkg/seeds — Ordered database seeders for GORM
+description: Small registry pattern for database seeding — Register(name, fn) to add a seeder, RunAll() to execute them in registration order. Designed for both fresh-install bootstrap data (default admin user, lookup tables) and test fixtures.
+keywords:
+  - "seeds API"
+  - "database seeding"
+  - "GORM seeders"
+  - "test fixtures"
+  - "bootstrap data"
+  - "seed function"
+  - "registry pattern"
+  - "fresh install"
+  - "admin seeder"
+  - "fixture loading"
 ---
 
 # Seeds
@@ -111,8 +122,4 @@ func main() {
 }
 ```
 
-## Related Pages
-
-- [Config](/docs/api-reference/config) -- Database setup used by the seeder
-- [Models](/docs/api-reference/models) -- Models being seeded
-- [Encryption](/docs/api-reference/encryption) -- Encrypt sensitive seed data
+<RelatedPages path="api-reference/seeds" />

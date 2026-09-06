@@ -8,7 +8,7 @@ export function NavbarLanding() {
     <nav className="gofasta-navbar-surface fixed top-0 left-0 right-0 z-50 border-b border-gray-200 dark:border-gray-800">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Logo />
-        <div className="flex items-center gap-3 sm:gap-6">
+        <div className="flex items-center gap-2 sm:gap-6">
           <NavLinks variant="header" />
           <ThemeToggle />
         </div>

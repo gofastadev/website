@@ -1,6 +1,17 @@
 ---
-title: Auth
-description: JWT token generation and validation, claims management, auth middleware, and Casbin RBAC setup.
+title: pkg/auth — JWT, RBAC, and Casbin authorization
+description: JWT generation and validation, refresh tokens, claims management, HTTP auth middleware, and Casbin-backed RBAC role enforcement — the production-ready auth stack baked into every gofasta project.
+keywords:
+  - "auth API"
+  - "authentication"
+  - "authorization"
+  - "JWT"
+  - "refresh tokens"
+  - "Casbin"
+  - "RBAC"
+  - "middleware"
+  - "permissions"
+  - "access control"
 ---
 
 # Auth
@@ -19,12 +30,30 @@ import "github.com/gofastadev/gofasta/pkg/auth"
 
 ```go
 type Claims struct {
-    UserID   string   `json:"user_id"`
-    Email    string   `json:"email"`
-    Roles    []string `json:"roles"`
     jwt.RegisteredClaims
+    Role  string   `json:"role"`
+    Roles []string `json:"roles,omitempty"`
 }
 ```
+
+The authenticated principal is the registered `sub` claim (RFC 7519 §4.1.2),
+carried by the embedded `jwt.RegisteredClaims`. Read it with `SubjectID()`:
+
+```go
+subject := claims.SubjectID() // the `sub` claim, or "" when the token names none
+```
+
+Two things about `sub` worth knowing before you build on it:
+
+- It is a **subject**, not necessarily a user. Under the client-credentials
+  grant `sub` conventionally holds a client id, so code assuming it names a row
+  in your users table is wrong for that grant.
+- It is unique **within the issuer**, not globally — the globally unique identity
+  is the pair (`iss`, `sub`). If you accept tokens from more than one issuer,
+  key on both, or two issuers' subjects can collide into one identity.
+
+Roles come as a single `role` or a `roles` array; `HasRole`, `HasAnyRole` and
+`RoleLadder` read both.
 
 ### AuthConfig
 
@@ -156,8 +185,4 @@ var AuthSet = wire.NewSet(
 )
 ```
 
-## Related Pages
-
-- [Middleware](/docs/api-reference/middleware) -- Auth middleware for protecting routes
-- [Sessions](/docs/api-reference/sessions) -- Session-based authentication alternative
-- [Encryption](/docs/api-reference/encryption) -- Cryptographic utilities
+<RelatedPages path="api-reference/auth" />

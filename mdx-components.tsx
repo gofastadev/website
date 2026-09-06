@@ -1,6 +1,7 @@
 import { useMDXComponents as getDocsMDXComponents } from "nextra-theme-docs";
 import type { MDXComponents } from "mdx/types";
 import { RelatedPages } from "@/components/molecules/related-pages";
+import { Fact } from "@/components/atoms/fact";
 
 const docsComponents = getDocsMDXComponents();
 
@@ -10,6 +11,7 @@ const docsComponents = getDocsMDXComponents();
 //   https://mdxjs.com/docs/using-mdx/#components-context
 const sharedComponents = {
   RelatedPages,
+  Fact,
 };
 
 export function useMDXComponents(components?: MDXComponents): MDXComponents {
