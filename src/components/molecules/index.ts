@@ -7,6 +7,7 @@ export { TableOfContents } from "./table-of-contents";
 export { MdxPre } from "./mdx-pre";
 export { SeriesNavCard } from "./series-nav-card";
 export { SeriesNextLink } from "./series-next-link";
+export { BlogEmptyState } from "./blog-empty-state";
 
 // `RelatedPages` is intentionally NOT re-exported here. It is a
 // server component that depends on Nextra's filesystem-aware

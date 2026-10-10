@@ -94,7 +94,7 @@ describe("NavLinks", () => {
     render(<NavLinks variant="header" />);
     fireEvent.click(screen.getByText("GitHub"));
     expect(trackEventSpy).toHaveBeenCalledWith("nav_to_github_library", {
-      destination: "https://github.com/gofastadev/gofasta",
+      destination: "https://github.com/gofastadev",
     });
   });
 
@@ -134,7 +134,7 @@ describe("NavLinks", () => {
     fireEvent.click(screen.getByText("GitHub"));
     expect(trackEventSpy).toHaveBeenCalledWith("footer_link_click", {
       label: "GitHub",
-      destination: "https://github.com/gofastadev/gofasta",
+      destination: "https://github.com/gofastadev",
     });
   });
 

@@ -5,11 +5,13 @@ import {
   BlogTagCloud,
   NewsletterSignup,
 } from "@/components/organisms";
+import { BlogEmptyState } from "@/components/molecules/blog-empty-state";
 import { BlogPostCard } from "@/components/molecules/blog-post-card";
 import { BlogPagination } from "@/components/molecules/blog-pagination";
 import { getAllPosts, getAllTags } from "@/lib/blog";
 import { buildBlogIndexJsonLd, serializeJsonLd } from "@/lib/structured-data";
 import { SITE_URL } from "@/lib/seo";
+import { cn } from "@/lib/utils";
 
 // Shared server-side view for the blog index: `/blog` renders page 1,
 // `/blog/page/[num]` renders the rest. Pagination is PATH-based because
@@ -73,7 +75,14 @@ export function BlogIndexView({ page }: { page: number }) {
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
       ) : null}
-      <main className="mx-auto max-w-6xl px-6 pt-32 pb-24">
+      {/* With no posts the page is short, so the empty state is centred in
+          the space between navbar and footer rather than hugging the top. */}
+      <main
+        className={cn(
+          "mx-auto w-full max-w-6xl px-6 pt-32 pb-24",
+          allPosts.length === 0 && "flex flex-1 flex-col justify-center",
+        )}
+      >
         <header className="mb-10">
           <h1 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
             Blog
@@ -84,7 +93,9 @@ export function BlogIndexView({ page }: { page: number }) {
           </p>
         </header>
 
-        <BlogSearch />
+        {/* Search over an empty index can only return nothing, so it
+            is hidden along with the grid until the first post ships. */}
+        {allPosts.length > 0 ? <BlogSearch /> : <BlogEmptyState />}
 
         {featured ? <BlogIndexHero post={featured} /> : null}
 
@@ -94,10 +105,6 @@ export function BlogIndexView({ page }: { page: number }) {
               <BlogPostCard key={post.slug} post={post} />
             ))}
           </div>
-        ) : !featured ? (
-          <p className="rounded-lg border border-gray-200 bg-surface p-8 text-center text-gray-700 dark:border-gray-800 dark:text-gray-400">
-            No posts yet. The first one is on its way.
-          </p>
         ) : null}
 
         <BlogPagination currentPage={clampedPage} totalPages={totalPages} />
