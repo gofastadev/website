@@ -1,14 +1,24 @@
-## What changed, and why
+## What does this PR do?
 
-<!-- A sentence or two. If it fixes an issue: Fixes #123 -->
+<!-- A short description of the change and why it's needed. -->
 
-## Pages or areas affected
+## Type of change
 
-<!-- e.g. src/content/guides/authentication.mdx, or "blog search" -->
+- [ ] Fix (typo, broken link, incorrect information)
+- [ ] New documentation page
+- [ ] Improvement to existing documentation
+- [ ] Website feature or design change
+- [ ] Other (describe below)
+
+## Pages affected
+
+<!-- List the documentation pages this PR adds or changes. -->
+
+- `src/content/...`
 
 ## Checklist
 
-- [ ] `yarn lint`, `npx tsc --noEmit`, `yarn test` and `yarn build` pass locally
-- [ ] New docs pages are listed in their folder's `_meta.js`
+- [ ] `yarn build` passes
+- [ ] New pages are added to the appropriate `_meta.js`
 - [ ] Code examples are complete and runnable
-- [ ] New components have tests next to them
+- [ ] Related issue linked (e.g. `Fixes #123`)
