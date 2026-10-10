@@ -39,7 +39,7 @@ function renderButtons(placement: "header" | "footer" = "header") {
 }
 
 describe("ShareButtons", () => {
-  it("renders one icon button per platform plus copy, in a labelled group", () => {
+  it("renders one icon button per platform plus copy, in a labeled group", () => {
     renderButtons();
     expect(
       screen.getByRole("group", { name: "Share this post" }),

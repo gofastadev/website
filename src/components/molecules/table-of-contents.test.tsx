@@ -52,7 +52,7 @@ describe("TableOfContents", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("sidebar renders a labelled nav with fragment links, indented by depth", () => {
+  it("sidebar renders a labeled nav with fragment links, indented by depth", () => {
     mountHeadings();
     render(<TableOfContents items={ITEMS} variant="sidebar" />);
     const nav = screen.getByRole("navigation", { name: "On this page" });

@@ -4,7 +4,7 @@ import { vi } from "vitest";
 // jsdom doesn't ship IntersectionObserver — provide a no-op stub so
 // components that lean on our `useOnScreen` hook can mount under test
 // without throwing. Individual tests that need to assert intersection
-// behaviour can override this with their own stub.
+// behavior can override this with their own stub.
 class MockIntersectionObserver {
   observe() {}
   unobserve() {}
