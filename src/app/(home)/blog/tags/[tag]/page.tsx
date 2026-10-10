@@ -89,10 +89,7 @@ export default async function BlogTagPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
-      <main
-        className="mx-auto max-w-6xl px-6 pt-32 pb-24"
-        data-pagefind-body
-      >
+      <main className="mx-auto max-w-6xl px-6 pt-32 pb-24">
         <header className="mb-10">
           <Link
             href="/blog"

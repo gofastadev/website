@@ -25,6 +25,18 @@ describe("scopeToBlogPosts", () => {
     expect(scoped.some((h) => h.url.endsWith(".html"))).toBe(false);
     expect(scoped).toHaveLength(10);
   });
+
+  it("drops the index, tag archives, and pagination pages", () => {
+    const scoped = scopeToBlogPosts([
+      hit("/blog.html"),
+      hit("/blog/tags.html"),
+      hit("/blog/tags/golang.html"),
+      hit("/blog/page.html"),
+      hit("/blog/page/2.html"),
+      hit("/blog/a-real-post.html"),
+    ]);
+    expect(scoped.map((h) => h.url)).toEqual(["/blog/a-real-post"]);
+  });
 });
 
 describe("BlogSearch", () => {
@@ -57,7 +69,11 @@ describe("BlogSearch", () => {
       await Promise.resolve();
     });
 
-    expect(pagefind.debouncedSearch).toHaveBeenCalledWith("term", {}, 250);
+    expect(pagefind.debouncedSearch).toHaveBeenCalledWith(
+      "term",
+      { filters: { section: "blog" } },
+      250,
+    );
     const link = screen.getByRole("link", {
       name: "Title of /blog/first-post.html",
     });
@@ -195,6 +211,50 @@ describe("BlogSearch", () => {
       target: { value: "fast typing" },
     });
     await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("ignores a search that resolves after the input was cleared", async () => {
+    type SearchResponse = {
+      results: Array<{
+        data: () => Promise<{
+          url: string;
+          excerpt: string;
+          meta: { title: string };
+        }>;
+      }>;
+    };
+    let resolveSearch!: (value: SearchResponse) => void;
+    const pagefind = {
+      debouncedSearch: vi.fn(
+        () =>
+          new Promise<SearchResponse>((resolve) => (resolveSearch = resolve)),
+      ),
+    };
+    render(<BlogSearch loadPagefind={() => Promise.resolve(pagefind)} />);
+    const input = screen.getByLabelText("Search blog posts");
+
+    fireEvent.change(input, { target: { value: "slow" } });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.change(input, { target: { value: "" } });
+    await act(async () => {
+      resolveSearch({
+        results: [
+          {
+            data: () =>
+              Promise.resolve({
+                url: "/blog/stale.html",
+                excerpt: "stale",
+                meta: { title: "Stale" },
+              }),
+          },
+        ],
+      });
       await Promise.resolve();
     });
 

@@ -73,7 +73,7 @@ export function BlogIndexView({ page }: { page: number }) {
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
       ) : null}
-      <main className="mx-auto max-w-6xl px-6 pt-32 pb-24" data-pagefind-body>
+      <main className="mx-auto max-w-6xl px-6 pt-32 pb-24">
         <header className="mb-10">
           <h1 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
             Blog

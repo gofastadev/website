@@ -10,10 +10,12 @@ import { Input } from "@/components/atoms";
 // exist (the index is produced by `yarn build`), so the import 404s
 // and the component degrades to a disabled input with a hint.
 //
-// The index covers the whole site (docs + blog); results are scoped
-// here by URL prefix. Pagefind serves fragment URLs with the `.html`
-// suffix (its crawl root is .next/server/app), so normalization strips
-// it before filtering and rendering.
+// The index is shared with Nextra's docs pages, so searches pass the
+// `section: blog` filter that only article pages carry (the blog index,
+// tag archives, and pagination pages aren't indexed at all). Results are
+// still scoped here by URL shape as a second line of defense. Pagefind serves fragment URLs with the `.html` suffix
+// (its crawl root is .next/server/app), so normalization strips it before
+// filtering and rendering.
 
 interface PagefindResultData {
   url: string;
@@ -40,14 +42,17 @@ export interface BlogSearchHit {
 }
 
 // Exported for tests and as the single place Pagefind's URL shape is
-// known: strip the .html suffix, keep only blog post pages.
+// known: strip the .html suffix, keep only blog post pages — not the
+// index, tag archives, or pagination pages.
+const POST_URL = /^\/blog\/(?!tags$|page$)[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
 export function scopeToBlogPosts(
   hits: Array<{ url: string; title: string; excerpt: string }>,
   limit = 10,
 ): BlogSearchHit[] {
   return hits
     .map((hit) => ({ ...hit, url: hit.url.replace(/\.html$/, "") }))
-    .filter((hit) => hit.url.startsWith("/blog/"))
+    .filter((hit) => POST_URL.test(hit.url))
     .slice(0, limit);
 }
 
@@ -79,6 +84,7 @@ export function BlogSearch({
   loadPagefind = defaultLoadPagefind,
 }: BlogSearchProps) {
   const pagefindRef = useRef<Pagefind | null>(null);
+  const latestQuery = useRef("");
   const [unavailable, setUnavailable] = useState(false);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<BlogSearchHit[]>([]);
@@ -98,8 +104,10 @@ export function BlogSearch({
 
   const runSearch = async (value: string) => {
     setQuery(value);
+    latestQuery.current = value;
     if (!value.trim()) {
       setHits([]);
+      setSearching(false);
       return;
     }
     const pagefind = await ensurePagefind();
@@ -107,12 +115,19 @@ export function BlogSearch({
 
     setSearching(true);
     // debouncedSearch resolves null for calls superseded by newer input.
-    const response = await pagefind.debouncedSearch(value, {}, 250);
+    const response = await pagefind.debouncedSearch(
+      value,
+      { filters: { section: "blog" } },
+      250,
+    );
     if (response === null) return;
 
     const data = await Promise.all(
       response.results.slice(0, 30).map((result) => result.data()),
     );
+    // The input may have been cleared or changed while this search was
+    // in flight; a stale result must not overwrite the current state.
+    if (latestQuery.current !== value) return;
     setHits(
       scopeToBlogPosts(
         data.map((d) => ({
