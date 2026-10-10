@@ -1,0 +1,62 @@
+# Publishes scheduled blog posts.
+#
+# Blog pages are prerendered, so a post with a future publishedAt only
+# appears when the site is rebuilt after that date. This workflow
+# triggers a production rebuild through a Vercel Deploy Hook once a day,
+# then notifies search engines about posts whose date fell in the last
+# 26 hours (a 2h overlap absorbs cron jitter).
+#
+# Setup: Vercel → Project → Settings → Git → Deploy Hooks → create one for
+# the `main` branch, then store its URL as the repository secret
+# VERCEL_DEPLOY_HOOK_URL. Without the secret the job skips with a notice.
+
+name: Scheduled publish
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Check for newly due posts
+        id: due
+        run: |
+          out=$(node scripts/submit-indexnow.mjs --since-hours 26 --dry-run)
+          echo "$out"
+          if echo "$out" | grep -q "would submit"; then
+            echo "due=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger production rebuild
+        id: rebuild
+        if: steps.due.outputs.due == 'true'
+        env:
+          DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "::notice::VERCEL_DEPLOY_HOOK_URL is not set; skipping the rebuild."
+            exit 0
+          fi
+          curl -fsS -X POST "$DEPLOY_HOOK" > /dev/null
+          echo "Rebuild triggered."
+          echo "triggered=true" >> "$GITHUB_OUTPUT"
+
+      - name: Notify search engines
+        if: steps.rebuild.outputs.triggered == 'true'
+        run: node scripts/submit-indexnow.mjs --since-hours 26
