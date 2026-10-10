@@ -8,8 +8,9 @@
 //    ratios. Authors upload one 1200×630 cover through Keystatic; this
 //    script derives the 4:3 and 1:1 center crops next to it
 //    (cover-4x3.jpg / cover-1x1.jpg) so the BlogPosting JSON-LD can
-//    list all three. JPEG q80 keeps each crop well under the 250 KB
-//    image budget.
+//    list all three, plus a 1200×630 JPEG (cover-og.jpg) that the post
+//    page uses for og:image, because LinkedIn ignores WebP there. JPEG
+//    q80/q85 keeps every derived file well under the 250 KB image budget.
 //
 // 2. Favicons: Google renders a site favicon next to every search
 //    result (min 48×48). Derived from public/logo.png:
@@ -103,6 +104,21 @@ async function crop(source, output, ratioW, ratioH) {
   return true;
 }
 
+// 1200×630 JPEG of the cover for the og:image / twitter:image tags.
+// Covers are uploaded as WebP, which Facebook and X render but LinkedIn
+// silently drops, falling back to whatever other image it finds on the
+// page. JPEG is the one format every scraper accepts.
+async function ogJpeg(source, output) {
+  if (!(await isStale(output, source))) return false;
+  const sharp = await loadSharp();
+  await mkdir(dirname(output), { recursive: true });
+  await sharp(source)
+    .resize(1200, 630, { fit: "cover" })
+    .jpeg({ quality: 85 })
+    .toFile(output);
+  return true;
+}
+
 async function resizePng(source, output, size) {
   if (!(await isStale(output, source))) return false;
   const sharp = await loadSharp();
@@ -115,15 +131,18 @@ async function resizePng(source, output, size) {
 
 let generated = 0;
 
-// 1. Cover crops — every raster cover that is not itself a derived crop.
+// 1. Cover crops and the og JPEG — every raster cover that is not itself derived.
 for (const file of await walk(COVERS_DIR)) {
   const ext = extname(file).toLowerCase();
   const base = basename(file, ext);
   if (!RASTER.has(ext)) continue;
-  if (base.endsWith("-4x3") || base.endsWith("-1x1")) continue;
+  if (base.endsWith("-4x3") || base.endsWith("-1x1") || base.endsWith("-og")) {
+    continue;
+  }
   const dir = dirname(file);
   if (await crop(file, join(dir, `${base}-4x3.jpg`), 4, 3)) generated++;
   if (await crop(file, join(dir, `${base}-1x1.jpg`), 1, 1)) generated++;
+  if (await ogJpeg(file, join(dir, `${base}-og.jpg`))) generated++;
 }
 
 // 2. Favicons from the logo.

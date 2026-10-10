@@ -65,11 +65,18 @@ function postUrl(slug: string): string {
 // Social-card consumers need an origin-qualified URL whether the cover
 // was uploaded through Keystatic or points at a remote CDN. Keystatic
 // requires `cover`, so the /api/og fallback is purely defensive.
+//
+// Local covers are WebP, and LinkedIn's scraper ignores WebP og:image
+// values (it then shows some other image from the page, or none). The
+// prebuild step writes a 1200×630 JPEG beside each cover for exactly
+// this tag; the WebP is only used when that file is missing.
 function postOgImage(post: BlogPost): string {
   if (post.coverUrl) {
-    return post.coverUrl.startsWith("http")
-      ? post.coverUrl
-      : `${SITE_URL}${post.coverUrl}`;
+    if (post.coverUrl.startsWith("http")) return post.coverUrl;
+    const dot = post.coverUrl.lastIndexOf(".");
+    const stem = dot > 0 ? post.coverUrl.slice(0, dot) : post.coverUrl;
+    const ogJpeg = `${stem}-og.jpg`;
+    return `${SITE_URL}${getLocalImageDim(ogJpeg) ? ogJpeg : post.coverUrl}`;
   }
   return `${SITE_URL}/api/og?title=${encodeURIComponent(post.title)}&section=Blog`;
 }
