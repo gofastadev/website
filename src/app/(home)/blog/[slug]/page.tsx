@@ -227,7 +227,7 @@ export default async function BlogPostPage({
           stays on the article — the aside is navigation, not content.
           Nextra's docs pages share the same Pagefind index, so the
           section filter is what lets blog search query posts alone. */}
-      <div className="mx-auto max-w-6xl xl:grid xl:grid-cols-[minmax(0,1fr)_16rem] xl:gap-12">
+      <div className="mx-auto w-full max-w-6xl xl:grid xl:grid-cols-[minmax(0,1fr)_16rem] xl:gap-12">
         <article
           className="mx-auto w-full max-w-3xl px-6 pt-28 pb-24"
           data-pagefind-body

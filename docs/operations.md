@@ -28,6 +28,29 @@ Keystatic needs a GitHub App once.
 
 Without that, `yarn dev` runs Keystatic in local mode, which edits the files in your checkout directly.
 
+## Comments setup
+
+Comments are GitHub Discussions on `gofastadev/website`, embedded through [giscus](https://giscus.app). Each post maps to a discussion by its pathname, so one is created the first time someone comments.
+
+1. On the repo, enable Discussions (Settings → General → Features) and create a category for comments. Use the *Announcements* type so only maintainers and giscus can open discussions, which keeps the category from filling with unrelated threads.
+2. Install the [giscus app](https://github.com/apps/giscus) on the repo.
+3. On [giscus.app](https://giscus.app), enter `gofastadev/website` and pick the category. The generated snippet contains four values: `data-repo`, `data-repo-id`, `data-category` and `data-category-id`. Those are, in order, `NEXT_PUBLIC_GISCUS_REPO` (as `owner/name`), `NEXT_PUBLIC_GISCUS_REPO_ID`, `NEXT_PUBLIC_GISCUS_CATEGORY` and `NEXT_PUBLIC_GISCUS_CATEGORY_ID`. The other snippet attributes (mapping, theme, position) are fixed in `src/components/molecules/comments.tsx`.
+
+Leave the four unset on Preview. Mapping is by pathname, so a preview of `/blog/some-post` would share the live post's discussion and a test comment would show up on production.
+
+## Newsletter setup
+
+The signup form posts to [Buttondown](https://buttondown.com). `NEXT_PUBLIC_BUTTONDOWN_USERNAME` is the newsletter's username, the last segment of its public page at `buttondown.com/<username>`, and nothing else is needed; the form submits to Buttondown's embed endpoint directly. Keep double opt-in on in Buttondown (Settings → Subscribing): the form can't read Buttondown's response, so the "check your inbox" message after submit relies on that confirmation email being sent.
+
+## Analytics setup
+
+Two trackers, both production only. The consent banner handles the legal side, described under [Analytics and consent](#analytics-and-consent).
+
+- **Google Analytics 4.** In Analytics, create a property with a Web data stream for `gofasta.dev`. The stream's *Measurement ID*, which looks like `G-XXXXXXXXXX`, is `NEXT_PUBLIC_GA4_MEASUREMENT_ID`. Nothing else in the GA4 setup wizard needs doing; the site loads gtag itself with Consent Mode defaults.
+- **Microsoft Clarity.** On [clarity.microsoft.com](https://clarity.microsoft.com), create a project for `gofasta.dev` and choose manual installation. The project ID is the short string in the generated snippet, also shown under Settings → Overview, and is `NEXT_PUBLIC_CLARITY_PROJECT_ID`.
+
+The deploy hook for scheduled posts is the one remaining variable; it's a GitHub Actions secret and is covered under [Scheduled posts](#scheduled-posts).
+
 ## Blog posts
 
 Keystatic runs in two modes. Under `yarn dev` without the GitHub App it edits `data/blog/` in the checkout directly. With the app configured it commits to whichever branch is selected in the top-left dropdown. `main` is protected by a ruleset, so saving there fails with "Changes must be made through a pull request"; that's intended. The workflow is: open the branch dropdown, choose *New branch* (Keystatic prefixes the name with `keystatic/`), save on that branch, then use the *Create pull request* button that appears in the header. CI validates every post's frontmatter (`src/lib/blog-content.test.ts`), so a broken post fails the pull request instead of silently disappearing from the site.
