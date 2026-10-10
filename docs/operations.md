@@ -22,7 +22,7 @@ Each one is off until its variables are set. `NEXT_PUBLIC_*` values are inlined 
 
 Keystatic needs a GitHub App once.
 
-1. Run `NEXT_PUBLIC_KEYSTATIC_STORAGE=github yarn dev` and open `http://localhost:3000/keystatic`. Keystatic moves you to `http://127.0.0.1:3000/keystatic` (GitHub OAuth needs the loopback address; `next.config.ts` allows that origin in dev) and shows a "Log in with GitHub" button. Clicking it opens the wizard, which creates the app and writes the four Keystatic variables to `.env`.
+1. Run `NEXT_PUBLIC_KEYSTATIC_STORAGE=github yarn dev` and open `http://localhost:3000/keystatic`. Keystatic moves you to `http://127.0.0.1:3000/keystatic` (GitHub OAuth needs the loopback address; `next.config.ts` allows that origin in dev) and shows a "Log in with GitHub" button. Clicking it opens the wizard, which creates the app and writes the four Keystatic variables to `.env`. In the wizard, **paste** `https://gofasta.dev` into *Deployed App URL* rather than typing it: Keystatic (through 0.6.9) parses that field on every keystroke and crashes on a half-typed URL. Leaving it blank also works; you then add the production callback URL by hand in step 2. Browser extensions that rewrite the page, such as Dark Reader, also break the wizard, so turn them off for `127.0.0.1`.
 2. In the app's settings on GitHub, set the callback URL to `https://gofasta.dev/api/keystatic/github/oauth/callback` (add the preview domain too if you want to edit on previews), then install the app on `gofastadev/website`.
 3. Copy the four variables into Vercel and redeploy.
 
