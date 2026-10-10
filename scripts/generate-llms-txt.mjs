@@ -20,6 +20,7 @@
 
 import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
 import { parse as parseYaml } from 'yaml';
+import { readPublicPosts } from './lib/blog-posts.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -98,15 +99,19 @@ function parseFrontmatter(source) {
     return { frontmatter: {}, body: match[2] };
   }
   if (!raw || typeof raw !== 'object') return { frontmatter: {}, body: match[2] };
+  return { frontmatter: normalizeFrontmatter(raw), body: match[2] };
+}
+
+// llms.txt only consumes scalar fields (title, description, dates);
+// normalize everything printable to a single-line string.
+function normalizeFrontmatter(raw) {
   const frontmatter = {};
   for (const [key, value] of Object.entries(raw)) {
-    // llms.txt only consumes scalar fields (title, description, dates);
-    // normalize everything printable to a single-line string.
     if (typeof value === 'string') frontmatter[key] = value.replace(/\s+/g, ' ').trim();
     else if (value instanceof Date) frontmatter[key] = value.toISOString();
     else if (typeof value === 'number' || typeof value === 'boolean') frontmatter[key] = String(value);
   }
-  return { frontmatter, body: match[2] };
+  return frontmatter;
 }
 
 // Read a directory's _meta.js as text and pick out the `key: "value"` pairs
@@ -198,31 +203,15 @@ async function collect(dir, urlPrefix = '', sectionPath = '') {
   return pages;
 }
 
-// Walks BLOG_DIR (flat — one .mdx per post, no subdirs) and emits one record
-// per published post. Mirrors the future-dated filter from src/lib/blog.ts:
-// posts whose `publishedAt` is in the future are excluded so the LLM-facing
-// index doesn't expose them ahead of schedule.
+// Walks BLOG_DIR (flat — one .mdx per post) and emits one record per
+// PUBLIC post. Visibility comes from scripts/lib/blog-posts.mjs, which
+// mirrors src/lib/blog.ts: drafts and future-dated posts never reach the
+// LLM-facing files (they would otherwise publish unreleased full text and
+// link to URLs that 404 in production).
 async function collectBlog(now = new Date()) {
-  let entries;
-  try {
-    entries = await readdir(BLOG_DIR, { withFileTypes: true });
-  } catch {
-    return [];
-  }
   const posts = [];
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.mdx')) continue;
-    if (entry.name.startsWith('_')) continue;
-    const full = join(BLOG_DIR, entry.name);
-    const source = await readFile(full, 'utf8');
-    const { frontmatter, body } = parseFrontmatter(source);
-    if (!frontmatter.title) continue;
-    if (frontmatter.publishedAt) {
-      const published = new Date(frontmatter.publishedAt);
-      if (Number.isFinite(published.getTime()) && published > now) continue;
-    }
-    const slug = entry.name.replace(/\.mdx$/, '');
+  for (const { slug, data, body } of await readPublicPosts(BLOG_DIR, now)) {
+    const frontmatter = normalizeFrontmatter(data);
     posts.push({
       url: `${SITE_URL}${BLOG_BASE}/${slug}`,
       path: `${BLOG_BASE}/${slug}`,
