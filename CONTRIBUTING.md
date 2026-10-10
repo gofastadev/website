@@ -1,118 +1,78 @@
-# Contributing to the Gofasta Website
+# Contributing
 
-Thank you for your interest in contributing to the Gofasta documentation! This document explains how to get started.
+This file covers how to contribute. The [README](./README.md) explains how the repo is laid out and how it's deployed.
 
-## Ways to Contribute
+## What's worth contributing
 
-- **Fix typos or unclear explanations** — The most common and valuable contribution.
-- **Add missing documentation** — Many pages are stubs waiting for content.
-- **Improve code examples** — Make them more complete, accurate, or beginner-friendly.
-- **Report issues** — Open an issue if you find broken links, incorrect information, or confusing sections.
-- **Suggest new pages** — Open an issue describing what documentation is missing and why.
+In rough order of how much it helps:
 
-## Development Setup
+1. **Fixing something wrong.** A typo, a broken link, an example that doesn't compile, a flag that no longer exists. Open a pull request straight away; no need for an issue first.
+2. **Fixing something unclear.** If a page lost you, open an issue that says where and why, even if you don't know what the fix is. We write for someone who knows Go but has never seen Gofasta, so your confusion is the signal we need.
+3. **Filling a gap.** Open an issue describing what you were trying to do and couldn't find, so we can agree on where it goes before you write it.
+4. **Site changes.** Design, components, build tooling. Open an issue first for anything bigger than a small fix, so you don't spend an evening on something we'd approach differently.
 
-1. **Fork and clone** the repository:
+## Setting up
 
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/website.git
-   cd website
-   ```
+Fork the repo, clone your fork, then:
 
-2. **Install dependencies** (requires Node.js 22+):
+```bash
+yarn install
+yarn dev
+```
 
-   ```bash
-   yarn install
-   ```
+You need Node 22 and Yarn 1. The site is at `http://localhost:3000`, the docs at `/docs`, the blog at `/blog`.
 
-3. **Start the dev server:**
+## Writing docs
 
-   ```bash
-   yarn dev
-   ```
-
-4. **Open** [http://localhost:3000/docs](http://localhost:3000/docs) to see your changes.
-
-## Writing Documentation
-
-All documentation lives in `src/content/` as `.mdx` files. MDX is Markdown with JSX support — you write normal Markdown and can embed React components when needed.
-
-### Page structure
-
-Every MDX file starts with frontmatter:
+Docs are MDX files under `src/content/`. Every page starts with frontmatter:
 
 ```mdx
 ---
-title: Page Title
-description: A one-line description shown in search results and meta tags.
+title: Page title
+description: One sentence. It shows up in search results and link previews.
 ---
 
-# Page Title
-
-Your content here...
+# Page title
 ```
 
-### Adding a new page
+A new page also needs an entry in its folder's `_meta.js`, which controls the sidebar order and title.
 
-1. Create the `.mdx` file in the appropriate directory under `src/content/`
-2. Add an entry to the directory's `_meta.js` file for sidebar ordering
-3. Write the content
+Some things we hold to:
 
-### Content guidelines
+- Examples run. Every code block should be complete and copy-pasteable; no `...` where real code would go.
+- Go for code, bash for commands, YAML for config, SQL or GraphQL for queries. Nothing else unless the page is about it.
+- Say it once, then stop. Link to the page that explains the rest instead of repeating it.
+- Every `gofasta …` command in a shell block is checked against the CLI's real commands and flags at build time. If `yarn build` fails on a command you wrote, the command is wrong, not the check.
 
-- **Be beginner-friendly** — Assume the reader is new to Gofasta but knows Go basics.
-- **Show complete examples** — Every code block should be runnable. No `...` truncation.
-- **Use Go as the primary language** — Code examples should be in Go unless demonstrating CLI commands (bash), configuration (YAML), or queries (SQL/GraphQL).
-- **Link to related pages** — Help readers discover related documentation.
-- **Keep it concise** — Say what needs to be said, then stop.
+## Writing a blog post
 
-### Using Nextra components
+Posts live in `data/blog/` and are edited through Keystatic at `/keystatic` on your dev server, which writes the MDX file for you and handles the cover image. Posts are reviewed as pull requests like everything else. Drafts and scheduling are explained in [docs/operations.md](./docs/operations.md#blog-posts).
 
-You can use these built-in components without importing them:
+## Before you open the pull request
 
-- `Callout` — Highlight important information
-- `Steps` — Numbered step-by-step instructions
-- `Tabs` / `Tab` — Show alternatives side by side
-- `FileTree` — Visualize directory structures
+Run what CI runs:
 
-## Making Changes
+```bash
+yarn lint
+npx tsc --noEmit
+yarn test
+yarn build
+```
 
-1. **Create a branch** from `main`:
+`yarn test` enforces 100% coverage on `src/lib` and `src/components`, so a new component needs a test next to it. Docs-only changes don't touch coverage; `yarn build` is the check that matters for them.
 
-   ```bash
-   git checkout -b fix-auth-docs
-   ```
+Then:
 
-2. **Make your changes.**
+- Branch from `main` and keep one change per pull request.
+- Write a commit message that says what changed and why. "Fix typo" is fine for a typo. For anything else, a sentence of reasoning saves the reviewer guessing.
+- If it closes an issue, say `Fixes #123` in the description.
 
-3. **Verify the build passes:**
+Pull requests get a Vercel preview, so you can check your change rendered the way you expected before anyone reviews it.
 
-   ```bash
-   yarn build
-   ```
+## Security
 
-4. **Commit** with a clear message:
-
-   ```
-   docs: clarify JWT token refresh flow in authentication guide
-
-   The previous example didn't show how to handle expired tokens.
-   Added a complete Go code example with error handling.
-   ```
-
-5. **Push and open a pull request** against `main`.
-
-## Pull Request Guidelines
-
-- Keep PRs focused — one logical change per PR.
-- If you're adding a new page, include it in the sidebar (`_meta.js`).
-- Verify `yarn build` passes before requesting review.
-- If your PR addresses an issue, reference it: `Fixes #123`.
-
-## Reporting Security Issues
-
-If you discover a security issue, **do not open a public issue.** See [SECURITY.md](SECURITY.md) for instructions.
+If you've found a security problem, don't open an issue. See [SECURITY.md](./SECURITY.md).
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+By contributing you agree that your work is released under the [MIT License](./LICENSE), the same as the rest of the repo.

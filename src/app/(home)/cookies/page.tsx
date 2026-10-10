@@ -89,7 +89,7 @@ export default function CookiesPage() {
               from the DOM going forward; previously-collected data stays in
               the respective dashboards. To request deletion of any
               already-collected data, contact us via the GitHub
-              organisation linked in the site footer.
+              organization linked in the site footer.
             </p>
             <div className="mt-6">
               <CookiePreferences />

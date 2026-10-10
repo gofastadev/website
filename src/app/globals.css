@@ -11,9 +11,9 @@
 
 :root {
   /* ═════════════════════════════════════════════════════════════════
-     Brand colour system — everything is a variation of Go Cyan
+     Brand color system — everything is a variation of Go Cyan
      (hue 193°). Instead of pure black / white / neutral gray, every
-     surface, text colour, and border carries the primary hue at low
+     surface, text color, and border carries the primary hue at low
      saturation, so the whole site reads as one cohesive brand.
      ═════════════════════════════════════════════════════════════════ */
 
@@ -24,7 +24,7 @@
   --primary-200: #a2dff0;
   --primary-300: #69cbe4;
   --primary-400: #1cbbe0;
-  --primary-500: #00add8;   /* the brand colour */
+  --primary-500: #00add8;   /* the brand color */
   --primary-600: #0095ba;
   --primary-700: #00728f;
   --primary-800: #06556b;
@@ -222,7 +222,7 @@ body {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
-   Branded text selection — both themes use the primary brand colour as
+   Branded text selection — both themes use the primary brand color as
    the selection background with theme-appropriate contrast text. Pulled
    from --primary / --on-primary so there's exactly one source of truth.
    ────────────────────────────────────────────────────────────────────── */
@@ -255,7 +255,7 @@ body {
 
 /* Pin every text-bearing descendant of the navbar to --foreground, so
    the Logo span, the NavLinks anchors, and the ThemeToggle button
-   icon all resolve to the same readable colour regardless of
+   icon all resolve to the same readable color regardless of
    Tailwind class ordering or compilation quirks. SVG strokes already
    use currentColor → they inherit automatically from the button. */
 .gofasta-navbar-surface,
@@ -501,7 +501,7 @@ body:has(.nextra-navbar) article h3 {
    Recent-SQL tables carries this class. React re-creates the DOM node
    when the row is prepended to the list (unique key), so the animation
    fires once per fresh row. A brief primary-tinted flash highlights
-   the new entry before settling into the regular table colour. */
+   the new entry before settling into the regular table color. */
 .gofasta-dashboard-row {
   animation: gofasta-dashboard-row-in 700ms ease-out both;
 }

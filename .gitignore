@@ -40,7 +40,7 @@ yarn-error.log*
 # pagefind
 public/_pagefind/
 
-# lighthouse audit output (regenerated on demand — see README "Performance measurement")
+# lighthouse audit output, regenerated on demand
 lighthouse-*.json
 
 # vercel

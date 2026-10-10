@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { TerminalBlock } from "./terminal-block";
 
-// Blog index with zero published posts. Instead of a lone grey box,
+// Blog index with zero published posts. Instead of a lone gray box,
 // this reads as a deliberate "coming soon" page: the copy sets
 // expectations, the terminal reuses the hero's idiom so the page still
 // feels like Gofasta, and the links give the visitor something to do

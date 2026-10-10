@@ -1,21 +1,21 @@
 ---
-name: Documentation request
-about: Suggest new or improved documentation content
+name: Docs request
+about: Something is missing or unclear in the docs
 labels: documentation
 ---
 
-## What documentation is missing or unclear?
+## What were you trying to do?
 
-<!-- Describe what you were trying to learn or do when you hit a gap. -->
+<!-- The task you had in mind when you hit the gap. -->
 
-## What page or section should this go in?
+## What's missing or unclear?
 
-<!-- e.g., Guides > Authentication, CLI Reference > gofasta g scaffold, etc. -->
+<!-- The page you were on, and where it lost you. A link helps. -->
 
-## Suggested content
+## Where should it live?
 
-<!-- If you have a rough idea of what the page should cover, describe it here. -->
+<!-- Optional. e.g. Guides > Authentication. -->
 
-## Additional context
+## Anything else
 
-<!-- Links to related docs, Stack Overflow questions, or anything else that might help. -->
+<!-- Related docs, discussions, or a rough idea of what the page should say. -->

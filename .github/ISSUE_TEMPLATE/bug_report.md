@@ -1,29 +1,26 @@
 ---
 name: Bug report
-about: Report a problem with the documentation website
+about: Something on gofasta.dev is broken or wrong
 labels: bug
 ---
 
 ## What happened?
 
-<!-- A clear description of the bug. -->
+<!-- What you saw. If a page says something incorrect, quote it. -->
 
-## What did you expect to happen?
+## What did you expect?
 
-<!-- What should have happened instead? -->
+## How to see it
 
-## Steps to reproduce
+<!-- The URL, and the steps if it takes more than loading the page. -->
 
-<!-- How can we see this issue? Include the URL of the page if relevant. -->
+1. Go to `https://gofasta.dev/...`
+2.
 
-1. Go to `https://gofasta.dev/docs/...`
-2. ...
+## Browser and OS
 
-## Environment
+<!-- Only needed for layout or interaction problems. -->
 
-- Browser:
-- OS:
+## Anything else
 
-## Additional context
-
-<!-- Screenshots, error messages, or anything else that might help. -->
+<!-- Screenshots, console errors, whatever helps. -->

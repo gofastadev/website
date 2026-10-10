@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "cliVersion": "v0.1.11",
+  "cliVersion": "v0.1.12",
   "groups": [
     {
       "id": "lifecycle",
@@ -230,7 +230,7 @@
               "name": "op",
               "type": "string",
               "default": "",
-              "usage": "Filter by op \u2014 get, set, delete, flush, ping",
+              "usage": "Filter by op — get, set, delete, flush, ping",
               "persistent": false
             },
             {
@@ -397,7 +397,7 @@
               "name": "level",
               "type": "string",
               "default": "",
-              "usage": "Minimum log level \u2014 DEBUG, INFO, WARN, ERROR",
+              "usage": "Minimum log level — DEBUG, INFO, WARN, ERROR",
               "persistent": false
             },
             {
@@ -515,7 +515,7 @@
               "name": "status",
               "type": "string",
               "default": "",
-              "usage": "Filter by status code or class \u2014 200, 201, 2xx, 4xx, 5xx, 200-299",
+              "usage": "Filter by status code or class — 200, 201, 2xx, 4xx, 5xx, 200-299",
               "persistent": false
             },
             {
@@ -592,7 +592,7 @@
               "name": "trace",
               "type": "string",
               "default": "",
-              "usage": "Trace ID \u2014 resolve every span's captured stack",
+              "usage": "Trace ID — resolve every span's captured stack",
               "persistent": false
             }
           ]
@@ -634,7 +634,7 @@
               "name": "status",
               "type": "string",
               "default": "",
-              "usage": "Filter by trace status \u2014 ok or error",
+              "usage": "Filter by trace status — ok or error",
               "persistent": false
             }
           ]
@@ -662,7 +662,7 @@
               "name": "interval",
               "type": "string",
               "default": "1s",
-              "usage": "Poll interval (Go duration syntax \u2014 500ms, 2s, \u2026)",
+              "usage": "Poll interval (Go duration syntax — 500ms, 2s, …)",
               "persistent": false
             },
             {
@@ -766,13 +766,13 @@
       "name": "dev",
       "path": "gofasta dev",
       "group": "workflow",
-      "short": "Run the local dev environment \u2014 host-first by default, optional Docker services via --services",
+      "short": "Run the local dev environment — host-first by default, optional Docker services via --services",
       "flags": [
         {
           "name": "all-in-docker",
           "type": "bool",
           "default": "false",
-          "usage": "DEPRECATED \u2014 use --services all. This flag will be removed in the next release.",
+          "usage": "DEPRECATED — use --services all. This flag will be removed in the next release.",
           "persistent": false
         },
         {
@@ -786,7 +786,7 @@
           "name": "dashboard",
           "type": "bool",
           "default": "false",
-          "usage": "start the local dev dashboard \u2014 an HTML debug page with routes, health, and live service state",
+          "usage": "start the local dev dashboard — an HTML debug page with routes, health, and live service state",
           "persistent": false
         },
         {
@@ -814,7 +814,7 @@
           "name": "fresh",
           "type": "bool",
           "default": "false",
-          "usage": "drop every compose volume before starting \u2014 forces a clean DB state",
+          "usage": "drop every compose volume before starting — forces a clean DB state",
           "persistent": false
         },
         {
@@ -893,7 +893,7 @@
       "name": "do",
       "path": "gofasta do",
       "group": "workflow",
-      "short": "Run a named development workflow \u2014 a pre-defined chain of gofasta commands",
+      "short": "Run a named development workflow — a pre-defined chain of gofasta commands",
       "flags": [
         {
           "name": "dry-run",
@@ -1121,7 +1121,7 @@
               "name": "check",
               "type": "bool",
               "default": "false",
-              "usage": "Don't write \u2014 exit non-zero with MOCK_DRIFT if the on-disk mock differs from the interface",
+              "usage": "Don't write — exit non-zero with MOCK_DRIFT if the on-disk mock differs from the interface",
               "persistent": false
             }
           ]
@@ -1159,7 +1159,7 @@
               "name": "apply",
               "type": "bool",
               "default": "false",
-              "usage": "Actually write the rename (default: preview only \u2014 show every changed file)",
+              "usage": "Actually write the rename (default: preview only — show every changed file)",
               "persistent": false
             }
           ]
@@ -1216,7 +1216,7 @@
           "aliases": [
             "s"
           ],
-          "short": "Generate a full REST resource (model \u2192 controller) with every layer auto-wired",
+          "short": "Generate a full REST resource (model → controller) with every layer auto-wired",
           "flags": [
             {
               "name": "dry-run",
@@ -1310,13 +1310,13 @@
       "name": "init",
       "path": "gofasta init",
       "group": "lifecycle",
-      "short": "Initialize the project \u2014 install deps, create .env, run migrations, verify setup"
+      "short": "Initialize the project — install deps, create .env, run migrations, verify setup"
     },
     {
       "name": "inspect",
       "path": "gofasta inspect",
       "group": "introspection",
-      "short": "Show the full composition of a resource \u2014 model fields, routes, service methods, files \u2014 as structured output"
+      "short": "Show the full composition of a resource — model fields, routes, service methods, files — as structured output"
     },
     {
       "name": "inspect-jobs",
@@ -1345,7 +1345,7 @@
               "name": "all",
               "type": "bool",
               "default": "false",
-              "usage": "Roll back ALL applied migrations (destructive \u2014 prompts for confirmation unless --yes)",
+              "usage": "Roll back ALL applied migrations (destructive — prompts for confirmation unless --yes)",
               "persistent": false
             },
             {
@@ -1408,7 +1408,7 @@
               "name": "explain",
               "type": "bool",
               "default": "false",
-              "usage": "static analysis of every pending .up.sql (no DB connection) \u2014 flags risky DDL",
+              "usage": "static analysis of every pending .up.sql (no DB connection) — flags risky DDL",
               "persistent": false
             },
             {
@@ -1561,7 +1561,7 @@
       "name": "status",
       "path": "gofasta status",
       "group": "workflow",
-      "short": "Report the health of the current project \u2014 Wire drift, swagger drift, pending migrations, generated-file state"
+      "short": "Report the health of the current project — Wire drift, swagger drift, pending migrations, generated-file state"
     },
     {
       "name": "swagger",
@@ -1924,7 +1924,7 @@
     },
     {
       "key": "fresh-start",
-      "description": "First-time project setup after `git clone` \u2014 install tool deps, migrate, seed",
+      "description": "First-time project setup after `git clone` — install tool deps, migrate, seed",
       "steps": [
         "gofasta init",
         "gofasta migrate up",
@@ -1933,7 +1933,7 @@
     },
     {
       "key": "clean-slate",
-      "description": "Reset the dev database to a known state \u2014 drop + re-migrate + re-seed",
+      "description": "Reset the dev database to a known state — drop + re-migrate + re-seed",
       "steps": [
         "gofasta db reset",
         "gofasta seed"
@@ -1941,7 +1941,7 @@
     },
     {
       "key": "health-check",
-      "description": "Run `verify` + `status` together \u2014 the full project health report",
+      "description": "Run `verify` + `status` together — the full project health report",
       "steps": [
         "gofasta verify",
         "gofasta status"
@@ -1962,7 +1962,7 @@
     {
       "key": "codex",
       "name": "OpenAI Codex",
-      "description": "OpenAI's coding agent \u2014 reads AGENTS.md by default"
+      "description": "OpenAI's coding agent — reads AGENTS.md by default"
     },
     {
       "key": "aider",

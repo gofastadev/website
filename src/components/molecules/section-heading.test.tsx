@@ -65,7 +65,7 @@ describe("SectionHeading", () => {
 
   it("applies a custom className to the root element", () => {
     const { container } = render(
-      <SectionHeading title="Customised" className="my-custom-class" />
+      <SectionHeading title="Customized" className="my-custom-class" />
     );
     expect(container.firstChild).toHaveClass("my-custom-class");
   });
