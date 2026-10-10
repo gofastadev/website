@@ -12,6 +12,11 @@ export default withNextra({
   reactCompiler: true,
   output: "standalone",
   poweredByHeader: false,
+  // Keystatic in GitHub mode redirects `localhost` to `127.0.0.1` so the
+  // GitHub OAuth callback has a stable host. Next 16 blocks its dev
+  // resources (chunks, HMR) from any origin it wasn't told about, which
+  // left the admin a blank page at the loopback address. Dev only.
+  allowedDevOrigins: ["127.0.0.1"],
   async headers() {
     // Baseline hardening headers. HSTS is intentionally absent — Vercel
     // sets strict-transport-security on custom domains itself.
