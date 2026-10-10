@@ -5,6 +5,8 @@ import os from "node:os";
 import {
   createBlogService,
   slugifyTag,
+  stripTitleH1,
+  validatePostFile,
   type BlogService,
 } from "./blog";
 
@@ -56,6 +58,97 @@ describe("slugifyTag", () => {
     expect(slugifyTag("  Go Lang  ")).toBe("go-lang");
     expect(slugifyTag("Hello World")).toBe("hello-world");
     expect(slugifyTag("ALREADY-SLUG")).toBe("already-slug");
+  });
+
+  it("reduces punctuation to URL-safe hyphens", () => {
+    expect(slugifyTag("C#")).toBe("c");
+    expect(slugifyTag("CI/CD")).toBe("ci-cd");
+    expect(slugifyTag("Go 1.22")).toBe("go-1-22");
+    expect(slugifyTag("what? & why%")).toBe("what-why");
+  });
+
+  it("folds diacritics to their base letter", () => {
+    expect(slugifyTag("Café")).toBe("cafe");
+  });
+
+  it("returns an empty string for punctuation-only tags", () => {
+    expect(slugifyTag("--")).toBe("");
+    expect(slugifyTag("#")).toBe("");
+  });
+});
+
+describe("stripTitleH1", () => {
+  it("removes a leading H1 that repeats the title", () => {
+    expect(stripTitleH1("# Hello World\n\nBody", "hello world")).toBe("Body");
+  });
+
+  it("keeps a leading H1 that differs from the title", () => {
+    expect(stripTitleH1("# Other\n\nBody", "Hello")).toBe("# Other\n\nBody");
+  });
+
+  it("keeps a body without a leading H1", () => {
+    expect(stripTitleH1("## Section\n\nBody", "Hello")).toBe(
+      "## Section\n\nBody",
+    );
+  });
+});
+
+describe("validatePostFile", () => {
+  function fm(lines: string[]): string {
+    return `---\n${lines.join("\n")}\n---\nBody`;
+  }
+  const base = [
+    'title: "T"',
+    'description: "D"',
+    "publishedAt: 2026-04-01T10:00:00.000Z",
+    'author: "A"',
+    'cover: "c.jpg"',
+  ];
+  const without = (key: string) => base.filter((l) => !l.startsWith(key));
+
+  it("accepts a valid post, including drafts and future-dated posts", () => {
+    expect(validatePostFile("ok.mdx", fm(base))).toBeNull();
+    expect(validatePostFile("ok.mdx", fm([...base, "draft: true"]))).toBeNull();
+    expect(
+      validatePostFile(
+        "ok.mdx",
+        fm([...without("publishedAt"), "publishedAt: 2999-01-01T00:00:00Z"]),
+      ),
+    ).toBeNull();
+  });
+
+  it("explains each kind of failure", () => {
+    const cases: Array<[string, string, RegExp]> = [
+      ["Bad_Name.mdx", fm(base), /filename/],
+      ["a.mdx", "no frontmatter", /frontmatter block/],
+      ["a.mdx", "---\ntitle: [unclosed\n---\nBody", /not valid YAML/],
+      ["a.mdx", "---\n# only a comment\n---\nBody", /frontmatter is empty/],
+      ["a.mdx", fm(without("title")), /"title" is required/],
+      ["a.mdx", fm([...without("author"), 'author: ""']), /"author" is required/],
+      ["a.mdx", fm([...base, "tags: golang"]), /"tags" must be a list/],
+      ["a.mdx", fm([...base, "tags:", "  - 3"]), /"tags" must contain only text/],
+      ["a.mdx", fm(without("publishedAt")), /"publishedAt" is required/],
+      [
+        "a.mdx",
+        fm([...without("publishedAt"), 'publishedAt: "soon"']),
+        /"publishedAt" is not a valid date/,
+      ],
+      ["a.mdx", fm([...base, 'updatedAt: "later"']), /"updatedAt" is not a valid date/],
+      ["a.mdx", fm([...base, "series: 3"]), /"series" must be text/],
+      [
+        "a.mdx",
+        fm([...base, 'series: "S"', "seriesPart: 0"]),
+        /"seriesPart" must be a whole number/,
+      ],
+      ["a.mdx", fm([...base, "seriesPart: 2"]), /"series" is empty/],
+    ];
+    for (const [filename, source, reason] of cases) {
+      expect(validatePostFile(filename, source)).toMatch(reason);
+    }
+  });
+
+  it("tolerates a byte-order mark before the frontmatter", () => {
+    expect(validatePostFile("ok.mdx", `\uFEFF${fm(base)}`)).toBeNull();
   });
 });
 
@@ -629,10 +722,24 @@ describe("createBlogService draft visibility", () => {
     expect(s.getPost("draft-post")).toBeNull();
   });
 
-  it("defaults to showing drafts outside production (previews, dev)", () => {
+  it("defaults to showing drafts on Vercel previews", () => {
     vi.stubEnv("VERCEL_ENV", "preview");
     const s = createBlogService(dir, { now: () => NOW });
     expect(s.getPost("draft-post")).not.toBeNull();
+  });
+
+  it("defaults to showing drafts under next dev", () => {
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("NODE_ENV", "development");
+    const s = createBlogService(dir, { now: () => NOW });
+    expect(s.getPost("draft-post")).not.toBeNull();
+  });
+
+  it("fails closed when VERCEL_ENV is missing (Docker, self-hosted)", () => {
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("NODE_ENV", "production");
+    const s = createBlogService(dir, { now: () => NOW });
+    expect(s.getPost("draft-post")).toBeNull();
   });
 });
 
@@ -794,5 +901,58 @@ describe("series", () => {
     expect(service.getSeriesPosts("S").map((p) => p.slug)).toEqual([
       "published-part",
     ]);
+  });
+});
+
+describe("tag normalization and parse warnings", () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "blog-tags-"));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it("drops empty and null tag rows and de-duplicates slugs", () => {
+    fs.writeFileSync(
+      path.join(dir, "tagged.mdx"),
+      validFrontmatter().replace(
+        "tags:\n  - golang\n  - testing",
+        "tags:\n  - CI/CD\n  -\n  - '#'\n  - ci cd",
+      ),
+      "utf8",
+    );
+    const s = createBlogService(dir, {
+      now: () => FROZEN_NOW,
+      includeDrafts: false,
+    });
+    expect(s.getPost("tagged")?.tags).toEqual(["ci-cd"]);
+  });
+
+  it("treats a missing tags field as no tags", () => {
+    fs.writeFileSync(
+      path.join(dir, "untagged.mdx"),
+      validFrontmatter().replace("tags:\n  - golang\n  - testing\n", ""),
+      "utf8",
+    );
+    const s = createBlogService(dir, {
+      now: () => FROZEN_NOW,
+      includeDrafts: false,
+    });
+    expect(s.getPost("untagged")?.tags).toEqual([]);
+  });
+
+  it("warns with the filename and reason when a post fails to load", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    fs.writeFileSync(path.join(dir, "broken.mdx"), "no frontmatter", "utf8");
+    const s = createBlogService(dir, {
+      now: () => FROZEN_NOW,
+      includeDrafts: false,
+    });
+    expect(s.getAllPosts()).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("data/blog/broken.mdx: missing --- frontmatter block"),
+    );
   });
 });

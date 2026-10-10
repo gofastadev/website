@@ -58,12 +58,27 @@ export interface AdjacentPosts {
   next: BlogPost | null;
 }
 
+// Reduced to `[a-z0-9-]` because the result is interpolated raw into
+// hrefs, sitemap entries, and JSON-LD: a `#`, `/`, or `?` would turn
+// `/blog/tags/c#` into a fragment link or a two-segment path that 404s.
+// Diacritics fold to their base letter ("Café" -> "cafe"). A tag made of
+// punctuation only slugifies to "" and is dropped by the parser.
 export function slugifyTag(tag: string): string {
-  return tag.toLowerCase().trim().replace(/\s+/g, "-");
+  return tag
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((v) => typeof v === "string");
+// The article header already renders the title, so a body that opens
+// with the same `# Title` would show it twice — on the page and in feeds.
+export function stripTitleH1(body: string, title: string): string {
+  const match = body.match(/^\s*#\s+(.+?)\s*\n+/);
+  if (!match) return body;
+  if (match[1].trim().toLowerCase() !== title.trim().toLowerCase()) return body;
+  return body.slice(match[0].length);
 }
 
 function resolveCoverUrl(cover: string): string {
@@ -71,65 +86,101 @@ function resolveCoverUrl(cover: string): string {
   return `${COVER_PUBLIC_PATH}${cover}`;
 }
 
-// Returns null for malformed frontmatter, a missing or misshapen
-// required field, or a publishedAt in the future.
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+type ParseResult =
+  | { post: BlogPost }
+  | { skip: "draft" | "scheduled" }
+  | { error: string };
+
+// Drafts and future-dated posts are skipped on purpose; anything else that
+// stops a post from loading is an `error` with a reason an editor can act
+// on. Errors used to vanish silently — a Keystatic save with an empty
+// field just made the post disappear — so they are now logged at build
+// time and fail CI through `blog-content.test.ts`.
 //
-// Future-dating hides a post from every surface, but it is not a
-// scheduler: the date is evaluated at build time and nothing rebuilds on
-// a timer, so a future-dated post appears at the next deploy after its
-// date, not on the date itself.
+// Future-dating hides a post from every surface. The date is evaluated at
+// build time, so the post appears at the first rebuild after its date —
+// the daily scheduled-publish workflow guarantees one within a day.
 function parsePost(
   filename: string,
   source: string,
   now: Date,
   includeDrafts: boolean,
-): BlogPost | null {
-  const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-  if (!match) return null;
+): ParseResult {
+  const slug = filename.replace(/\.mdx$/, "");
+  // Slugs are interpolated into hrefs, canonical URLs, RSS links, and
+  // JSON-LD. Constraining the charset at this one boundary means no
+  // downstream consumer has to reason about traversal sequences or URL
+  // metacharacters coming out of a filename.
+  if (!SLUG_PATTERN.test(slug)) {
+    return {
+      error: `filename "${filename}" must be lowercase letters, digits, and single hyphens`,
+    };
+  }
+
+  const match = source
+    .replace(/^\uFEFF/, "")
+    .match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!match) return { error: "missing --- frontmatter block" };
 
   let raw: unknown;
   try {
     raw = parseYaml(match[1]);
-  } catch {
-    return null;
+  } catch (err) {
+    return { error: `frontmatter is not valid YAML: ${(err as Error).message}` };
   }
-  if (!raw || typeof raw !== "object") return null;
+  if (!raw || typeof raw !== "object") {
+    return { error: "frontmatter is empty" };
+  }
   const fm = raw as Record<string, unknown>;
 
-  const title = fm.title;
-  const description = fm.description;
-  const publishedAt = fm.publishedAt;
-  const author = fm.author;
-  const tags = fm.tags;
-  const cover = fm.cover;
-
-  if (
-    typeof title !== "string" ||
-    typeof description !== "string" ||
-    typeof author !== "string" ||
-    typeof cover !== "string" ||
-    !isStringArray(tags)
-  ) {
-    return null;
+  for (const field of ["title", "description", "author", "cover"] as const) {
+    if (typeof fm[field] !== "string" || (fm[field] as string).trim() === "") {
+      return { error: `"${field}" is required` };
+    }
   }
+  const title = fm.title as string;
+  const description = fm.description as string;
+  const author = fm.author as string;
+  const cover = fm.cover as string;
+
+  // Keystatic writes an empty tag row as `null`; drop it rather than the
+  // whole post. Anything else that is not a string is malformed.
+  if (fm.tags !== undefined && fm.tags !== null && !Array.isArray(fm.tags)) {
+    return { error: '"tags" must be a list' };
+  }
+  const rawTags = (fm.tags ?? []) as unknown[];
+  if (rawTags.some((t) => t !== null && typeof t !== "string")) {
+    return { error: '"tags" must contain only text' };
+  }
+  const tags = [
+    ...new Set(
+      (rawTags.filter((t) => typeof t === "string") as string[])
+        .map(slugifyTag)
+        .filter((t) => t.length > 0),
+    ),
+  ];
 
   // YAML 1.2 has no timestamp type, so `yaml` v2 hands back ISO datetimes
   // as strings and Keystatic writes them quoted. Anything non-string here
   // is malformed input.
-  if (typeof publishedAt !== "string") return null;
+  const publishedAt = fm.publishedAt;
+  if (typeof publishedAt !== "string") {
+    return { error: '"publishedAt" is required' };
+  }
   const publishDate = new Date(publishedAt);
-  if (Number.isNaN(publishDate.getTime())) return null;
-  if (publishDate.getTime() > now.getTime()) return null;
-
-  // Strict `=== true` so a missing or non-boolean value reads as
-  // published, matching Keystatic checkbox semantics.
-  if (fm.draft === true && !includeDrafts) return null;
+  if (Number.isNaN(publishDate.getTime())) {
+    return { error: `"publishedAt" is not a valid date: ${publishedAt}` };
+  }
 
   let updatedAt: string | undefined;
   if (typeof fm.updatedAt === "string") {
     // A malformed date would surface as an Invalid Date in sitemap
     // lastModified, JSON-LD dateModified, and OpenGraph modifiedTime.
-    if (Number.isNaN(new Date(fm.updatedAt).getTime())) return null;
+    if (Number.isNaN(new Date(fm.updatedAt).getTime())) {
+      return { error: `"updatedAt" is not a valid date: ${fm.updatedAt}` };
+    }
     updatedAt = fm.updatedAt;
   }
 
@@ -141,14 +192,14 @@ function parsePost(
   // Absent or empty means "not in a series"; any other non-string is
   // malformed.
   let series: string | undefined;
-  if (fm.series !== undefined) {
-    if (typeof fm.series !== "string") return null;
+  if (fm.series !== undefined && fm.series !== null) {
+    if (typeof fm.series !== "string") {
+      return { error: '"series" must be text' };
+    }
     const trimmed = fm.series.trim();
     if (trimmed.length > 0) series = trimmed;
   }
 
-  // Rejecting a part without a series surfaces a half-filled Keystatic
-  // form at build time rather than as broken nav in production.
   let seriesPart: number | undefined;
   if (fm.seriesPart !== undefined && fm.seriesPart !== null) {
     if (
@@ -156,47 +207,65 @@ function parsePost(
       !Number.isInteger(fm.seriesPart) ||
       fm.seriesPart < 1
     ) {
-      return null;
+      return { error: '"seriesPart" must be a whole number of 1 or more' };
     }
-    if (!series) return null;
+    if (!series) {
+      return { error: '"seriesPart" is set but "series" is empty' };
+    }
     seriesPart = fm.seriesPart;
   }
 
-  // Slugs are interpolated into hrefs, canonical URLs, RSS links, and
-  // JSON-LD. Constraining the charset at this one boundary means no
-  // downstream consumer has to reason about traversal sequences or URL
-  // metacharacters coming out of a filename.
-  const slug = filename.replace(/\.mdx$/, "");
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
-  const body = match[2];
+  // Validation runs before these skips so a draft with a broken field
+  // still fails CI while it is being reviewed.
+  if (publishDate.getTime() > now.getTime()) return { skip: "scheduled" };
+  // Strict `=== true` so a missing or non-boolean value reads as
+  // published, matching Keystatic checkbox semantics.
+  if (fm.draft === true && !includeDrafts) return { skip: "draft" };
 
+  const body = match[2];
   return {
-    slug,
-    title,
-    description,
-    publishedAt,
-    updatedAt,
-    author,
-    authorUrl,
-    tags: tags.map(slugifyTag),
-    cover,
-    coverUrl: resolveCoverUrl(cover),
-    body,
-    readingTime: computeReadingTime(body),
-    // Surfaced so previews can badge the post as a draft.
-    draft: fm.draft === true,
-    series,
-    seriesPart,
+    post: {
+      slug,
+      title,
+      description,
+      publishedAt,
+      updatedAt,
+      author,
+      authorUrl,
+      tags,
+      cover,
+      coverUrl: resolveCoverUrl(cover),
+      body,
+      readingTime: computeReadingTime(body),
+      // Surfaced so previews can badge the post as a draft.
+      draft: fm.draft === true,
+      series,
+      seriesPart,
+    },
   };
+}
+
+/**
+ * Returns why a post file would fail to load, or null when it is valid.
+ * Drafts and scheduled posts are valid. Used by the content test that
+ * gates every Keystatic pull request.
+ */
+export function validatePostFile(
+  filename: string,
+  source: string,
+): string | null {
+  const result = parsePost(filename, source, new Date(0), true);
+  return "error" in result ? result.error : null;
 }
 
 export interface BlogServiceOptions {
   now?: () => Date;
   /**
-   * Defaults to the deploy context. Drafts render on previews and in dev
-   * because Keystatic's PR mode exists to review a post on its preview
-   * deploy, which the flag would otherwise prevent. Vercel noindexes
-   * previews, so nothing leaks into search.
+   * Defaults to the deploy context, failing closed: drafts render only on
+   * Vercel preview deploys and under `next dev`, because Keystatic's PR
+   * mode exists to review a post on its preview deploy. Every other build
+   * — Vercel production, Docker, a local `next build` — hides them, so a
+   * deploy that lacks VERCEL_ENV cannot publish drafts.
    */
   includeDrafts?: boolean;
 }
@@ -216,7 +285,9 @@ export function createBlogService(
 ): BlogService {
   const nowFn = opts.now ?? (() => new Date());
   const includeDrafts =
-    opts.includeDrafts ?? process.env.VERCEL_ENV !== "production";
+    opts.includeDrafts ??
+    (process.env.VERCEL_ENV === "preview" ||
+      process.env.NODE_ENV === "development");
 
   function listFiles(): string[] {
     if (!fs.existsSync(dir)) return [];
@@ -230,8 +301,11 @@ export function createBlogService(
     const posts: BlogPost[] = [];
     for (const filename of listFiles()) {
       const source = fs.readFileSync(path.join(dir, filename), "utf8");
-      const post = parsePost(filename, source, now, includeDrafts);
-      if (post) posts.push(post);
+      const result = parsePost(filename, source, now, includeDrafts);
+      if ("post" in result) posts.push(result.post);
+      else if ("error" in result) {
+        console.warn(`[blog] skipping data/blog/${filename}: ${result.error}`);
+      }
     }
     return posts.sort(
       (a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt),

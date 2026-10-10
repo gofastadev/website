@@ -21,6 +21,7 @@ import {
   getAdjacentPosts,
   getPost,
   getSeriesPosts,
+  stripTitleH1,
   type BlogPost,
 } from "@/lib/blog";
 import {
@@ -71,15 +72,6 @@ function postOgImage(post: BlogPost): string {
       : `${SITE_URL}${post.coverUrl}`;
   }
   return `${SITE_URL}/api/og?title=${encodeURIComponent(post.title)}&section=Blog`;
-}
-
-// The article header already renders the title, so a body that opens
-// with the same `# Title` would show it twice.
-function stripTitleH1(body: string, title: string): string {
-  const match = body.match(/^\s*#\s+(.+?)\s*\n+/);
-  if (!match) return body;
-  if (match[1].trim().toLowerCase() !== title.trim().toLowerCase()) return body;
-  return body.slice(match[0].length);
 }
 
 export async function generateMetadata({
@@ -232,11 +224,14 @@ export default async function BlogPostPage({
       {/* On xl the article gets a companion sticky TOC rail; the grid
           wrapper is page-local so LandingTemplate (shared by the blog
           index, tags, cookies, …) stays full-bleed. data-pagefind-body
-          stays on the article — the aside is navigation, not content. */}
+          stays on the article — the aside is navigation, not content.
+          Nextra's docs pages share the same Pagefind index, so the
+          section filter is what lets blog search query posts alone. */}
       <div className="mx-auto max-w-6xl xl:grid xl:grid-cols-[minmax(0,1fr)_16rem] xl:gap-12">
         <article
           className="mx-auto w-full max-w-3xl px-6 pt-28 pb-24"
           data-pagefind-body
+          data-pagefind-filter="section:blog"
         >
           <BlogArticleHeader post={post} shareUrl={postUrl(slug)} />
           {post.series ? (
