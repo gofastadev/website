@@ -36,7 +36,7 @@ Every `gofasta …` command inside a shell code block is checked at build time a
 
 ## Writing for the blog
 
-Posts are MDX files in `data/blog/`, edited through Keystatic at `/keystatic` on a dev server. On production the editor opens a pull request for every save, so posts are reviewed like any other change, and the pull request's preview renders them, drafts included. Drafts, scheduling and publishing are covered in [docs/operations.md](./docs/operations.md#blog-posts).
+Posts are MDX files in `data/blog/`, edited through Keystatic at `/keystatic` on a dev server. On production the editor saves to a `keystatic/…` branch and opens a pull request from it, so posts are reviewed like any other change, and the pull request's preview renders them, drafts included. Drafts, scheduling and publishing are covered in [docs/operations.md](./docs/operations.md#blog-posts).
 
 ## Before you open a pull request
 

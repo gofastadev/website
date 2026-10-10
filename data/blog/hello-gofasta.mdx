@@ -31,7 +31,7 @@ go install github.com/gofastadev/cli/cmd/gofasta@latest
 
 It scaffolds projects, generates full CRUD layers from one command, runs migrations, regenerates dependency injection, and tells you when your tree has drifted. At runtime it never imports the library. It only writes files.
 
-The library lives at [`github.com/gofastadev/gofasta`](https://github.com/gofastadev/gofasta). Thirty-odd packages under `pkg/*`, each one a thing backends keep needing: config loading, JWT auth with RBAC, caching, structured errors, HTTP middleware, mailer, notifications, WebSockets, scheduled jobs, task queues, observability, feature flags, file storage, sessions, i18n, encryption.
+The library lives at [`github.com/gofastadev/gofasta`](https://github.com/gofastadev/gofasta). Independent packages under `pkg/*`, each one a thing backends keep needing: config loading, JWT auth with RBAC, caching, structured errors, HTTP middleware, mailer, notifications, WebSockets, scheduled jobs, task queues, observability, feature flags, file storage, sessions, i18n, encryption.
 
 Every package imports on its own. There is no umbrella that drags the rest in behind it. Where two packages do touch, it is because the job requires it. `pkg/health` pings the database and the cache, which is precisely what a health probe is for.
 

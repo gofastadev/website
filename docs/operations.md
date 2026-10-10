@@ -30,7 +30,9 @@ Without that, `yarn dev` runs Keystatic in local mode, which edits the files in 
 
 ## Blog posts
 
-Keystatic runs in two modes. Under `yarn dev` without the GitHub App it edits `data/blog/` in the checkout directly. With the app configured it commits to a `keystatic/…` branch and opens a pull request for each save. CI validates every post's frontmatter (`src/lib/blog-content.test.ts`), so a broken post fails the pull request instead of silently disappearing from the site.
+Keystatic runs in two modes. Under `yarn dev` without the GitHub App it edits `data/blog/` in the checkout directly. With the app configured it commits to whichever branch is selected in the top-left dropdown. `main` is protected by a ruleset, so saving there fails with "Changes must be made through a pull request"; that's intended. The workflow is: open the branch dropdown, choose *New branch* (Keystatic prefixes the name with `keystatic/`), save on that branch, then use the *Create pull request* button that appears in the header. CI validates every post's frontmatter (`src/lib/blog-content.test.ts`), so a broken post fails the pull request instead of silently disappearing from the site.
+
+Keystatic can offer "Create branch and save" automatically when a save is blocked, but only for GitHub's classic branch protection; with rulesets it just shows the error. Keep the ruleset and create the branch first.
 
 How a post becomes visible:
 
