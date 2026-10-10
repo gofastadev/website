@@ -12,11 +12,6 @@ export default withNextra({
   reactCompiler: true,
   output: "standalone",
   poweredByHeader: false,
-  // Without this, www serves the whole site with a 200 and every page
-  // exists at two URLs. A canonical tag is only a hint, so it still cost
-  // crawl budget on a second copy of the site; a 308 makes the apex the
-  // only reachable host. The `has` condition scopes the redirect to www
-  // requests so it can't loop.
   async headers() {
     // Baseline hardening headers. HSTS is intentionally absent — Vercel
     // sets strict-transport-security on custom domains itself.
@@ -32,6 +27,11 @@ export default withNextra({
   },
   async redirects() {
     return [
+      // Without this, www serves the whole site with a 200 and every page
+      // exists at two URLs. A canonical tag is only a hint, so it still cost
+      // crawl budget on a second copy of the site; a 308 makes the apex the
+      // only reachable host. The `has` condition scopes the redirect to www
+      // requests so it can't loop.
       {
         source: "/:path*",
         has: [{ type: "host", value: "www.gofasta.dev" }],
