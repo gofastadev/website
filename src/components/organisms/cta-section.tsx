@@ -9,19 +9,10 @@ export function CtaSection() {
   const router = useRouter();
 
   return (
-    <section className="px-6 py-20 sm:py-28">
-      <div className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-primary/30 bg-surface p-10 text-center shadow-sm sm:p-16">
-        {/* Single subtle brand accent — a soft radial glow at the top of
-            the box. No stacked gradients, no rotating conic ring — the
-            bg stays predictable so the text contrast is stable in both
-            themes. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_55%_40%_at_50%_0%,theme(colors.primary/10),transparent_70%)] dark:bg-[radial-gradient(ellipse_55%_40%_at_50%_0%,theme(colors.primary/15),transparent_70%)]"
-        />
-        <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
-          Try{" "}
-          <span className="text-primary-700 dark:text-primary">Gofasta</span>
+    <section className="section-reveal border-t border-gray-200 px-6 py-section-lg dark:border-gray-800">
+      <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+        <h2 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+          Try <span className="text-primary">Gofasta</span>
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg dark:text-gray-300">
           Install with{" "}
@@ -43,7 +34,7 @@ export function CtaSection() {
               router.push("/docs/getting-started/introduction");
             }}
           >
-            Get Started
+            Get started
           </Button>
           <Button
             variant="secondary"
@@ -53,11 +44,11 @@ export function CtaSection() {
               router.push("/docs/white-paper");
             }}
           >
-            Read the Whitepaper
+            Read the white paper
           </Button>
         </div>
         <CopyableCommand
-          className="mx-auto mt-8 max-w-xl"
+          className="mt-8 max-w-xl"
           size="sm"
           command="go install github.com/gofastadev/cli/cmd/gofasta@latest"
         />

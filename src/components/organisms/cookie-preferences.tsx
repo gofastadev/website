@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/atoms/button";
 import { useConsent } from "@/contexts/consent-context";
 
 // CookiePreferences — the interactive control surfaced on /cookies.
@@ -14,75 +15,85 @@ export function CookiePreferences() {
   // persisted decision before rendering anything that depends on it.
   if (!hydrated) {
     return (
-      <p className="text-sm text-gray-600 dark:text-gray-400">
-        Loading current preference…
-      </p>
+      <div className="rounded-xl border border-gray-200 bg-surface p-6 shadow-e3 dark:border-gray-800">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Loading current preference...
+        </p>
+      </div>
     );
   }
 
   if (consent.analytics === true) {
     return (
-      <div className="space-y-3 text-sm">
-        <p className="font-semibold text-primary">
-          Analytics is currently <span className="underline">accepted</span>.
-        </p>
-        <p className="text-gray-600 dark:text-gray-400">
-          Last updated:{" "}
-          {consent.decidedAt
-            ? new Date(consent.decidedAt).toLocaleString()
-            : "—"}
-        </p>
-        <button
-          type="button"
-          onClick={() => setAnalyticsConsent(false)}
-          className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-        >
-          Revoke consent
-        </button>
+      <div className="divide-y divide-gray-200 rounded-xl border border-gray-200 bg-surface shadow-e3 dark:divide-gray-800 dark:border-gray-800">
+        <div className="space-y-3 p-6 text-sm">
+          <p className="font-semibold text-primary">
+            Analytics is currently <span className="underline">accepted</span>.
+          </p>
+          <p className="text-gray-600 dark:text-gray-400">
+            Last updated:{" "}
+            {consent.decidedAt
+              ? new Date(consent.decidedAt).toLocaleString()
+              : "Not recorded"}
+          </p>
+        </div>
+        <div className="p-6">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setAnalyticsConsent(false)}
+          >
+            Revoke consent
+          </Button>
+        </div>
       </div>
     );
   }
 
   if (consent.analytics === false) {
     return (
-      <div className="space-y-3 text-sm">
-        <p className="font-semibold text-foreground">
-          Analytics is currently <span className="underline">rejected</span>.
-        </p>
-        <p className="text-gray-600 dark:text-gray-400">
-          Last updated:{" "}
-          {consent.decidedAt
-            ? new Date(consent.decidedAt).toLocaleString()
-            : "—"}
-        </p>
-        <button
-          type="button"
-          onClick={() => setAnalyticsConsent(true)}
-          className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-[#00283A] transition-colors hover:opacity-90"
-        >
-          Accept analytics
-        </button>
+      <div className="divide-y divide-gray-200 rounded-xl border border-gray-200 bg-surface shadow-e3 dark:divide-gray-800 dark:border-gray-800">
+        <div className="space-y-3 p-6 text-sm">
+          <p className="font-semibold text-foreground">
+            Analytics is currently <span className="underline">rejected</span>.
+          </p>
+          <p className="text-gray-600 dark:text-gray-400">
+            Last updated:{" "}
+            {consent.decidedAt
+              ? new Date(consent.decidedAt).toLocaleString()
+              : "Not recorded"}
+          </p>
+        </div>
+        <div className="p-6">
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => setAnalyticsConsent(true)}
+          >
+            Accept analytics
+          </Button>
+        </div>
       </div>
     );
   }
 
   // Undecided — show the same accept/reject pair as the banner.
   return (
-    <div className="flex flex-wrap gap-3">
-      <button
+    <div className="flex flex-wrap gap-3 rounded-xl border border-gray-200 bg-surface p-6 shadow-e3 dark:border-gray-800">
+      <Button
         type="button"
+        variant="secondary"
         onClick={() => setAnalyticsConsent(false)}
-        className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
       >
         Reject
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="primary"
         onClick={() => setAnalyticsConsent(true)}
-        className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-[#00283A] transition-colors hover:opacity-90"
       >
         Accept
-      </button>
+      </Button>
     </div>
   );
 }

@@ -1,0 +1,140 @@
+---
+draft: true
+title: Compile-time dependency injection in Go with Google Wire
+description: >-
+  How Google Wire replaces reflection-based DI containers with generated Go
+  code: providers, injectors, honest trade-offs, and how gofasta wires every
+  scaffolded resource.
+publishedAt: 2026-07-24T10:00:00.000Z
+author: Gofasta Team
+authorUrl: https://gofasta.dev
+tags:
+  - golang
+  - dependency-injection
+  - wire
+cover: /blog/covers/compile-time-dependency-injection-go-wire/cover.png
+---
+## Wiring by hand, and the day it stops scaling
+
+Every Go service starts the same way. `main()` builds a config, the config builds a database connection, the connection builds a repository, the repository builds a service, the service builds a handler:
+
+```go
+cfg := config.Load()
+db := database.Connect(cfg)
+repo := repositories.NewUserRepository(db)
+svc := services.NewUserService(repo)
+handler := controllers.NewUserController(svc)
+```
+
+That is dependency injection. No framework, no container, no annotations, just functions taking arguments. Go's culture is rightly proud of this, and for a small service it is all you ever need.
+
+Then the service grows. Ten resources, each with a repository, service and controller. A cache three services share. A mailer that needs config and a template renderer. An auth manager that needs the user repository *and* the cache. Now `main()` is 150 lines of construction code whose ordering you maintain by hand, and every new resource means finding the right insertion point in a function nobody enjoys reading. Reorder two lines and you get a nil pointer at runtime, which is the exact class of bug Go's type system exists to prevent, reintroduced by tedium.
+
+## Two ways out
+
+The first is a runtime container. You register constructors, and at startup it uses reflection to work out what needs what and in which order. Uber's fx and dig are the best-known Go examples and they are solid engineering.
+
+But reflection-based DI has costs that arrive at bad moments. The graph resolves when the process boots, so a missing dependency is a runtime error found in staging or worse. Stack traces route through container internals instead of your code. And there is a subtler cost: to understand how your application assembles itself you now have to understand the container's resolution rules, lifecycles and scopes. Assembly stops being ordinary code you can read.
+
+The second way is code generation, which is the road [Google Wire](https://github.com/google/wire) takes. Wire reads your constructors at build time, computes the graph, and writes out the same plain Go you would have written by hand. There is no container. At runtime, Wire does not exist.
+
+## Providers and injectors
+
+Wire has two concepts.
+
+A **provider** is any function returning a value, which usually means your existing constructors. You do not modify them for Wire's benefit. `NewUserRepository(db *gorm.DB) *UserRepository` is already a provider. Providers can return errors, and Wire threads the error handling through.
+
+An **injector** is a function you declare but do not implement. A signature plus a `wire.Build` call listing providers, in a file behind a build tag:
+
+```go
+//go:build wireinject
+
+package main
+
+import "github.com/google/wire"
+
+func InitializeApp(cfg *config.AppConfig) (*App, error) {
+    wire.Build(
+        database.Connect,
+        repositories.NewUserRepository,
+        services.NewUserService,
+        controllers.NewUserController,
+        NewApp,
+    )
+    return nil, nil // never executes; Wire replaces this file's role
+}
+```
+
+Run the `wire` tool and you get `wire_gen.go`:
+
+```go
+func InitializeApp(cfg *config.AppConfig) (*App, error) {
+    db, err := database.Connect(cfg)
+    if err != nil {
+        return nil, err
+    }
+    userRepository := repositories.NewUserRepository(db)
+    userService := services.NewUserService(userRepository)
+    userController := controllers.NewUserController(userService)
+    app := NewApp(userController)
+    return app, nil
+}
+```
+
+Notice what that is. It is the hand-written `main()` from the top of this post with the ordering computed for you. It gets committed, it shows up in code review, you can put a breakpoint on any line, and `go build` treats it like any other file.
+
+Beyond that there is `wire.NewSet` for grouping related providers and `wire.Bind` for saying which concrete type satisfies an interface. That is roughly the entire API. You can learn Wire in an afternoon, which nobody says about lifecycle-managing containers.
+
+## Why compile-time matters
+
+The practical argument is about *when you find out*.
+
+Forget a dependency with a runtime container and you find out when the process starts. In CI's integration tests if you are lucky, during a deploy if you are not. Forget with Wire and the tool refuses to generate: `no provider found for *cache.Cache, needed by *services.SessionService`. The mistake never leaves your machine. It is the argument Go makes everywhere else, pushing error discovery toward the compiler, applied to the one part of the program containers pull back toward runtime.
+
+There is a performance point too, since nothing reflects at startup, but honestly it is a rounding error for most services. The real wins are error timing and debuggability. When initialization misbehaves at 2am, `wire_gen.go` is a page of ordinary function calls you read top to bottom. No framework layer to peel back, because there is no framework.
+
+## What it means for tests
+
+A unit test never touches Wire at all. Your service takes a repository interface and the test hands it a fake:
+
+```go
+func TestUserService_Deactivate(t *testing.T) {
+    repo := &fakeUserRepo{users: seedUsers()}
+    svc := services.NewUserService(repo)
+
+    err := svc.Deactivate(ctx, id)
+
+    require.NoError(t, err)
+    require.False(t, repo.users[id].IsActive)
+}
+```
+
+No container to configure in test mode, no framework test harness, no testing profile. The constructors Wire calls in production are the same functions your tests call by hand, so the seam between real and fake is an ordinary Go interface visible in the signature. A container can give you this too, but it tends to tempt you into booting the container in tests, at which point your unit tests inherit its startup semantics. With Wire there is nothing to boot.
+
+Writing the fakes is the one place generation helps directly. A gofasta scaffold emits repository and service interfaces as a matter of course, and `gofasta g mock --all` produces mocks for all of them, so `fakeUserRepo` above is a command rather than an afternoon.
+
+## The trade-offs, honestly
+
+**There is a codegen step.** Change a constructor signature and you re-run `wire` before the project compiles. Forget and you get a loud compile error in `wire_gen.go`, but it is still a step.
+
+**The error messages take acclimatizing.** Wire's diagnostics are accurate but phrased in Wire's vocabulary. The first "no provider found" costs you ten minutes. The tenth costs five seconds.
+
+**Wire is in maintenance mode.** Its README says new features are unlikely and activity will focus on bug fixes. Some read that as a warning. We read it as a code generator with a deliberately small API that reached its intended scope. The output is plain Go with no runtime dependency on Wire, so if the tool froze tomorrow every `wire_gen.go` in existence would keep compiling, and regenerating is the only operation you ever need. Done is not dead, and for build-time tools that distinction matters. If you want a DI ecosystem under active feature development, that is a fair reason to prefer fx, trading it against the runtime costs above with open eyes.
+
+**Interfaces need explicit bindings.** Wire will not guess which implementation satisfies an interface, so you say it with `wire.Bind`. More typing than a container that scans, and better in our view, because the decision is written where the next reader can see it.
+
+## How gofasta uses Wire
+
+Every project scaffolded by `gofasta new` assembles itself through Wire from the first build, with the whole graph resolved at compile time and readable in `wire_gen.go` on day one.
+
+What we added is making sure you rarely think about it. [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) generates a resource's full CRUD stack *and* the Wire provider stitching its layers into the graph, then regenerates the injector, so the resource is reachable the moment the command exits. [`gofasta g provider`](/docs/cli-reference/generate/provider) does the same for anything that is not a resource, like a custom client or a shared component. [`gofasta wire`](/docs/cli-reference/wire) re-runs generation after you edit constructors by hand, turning "remember the codegen step" into one obvious command that `gofasta dev` picks up on the next reload.
+
+The goal is not to hide Wire. The generated code is yours to read, and [project structure](/docs/getting-started/project-structure) puts it where you would expect. The goal is that Wire's two real annoyances, running the tool and writing providers for boilerplate layers, are handled by the CLI. Wire computes the graph, the toolkit generates the providers, and a [freshly scaffolded project](/blog/hello-gofasta) ends up with no magic anywhere.
+
+Because the scaffold treats its dependencies as opt-out defaults, that applies to Wire as well. Nothing stops you deleting the injector and going back to a hand-written `main()`. For five constructors that is a fine choice. Wire earns its place around the fifteenth.
+
+## Where to go from here
+
+The [quick start](/docs/getting-started/quick-start) gets you a Wire-assembled backend in about five minutes, and scaffolding a resource shows the provider flow end to end.
+
+If you are evaluating DI for an existing codebase, start smaller. Pick your most tangled initialization path, write it as a Wire injector, and read the `wire_gen.go` it produces. The best argument for compile-time DI is not a blog post. It is the moment you notice the generated file is exactly what you had been maintaining by hand, minus the maintaining.

@@ -1,6 +1,16 @@
 ---
 title: How It Works
 description: The Wire + middleware + OTel wiring that gives you deep visibility without dirtying business code, plus the endpoint reference and the production-safety build-tag model.
+keywords:
+  - "devtools architecture"
+  - "Wire DI"
+  - "middleware chain"
+  - "slog handler"
+  - "GORM callback"
+  - "SpanProcessor"
+  - "debug endpoints"
+  - "production safety"
+  - "build tags"
 ---
 
 # How it works without dirtying your code
@@ -175,7 +185,5 @@ Served by the CLI on the dashboard port (default `:9090`). The dashboard proxies
 | `POST /api/replay` | Re-fire a captured request. Body: `{"method": "...", "path": "...", "body": "..."}`. Returns `{"status": int, "body": string, "headers": {...}}` |
 | `POST /api/explain` | Proxy to `/debug/explain` |
 | `GET /api/har` | Download the request ring as HAR 1.2 JSON |
-
-## Related
 
 <RelatedPages path="guides/debugging/architecture" />

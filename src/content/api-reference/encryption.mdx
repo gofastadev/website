@@ -1,6 +1,17 @@
 ---
-title: Encryption
-description: AES-256-GCM encryption and decryption for securing sensitive data.
+title: pkg/encryption — AES-256-GCM encryption at rest
+description: Symmetric AES-256-GCM encryption and decryption for sensitive fields stored at rest — encrypted database columns, encrypted file payloads, encrypted session blobs. Authenticated encryption with random nonces; safe defaults, no knobs to mis-tune.
+keywords:
+  - "encryption API"
+  - "cryptography"
+  - "AES-256-GCM"
+  - "authenticated encryption"
+  - "encryption at rest"
+  - "secrets"
+  - "symmetric encryption"
+  - "data encryption"
+  - "nonce"
+  - "AEAD"
 ---
 
 # Encryption
@@ -79,8 +90,4 @@ Environment variables use the `GOFASTA_` prefix (e.g., `GOFASTA_ENCRYPTION_KEY`)
 
 Password hashing (bcrypt) and HMAC signing are handled in the `auth` and `session` packages respectively, not in this package. The `encryption` package focuses solely on AES-256-GCM symmetric encryption.
 
-## Related Pages
-
-- [Auth](/docs/api-reference/auth) -- Password hashing and JWT token signing
-- [Storage](/docs/api-reference/storage) -- Encrypt files before storage
-- [Config](/docs/api-reference/config) -- Encryption configuration loading
+<RelatedPages path="api-reference/encryption" />

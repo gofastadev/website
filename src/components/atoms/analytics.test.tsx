@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render } from "@testing-library/react";
+import type { ConsentRecord } from "@/contexts/consent-context";
 
 // next/script → plain element so we can introspect strategy / id / src.
 vi.mock("next/script", () => ({
@@ -28,8 +29,13 @@ vi.mock("next/script", () => ({
 // useConsent is mocked per-test so we don't have to spin up a real
 // provider for every scenario. The mock module lets each test
 // configure the consent record + hydration state.
-const consentState = {
-  consent: { analytics: null as boolean | null, decidedAt: null, version: 1 },
+const consentState: {
+  consent: ConsentRecord;
+  hydrated: boolean;
+  setAnalyticsConsent: ReturnType<typeof vi.fn>;
+  resetConsent: ReturnType<typeof vi.fn>;
+} = {
+  consent: { analytics: null, decidedAt: null, version: 1 },
   hydrated: true,
   setAnalyticsConsent: vi.fn(),
   resetConsent: vi.fn(),

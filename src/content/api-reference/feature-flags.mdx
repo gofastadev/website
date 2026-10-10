@@ -1,6 +1,11 @@
 ---
 title: Feature Flags
 description: Feature flag evaluation through the OpenFeature Go SDK. Swap providers (in-memory, Flagd, LaunchDarkly, go-feature-flag, custom) without touching application code.
+keywords:
+  - "feature flags API"
+  - "feature toggles"
+  - "feature management"
+  - "rollouts"
 ---
 
 # Feature Flags
@@ -162,9 +167,12 @@ The `userID` becomes the OpenFeature **targeting key**. Providers that support s
 
 ```go
 func (c *DashboardController) Index(w http.ResponseWriter, r *http.Request) error {
-    claims := auth.ClaimsFromContext(r.Context())
+    claims, err := auth.ClaimsFromContext(r.Context())
+    if err != nil {
+        return err
+    }
 
-    if c.ffService.IsEnabled(r.Context(), "new-dashboard", claims.UserID, nil) {
+    if c.ffService.IsEnabled(r.Context(), "new-dashboard", claims.SubjectID(), nil) {
         return httputil.OK(w, newDashboardData)
     }
     return httputil.OK(w, legacyDashboardData)
@@ -203,8 +211,4 @@ openfeature.SetProvider(&myProvider{})
 
 Gofasta wraps OpenFeature (not any one engine) to uphold its opt-out-default philosophy: the default provider is swappable without touching the application's flag-checking code. The same interface binds in-memory dev flags, self-hosted rule engines, commercial SaaS, and your own custom backends — you pick whichever fits this deployment without rewriting controllers.
 
-## Related Pages
-
-- [Config](/docs/api-reference/config) -- Feature flag configuration
-- [Middleware](/docs/api-reference/middleware) -- Inject flag service into request context
-- [Observability](/docs/api-reference/observability) -- Track flag evaluation metrics
+<RelatedPages path="api-reference/feature-flags" />

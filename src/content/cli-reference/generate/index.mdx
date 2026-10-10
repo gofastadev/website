@@ -1,0 +1,78 @@
+---
+title: gofasta generate
+description: The Gofasta code generators — full-resource scaffolds, per-layer generators for models, repositories, services, controllers and DTOs, surface-add commands that patch existing code, async job and task generators, and testify mocks.
+keywords:
+  - "gofasta generate"
+  - "gofasta g"
+  - "scaffold"
+  - "code generation"
+  - "AST patching"
+asIndexPage: true
+---
+
+# gofasta generate
+
+`gofasta generate` (shorthand `g`) writes new layers into an existing project and patches the files that have to know about them — the DI container, the route index, the GraphQL schema. Generated output is ordinary Go: no reflection-driven runtime, nothing that stops compiling if you edit it by hand.
+
+```bash
+gofasta generate <subcommand> [args...]
+gofasta g <subcommand> [args...]     # same thing
+```
+
+Every subcommand honors `--dry-run` (print the create/patch plan without writing) and the global `--json` flag.
+
+## Full-stack scaffold
+
+- **[`g scaffold`](/docs/cli-reference/generate/scaffold)** — A complete CRUD resource across every layer: model, repository, service, controller, routes, DTOs, migration, and DI provider.
+
+## Per-layer generators
+
+Each of these generates its own layer plus the prerequisite layers below it, so you can stop at the depth you actually need.
+
+- **[`g model`](/docs/cli-reference/generate/model)** — A GORM model with typed fields plus its migration pair.
+- **[`g repository`](/docs/cli-reference/generate/repository)** — Model, migration, repository interface, and implementation. Data access without an HTTP surface.
+- **[`g service`](/docs/cli-reference/generate/service)** — A service interface and implementation with its prerequisite layers. Stops short of controller and routes.
+- **[`g controller`](/docs/cli-reference/generate/controller)** — A REST controller with CRUD handlers and every layer beneath it.
+- **[`g dto`](/docs/cli-reference/generate/dto)** — Request and response DTOs for a resource.
+- **[`g migration`](/docs/cli-reference/generate/migration)** — An `.up.sql` / `.down.sql` pair in the SQL flavor of the driver in `config.yaml`, for schema changes with no Go model.
+- **[`g route`](/docs/cli-reference/generate/route)** — A per-resource chi routes file, with `index.routes.go` patched to mount it.
+- **[`g resolver`](/docs/cli-reference/generate/resolver)** — Patches the GraphQL resolver root with a service dependency and re-runs gqlgen.
+- **[`g provider`](/docs/cli-reference/generate/provider)** — The Wire provider set that ties service, repository, and controller together.
+
+## Adding to what already exists
+
+These patch existing files through the AST — idempotent, and they preserve comments and blank lines.
+
+- **[`g method`](/docs/cli-reference/generate/method)** — Add a method to an existing service interface and implementation.
+- **[`g repo-method`](/docs/cli-reference/generate/repo-method)** — The repository-layer twin of `g method`.
+- **[`g field`](/docs/cli-reference/generate/field)** — Add a column: patches the model and the Create/Update/Response DTOs, and writes the paired migration.
+- **[`g endpoint`](/docs/cli-reference/generate/endpoint)** — Add one REST endpoint to an existing resource — controller stub, chi registration, and optionally the service interface.
+- **[`g middleware`](/docs/cli-reference/generate/middleware)** — Wrap an existing route's handler with a middleware.
+- **[`g relation`](/docs/cli-reference/generate/relation)** — Add a GORM association (`belongs_to`, `has_many`, `has_one`), including the FK migration where one is needed.
+- **[`g rename`](/docs/cli-reference/generate/rename)** — Cross-file rename of a field across model, DTOs, service, tests, and repository, plus a rename migration. Preview by default.
+
+## Asynchronous work
+
+- **[`g job`](/docs/cli-reference/generate/job)** — A scheduled background job implementing the `scheduler.Job` interface.
+- **[`g task`](/docs/cli-reference/generate/task)** — An asynq-backed async task: constant, payload struct, handler, and enqueue helper, wired into the queue worker.
+- **[`g email-template`](/docs/cli-reference/generate/email-template)** — An HTML email template with its Go template file and registration entry for the mailer renderer.
+
+## Testing
+
+- **[`g mock`](/docs/cli-reference/generate/mock)** — A testify mock satisfying a Go interface, with a compile-time conformance check. `--all` refreshes every mock; `--check` detects drift in CI.
+
+<RelatedPages
+  path="cli-reference/generate"
+  extra={[
+    {
+      href: "/docs/guides/code-generation",
+      label: "Code Generation guide",
+      description: "How the generators fit together across a real feature, start to finish.",
+    },
+    {
+      href: "/docs/cli-reference/inspect",
+      label: "gofasta inspect",
+      description: "Read back the full composition of a resource after generating it.",
+    },
+  ]}
+/>

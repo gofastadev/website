@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Button } from "@/components/atoms/button";
 import { useConsent } from "@/contexts/consent-context";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -24,21 +26,27 @@ import { useConsent } from "@/contexts/consent-context";
 
 export function CookieBanner() {
   const { consent, hydrated, setAnalyticsConsent } = useConsent();
+  const pathname = usePathname();
 
   if (!hydrated) return null;
   if (consent.analytics !== null) return null;
+  // Suppress the banner inside the Keystatic admin UI. Editors who
+  // open /keystatic are operators with write access to the repo —
+  // they don't need a tracking-consent prompt on top of their CMS,
+  // and the banner overlaps the Keystatic sidebar layout.
+  if (pathname?.startsWith("/keystatic")) return null;
 
   return (
     <div
       role="region"
       aria-label="Cookie consent"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:border-gray-800 dark:bg-gray-950/95 dark:supports-[backdrop-filter]:bg-gray-950/80"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-surface shadow-e3 dark:border-gray-800"
     >
       <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-gray-700 dark:text-gray-300">
           <p>
             We use Google Analytics and Microsoft Clarity to understand how the
-            site is used. They&rsquo;re only loaded if you accept. See our{" "}
+            site is used. They&apos;re only loaded if you accept. See our{" "}
             <Link
               href="/cookies"
               className="text-primary underline underline-offset-4"
@@ -50,20 +58,20 @@ export function CookieBanner() {
         </div>
 
         <div className="flex flex-shrink-0 gap-3">
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => setAnalyticsConsent(false)}
-            className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
           >
             Reject
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="primary"
             onClick={() => setAnalyticsConsent(true)}
-            className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-[#00283A] transition-colors hover:opacity-90"
           >
             Accept
-          </button>
+          </Button>
         </div>
       </div>
     </div>

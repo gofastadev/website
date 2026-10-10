@@ -83,9 +83,9 @@ describe("trackEvent", () => {
   it("accepts events without params", () => {
     const gtagSpy = vi.fn();
     (window as unknown as { gtag: typeof gtagSpy }).gtag = gtagSpy;
-    trackEvent("cta_view_github");
+    trackEvent("cta_read_docs");
     expect(gtagSpy).toHaveBeenCalledOnce();
     const [, name] = gtagSpy.mock.calls[0] as [string, string];
-    expect(name).toBe("cta_view_github");
+    expect(name).toBe("cta_read_docs");
   });
 });

@@ -1,0 +1,47 @@
+---
+title: Debugging
+description: The Gofasta local dev dashboard — trace waterfalls, per-request logs, N+1 detection, EXPLAIN plans, pprof profiles, and request replay, plus the build-tag model that keeps all of it out of production binaries.
+keywords:
+  - "debugging"
+  - "dev dashboard"
+  - "tracing"
+  - "N+1 detection"
+  - "EXPLAIN"
+  - "pprof"
+asIndexPage: true
+---
+
+# Debugging
+
+`gofasta dev` serves a local debugging dashboard alongside your application. It records what each request actually did — the trace waterfall, the SQL it issued, the logs it emitted, the errors it returned — so you can answer "why was this slow?" without adding print statements and restarting.
+
+Everything on this surface is compiled behind a build tag, so production binaries carry none of it.
+
+## Pages in this section
+
+- **[Overview](/docs/guides/debugging/overview)** — What the dashboard captures, the endpoints behind it, and the zero-cost build-tag model.
+- **[Guided Tour](/docs/guides/debugging/guided-tour)** — A realistic session end to end: slow endpoint → trace drill-down → stack → logs → SQL pattern → fix → replay.
+- **[Dashboard Panels](/docs/guides/debugging/dashboard-panels)** — Reference for every panel: what it shows, where the data comes from, and what you can interact with.
+- **[Tracing & Waterfalls](/docs/guides/debugging/tracing)** — What is auto-traced, how to add spans to existing code, wiring SQL as waterfall bars, and instrumenting async tasks and cron jobs.
+- **[How It Works](/docs/guides/debugging/architecture)** — The Wire + middleware + OpenTelemetry wiring that provides the visibility without touching business code, plus the endpoint reference and production-safety model.
+- **[Customization](/docs/guides/debugging/customization)** — Ring buffer sizes and rotation, disabling individual devtools hooks, and where the devtools code lives in your project.
+
+## Driving it from a terminal or an agent
+
+The same data is available without the browser: [`gofasta debug`](/docs/cli-reference/debug) exposes the `/debug/*` endpoints as CLI subcommands — requests, SQL, traces, logs, errors, cache, pprof, EXPLAIN, HAR export — plus composed diagnostics like `last-slow-request` and `last-error`. With `--json`, it is the surface AI coding agents read.
+
+<RelatedPages
+  path="guides/debugging"
+  extra={[
+    {
+      href: "/docs/cli-reference/debug",
+      label: "gofasta debug",
+      description: "The CLI surface for the same /debug/* endpoints, including the composed diagnostics.",
+    },
+    {
+      href: "/docs/api-reference/observability",
+      label: "pkg/observability",
+      description: "Prometheus metrics and OpenTelemetry tracing for production instrumentation.",
+    },
+  ]}
+/>

@@ -1,6 +1,15 @@
 ---
 title: gofasta inspect
 description: Show the full composition of a resource — model fields, DTOs, service methods, controller methods, routes — as structured output.
+keywords:
+  - "CLI"
+  - "inspect"
+  - "AST"
+  - "resource introspection"
+  - "structured output"
+  - "AI coding agent"
+  - "agent-friendly"
+  - "gofasta inspect"
 ---
 
 # gofasta inspect
@@ -124,8 +133,10 @@ An agent asked to "add a SoftArchive endpoint to the Order resource" needs to kn
 
 Answering those from scratch means opening 5 files. `gofasta inspect Order` returns it all at once, in a machine-parseable shape the agent can reason over.
 
-## Related
-
-- [`gofasta routes`](/docs/cli-reference/routes) -- list every route across all resources
-- [`gofasta generate`](/docs/cli-reference/generate/scaffold) -- generate resources inspect can then inspect
-- [Project Structure](/docs/getting-started/project-structure) -- where each artifact lives
+<RelatedPages
+  path="cli-reference/inspect"
+  extra={[
+    { href: "/docs/cli-reference/generate/scaffold", label: "`gofasta generate`" },
+    { href: "/docs/getting-started/project-structure", label: "Project Structure" },
+  ]}
+/>

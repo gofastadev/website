@@ -1,0 +1,90 @@
+---
+draft: true
+title: 'A proper Go dev loop: Air hot reload, Docker services, one command'
+description: >-
+  Air gives Go hot reload, but a real dev loop also needs Docker services,
+  migrations, and port hygiene. Here's how we fold all of it into one command.
+publishedAt: 2026-07-03T10:00:00.000Z
+author: Gofasta Team
+authorUrl: https://gofasta.dev
+tags:
+  - golang
+  - developer-experience
+  - hot-reload
+cover: /blog/covers/go-hot-reload-dev-loop/cover.png
+---
+## Compile speed was never the problem
+
+Go compiles fast. A mid-sized backend rebuilds in a second or two, which is quick enough that "hot reload" can sound like a solution borrowed from ecosystems with slower toolchains. So why does the edit-verify loop in a typical Go project still feel sluggish?
+
+Because the compile is the cheap part. Watch what actually happens after you change a line. Switch to the terminal. `Ctrl+C` the server. Up-arrow, enter. Wait for the process to bind. Switch to the HTTP client. Replay the request. Five seconds if you are sharp, several hundred times a day. The seconds are not even the worst of it. Every restart is a small context switch, and context switches compound in ways a stopwatch will not show you.
+
+Then there is the part nobody times at all, which is the morning setup. Postgres needs to be running. Redis too, if you cache. Migrations need applying because a teammate merged one yesterday. Yesterday's server is still holding port 8080 because a terminal tab died without cleaning up. None of it is hard. All of it is friction, and friction is where workdays leak their first half hour.
+
+A proper dev loop deals with the whole list, not just the restart.
+
+## What Air actually does
+
+[Air](https://github.com/air-verse/air) is the community's standard answer to the restart half of the problem, and it is a good one. It watches your tree, and when a source file changes it rebuilds the binary and restarts the process. Your loop becomes save, glance at the terminal, replay the request. The `Ctrl+C` choreography disappears.
+
+Configuration lives in a `.air.toml`: which command builds the binary, which directories to watch, which to ignore, how long to debounce after a save. For a single Go process with no dependencies it is the whole answer.
+
+But notice the boundary of what it promises. Air restarts your process when your files change. Everything else is explicitly not its job. It does not know your app needs Postgres and Redis, so the first run of the day against cold Docker gives you a wall of connection-refused. It rebuilds when Go files change, which does nothing for the schema when a teammate's migration lands in your pull. If a previous server did not die cleanly, Air will faithfully rebuild and faithfully fail to bind, on every save, until you go hunting with `lsof`.
+
+That is not a criticism. A watcher that tried to own Docker would be worse at watching. It just means Air is one layer, and most teams hand-assemble the rest: a `docker compose up` here, a migration script there, a `Makefile` target named `dev` that mostly works, and a README section explaining the mostly.
+
+## One command instead of a ritual
+
+We got tired of rebuilding that ritual for every project, so [gofasta](/blog/hello-gofasta) folds the loop into the CLI:
+
+```bash
+gofasta dev
+```
+
+One command, one terminal. It brings up the Docker services the project needs, applies pending migrations, then starts the server under Air's supervision. That order is exactly what you would otherwise do by hand, in three terminals, while your coffee got cold. Full options live in the [`gofasta dev` reference](/docs/cli-reference/dev).
+
+From there it stays out of the way. Save a file and the server rebuilds, which is Air doing what Air does best, supervised rather than replaced. The process listens for `r` to force a restart without touching a file and `q` to quit. When it exits it exits cleanly, releasing services and ports instead of orphaning them, so the next run starts from a known state rather than inheriting the last session's wreckage. That teardown discipline sounds like a footnote. It is the difference between a loop you trust and a loop you babysit.
+
+The stack it manages is the one the scaffold already defined: the same `compose.yaml`, the same [migration](/blog/database-migrations-go) tooling you would invoke by hand with `gofasta migrate up`. No separate dev-mode configuration to drift out of sync with production, and nothing stopping you from running the pieces individually. The command is a conductor, not a cage.
+
+## Looking inside the loop
+
+Restart friction was the problem we set out to solve. The one we solved by accident is what happens between restarts, in the "why did that request just do that?" moment.
+
+A gofasta project can run a debug dashboard during development, gated behind a Go build tag. That detail is worth pausing on. The debug machinery is not a feature switched off in production, it is code that does not exist in a production binary at all. The compiler leaves it out. No runtime cost, no attack surface, no incident where someone discovers the debug endpoint was live.
+
+The [`gofasta debug`](/docs/cli-reference/debug) commands answer the questions that normally trigger print-statement archaeology:
+
+```bash
+gofasta debug requests      # recent HTTP requests, latency included
+gofasta debug sql           # the queries GORM actually ran
+gofasta debug last-error    # the most recent error, with context
+gofasta debug n-plus-one    # query patterns that smell like N+1
+gofasta debug traces        # request traces end to end
+```
+
+The N+1 detector has paid for itself several times over in our own projects. That classic ORM failure mode, one query per row, is invisible at dev-database scale and catastrophic at production scale. Here it shows up as a flagged pattern while you are still in the editor rather than as a page three weeks later. The docs have a [guided tour of the debugging setup](/docs/guides/debugging/overview).
+
+Because every command takes `--json`, your tooling reads the same answers. That includes coding agents. An agent that just wrote a handler can run `gofasta debug last-error --json`, read a structured error instead of scraping terminal noise, and fix its own mistake. We wrote more about that in [our piece on agent-friendly CLIs](/blog/agent-friendly-cli-design).
+
+## When hot reload goes wrong
+
+Every hot-reload setup has failure modes, ours included. Knowing them saves you an afternoon.
+
+**The orphaned process.** A watcher killed hard can leave the child server running. The symptom is that your changes stop applying, because you are replaying requests against a zombie from twenty minutes ago while the new binary quietly fails to bind. This is the most common hot-reload trap by a distance, and it is the specific reason `gofasta dev` treats teardown and port cleanup as part of its job.
+
+**The stale binary.** When the build fails, Air keeps the last working binary running. That is correct behavior, and it reads as "my change did nothing" if the compile error scrolled past while you were in the editor. Build the reflex of glancing at the watcher output after every save.
+
+**The debounce mismatch.** Editors that write files several times per save can trigger overlapping rebuilds, and a debounce that is too aggressive eats real changes. If restarts feel flaky rather than broken, tune the debounce before suspecting anything deeper.
+
+**State a restart cannot preserve.** In-memory caches, WebSocket connections and in-flight background jobs die with the old process. If your feature involves long-lived state, sometimes the honest move is to stop the watcher and run one long session.
+
+## Why it matters past one developer
+
+Hand-assembled loops drift per person. One teammate runs Postgres in Docker, another installed it with Homebrew in 2023 and forgot. One applies migrations religiously, another discovers them when a query breaks. Most "works on my machine" conversations in a backend team are one of these drifts wearing a trench coat.
+
+Onboarding is where the cost gets loud. A README getting-started section is a liability the day it is written, because it describes the setup as it was and nobody re-tests prose. Compare that to: clone, [install the CLI](/docs/getting-started/installation), `gofasta dev`. When that fails it fails the same way for everyone, so it gets fixed once in the tool rather than once per person across five subtly different shell histories.
+
+The same standardization is what makes the loop legible to a coding agent. An agent cannot follow a README ritual full of judgment calls, but it can run one command and read structured output. We have come to treat "could an agent run this unassisted?" as a decent proxy for "is this actually simple?"
+
+If you would rather feel the difference than read about it, the [quick start](/docs/getting-started/quick-start) puts you inside a running loop in about five minutes. Bring a change you would normally dread restarting for.

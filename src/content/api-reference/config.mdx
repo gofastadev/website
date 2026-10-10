@@ -1,6 +1,17 @@
 ---
-title: Config
-description: Configuration loading, database setup, and environment variable overrides for Gofasta applications.
+title: pkg/config — Koanf-backed YAML + env-var configuration
+description: Typed configuration loader powered by Koanf — reads config.yaml, applies GOFASTA_-prefixed environment overrides, and exposes a typed AppConfig struct. Includes SetupDB for the five supported drivers (postgres, mysql, sqlite, sqlserver, clickhouse).
+keywords:
+  - "config API"
+  - "configuration"
+  - "Koanf"
+  - "YAML config"
+  - "environment variables"
+  - "env overrides"
+  - "AppConfig"
+  - "database setup"
+  - "GOFASTA_ env"
+  - "twelve-factor"
 ---
 
 # Config
@@ -169,12 +180,4 @@ var ConfigSet = wire.NewSet(
 )
 ```
 
-## Related Pages
-
-- [Logger](/docs/api-reference/logger) -- Configure logging output
-- [Models](/docs/api-reference/models) -- Base model that works with SetupDB
-- [Seeds](/docs/api-reference/seeds) -- Seed data after database setup
-- [Cache](/docs/api-reference/cache) -- Reads the `cache` config block
-- [Sessions](/docs/api-reference/sessions) -- Reads the `sessions` config block
-- [Queue](/docs/api-reference/queue) -- Reads the `queue` config block
-- [Storage](/docs/api-reference/storage) -- Reads the `storage` config block
+<RelatedPages path="api-reference/config" />

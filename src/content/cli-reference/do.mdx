@@ -1,6 +1,18 @@
 ---
 title: gofasta do
 description: Run a named development workflow — a pre-defined chain of gofasta commands that together accomplish one higher-level task.
+keywords:
+  - "CLI"
+  - "workflow"
+  - "named workflow"
+  - "command chain"
+  - "agent workflow"
+  - "new-rest-endpoint"
+  - "rebuild"
+  - "fresh-start"
+  - "clean-slate"
+  - "health-check"
+  - "gofasta do"
 ---
 
 # gofasta do
@@ -151,9 +163,9 @@ Three concrete wins:
 2. **Named atomic steps for CI.** Pipelines doing "freshly apply generated artifacts" can call `gofasta do rebuild` as one stable step.
 3. **Discoverability.** `gofasta do list` surfaces every supported workflow, so new users don't have to read docs to find the common sequences.
 
-## Related
-
-- [`gofasta verify`](/docs/cli-reference/verify) -- the full preflight gauntlet
-- [`gofasta status`](/docs/cli-reference/status) -- project drift report
-- [`gofasta g scaffold`](/docs/cli-reference/generate/scaffold) -- the core of `new-rest-endpoint`
-- [`gofasta db`](/docs/cli-reference/db) -- the core of `clean-slate`
+<RelatedPages
+  path="cli-reference/do"
+  extra={[
+    { href: "/docs/cli-reference/generate/scaffold", label: "`gofasta g scaffold`" },
+  ]}
+/>

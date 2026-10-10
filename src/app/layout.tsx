@@ -1,16 +1,25 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { Poppins, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { Head } from "nextra/components";
-import { Analytics, PageviewTracker } from "@/components/atoms";
-import { CookieBanner } from "@/components/organisms";
+import { SiteChrome } from "@/components/organisms";
 import { ConsentProvider } from "@/contexts/consent-context";
+import { AGENT_DOC_ALTERNATES } from "@/lib/seo";
 import "./globals.css";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+const satoshi = localFont({
+  src: [
+    { path: "../fonts/Satoshi-Variable.woff2", weight: "300 900", style: "normal" },
+    { path: "../fonts/Satoshi-VariableItalic.woff2", weight: "300 900", style: "italic" },
+  ],
+  variable: "--font-satoshi",
+  display: "swap",
+});
+
+const cabinetGrotesk = localFont({
+  src: [{ path: "../fonts/CabinetGrotesk-Variable.woff2", weight: "100 900", style: "normal" }],
+  variable: "--font-cabinet",
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -68,6 +77,14 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+    // Top-level (generic <meta name="robots">) so EVERY engine gets the
+    // preview directives — previously these lived only under googleBot,
+    // which left Bing and others without max-image-preview:large.
+    // "large" is the documented gate for big image cards in Google
+    // Discover and rich image previews in Search.
+    "max-video-preview": -1,
+    "max-image-preview": "large",
+    "max-snippet": -1,
     googleBot: {
       index: true,
       follow: true,
@@ -76,8 +93,32 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  // Real favicon files (generated from logo.png by
+  // scripts/generate-seo-assets.mjs). Google renders a site's favicon
+  // beside every search result (48×48 minimum) — the previous
+  // Nextra-glyph-only setup gave SERPs nothing to show.
+  icons: {
+    icon: [
+      { url: "/icon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/logo.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   alternates: {
     canonical: siteUrl,
+    // Feed discovery: feed-aware browsers and aggregators (Reeder,
+    // NetNewsWire, Inoreader) advertise these so a reader can "follow"
+    // the blog without us shipping a sidebar widget. RSS is the broad
+    // compat target; JSON Feed is the modern alternative.
+    // "text/plain" advertises the llmstxt.org files. An agent that
+    // fetches the homepage HTML finds them in the <head> without
+    // having to guess the well-known path, and a crawler gets a
+    // machine-readable pointer alongside the visible footer links.
+    types: {
+      "application/rss+xml": "/blog/rss.xml",
+      "application/feed+json": "/blog/feed.json",
+      "text/plain": AGENT_DOC_ALTERNATES,
+    },
   },
   other: {
     "theme-color": "#00ADD8",
@@ -94,7 +135,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`dark ${poppins.variable} ${geistMono.variable}`}
+      className={`dark ${satoshi.variable} ${cabinetGrotesk.variable} ${geistMono.variable}`}
     >
       <Head faviconGlyph="G" />
       <body>
@@ -105,24 +146,12 @@ export default function RootLayout({
             React Context boundary, no extra JS in the page bodies. */}
         <ConsentProvider>
           {children}
-          {/* GA4 (with Google Consent Mode v2 default-denied) +
-              Microsoft Clarity (gated until consent). Both are opt-in
-              via NEXT_PUBLIC_* env vars; when unset (dev / preview)
-              nothing renders. */}
-          <Analytics />
-          {/* SPA pageview firing — GA4's auto page_view only covers
-              the initial document load; this fires gtag('event',
-              'page_view') on every client-side route change so doc
-              navigations show up in reports. Wrapped in <Suspense>
-              because useSearchParams() inside it would otherwise
-              de-opt the entire app to dynamic rendering; this
-              contains the dynamic boundary. */}
-          <Suspense fallback={null}>
-            <PageviewTracker />
-          </Suspense>
-          {/* GDPR/CPRA banner. Renders only on first visit (and after
-              `Manage cookies` resets the record). */}
-          <CookieBanner />
+          {/* Public-site chrome (Analytics, PageviewTracker, CookieBanner).
+              SiteChrome reads usePathname() and renders nothing under
+              /keystatic/* so the admin SPA isn't polluted by GA pageviews
+              on its internal route changes, by tracking-script global click
+              handlers, or by the banner overlay. */}
+          <SiteChrome />
         </ConsentProvider>
       </body>
     </html>

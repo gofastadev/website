@@ -1,6 +1,17 @@
 ---
 title: gofasta g service
-description: Generate a service interface and implementation containing business logic, along with all prerequisite layers.
+description: Generate a service interface and implementation containing business logic, plus every prerequisite layer (model, migration, repository, DTOs, Wire provider). Stops short of the controller / routes — use for background-only services or service-only scaffolds.
+keywords:
+  - "generate service"
+  - "business logic layer"
+  - "service layer"
+  - "service interface"
+  - "service implementation"
+  - "service pattern"
+  - "domain logic"
+  - "service skeleton"
+  - "service contract"
+  - "gofasta generate"
 ---
 
 # gofasta g service
@@ -140,9 +151,4 @@ Controller --> Service --> Repository --> Database
 - Services convert between DTOs and models internally
 - Business rules, validations, and data transformations belong in the service layer
 
-## Related
-
-- [gofasta g repository](/docs/cli-reference/generate/repository) -- generate the repository this service calls
-- [gofasta g controller](/docs/cli-reference/generate/controller) -- generate the controller that calls this service
-- [gofasta g dto](/docs/cli-reference/generate/dto) -- generate the DTOs this service uses
-- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers at once
+<RelatedPages path="cli-reference/generate/service" />

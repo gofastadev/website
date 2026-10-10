@@ -1,0 +1,492 @@
+import { describe, it, expect } from "vitest";
+import {
+  buildBreadcrumbJsonLd,
+  buildTechArticleJsonLd,
+  buildBlogPostingJsonLd,
+  buildBlogIndexJsonLd,
+  humanize,
+  buildTagPageJsonLd,
+  serializeJsonLd,
+} from "./structured-data";
+
+describe("buildBreadcrumbJsonLd", () => {
+  it("emits a Home → root breadcrumb for an empty segments array", () => {
+    const out = buildBreadcrumbJsonLd({
+      rootPath: "/docs",
+      rootName: "Docs",
+      segments: [],
+    });
+    expect(out["@type"]).toBe("BreadcrumbList");
+    expect(out["@id"]).toBe("https://gofasta.dev/docs#breadcrumb");
+    expect(out.itemListElement).toHaveLength(2);
+    expect(out.itemListElement[0]).toMatchObject({
+      position: 1,
+      name: "Home",
+      item: "https://gofasta.dev",
+    });
+    expect(out.itemListElement[1]).toMatchObject({
+      position: 2,
+      name: "Docs",
+      item: "https://gofasta.dev/docs",
+    });
+  });
+
+  it("title-cases segment names + builds the nested URLs correctly", () => {
+    const out = buildBreadcrumbJsonLd({
+      rootPath: "/docs",
+      rootName: "Docs",
+      segments: ["cli-reference", "dev"],
+    });
+    expect(out.itemListElement).toHaveLength(4);
+    expect(out.itemListElement[2]).toMatchObject({
+      position: 3,
+      name: "Cli Reference",
+      item: "https://gofasta.dev/docs/cli-reference",
+    });
+    expect(out.itemListElement[3]).toMatchObject({
+      position: 4,
+      name: "Dev",
+      item: "https://gofasta.dev/docs/cli-reference/dev",
+    });
+    expect(out["@id"]).toBe(
+      "https://gofasta.dev/docs/cli-reference/dev#breadcrumb",
+    );
+  });
+
+  it("works for the /blog root with a different rootName", () => {
+    const out = buildBreadcrumbJsonLd({
+      rootPath: "/blog",
+      rootName: "Blog",
+      segments: ["my-post"],
+    });
+    expect(out.itemListElement).toHaveLength(3);
+    expect(out.itemListElement[1].name).toBe("Blog");
+    expect(out.itemListElement[2].item).toBe("https://gofasta.dev/blog/my-post");
+  });
+});
+
+describe("buildTechArticleJsonLd", () => {
+  it("builds a /docs root payload with passed-in keywords", () => {
+    const out = buildTechArticleJsonLd({
+      segments: [],
+      title: "Documentation",
+      description: "Gofasta documentation.",
+      keywords: ["docs", "kw1"],
+    });
+    expect(out["@graph"]).toHaveLength(2);
+    const article = out["@graph"][1] as Record<string, unknown>;
+    expect(article["@type"]).toBe("TechArticle");
+    expect(article.headline).toBe("Documentation");
+    expect(article.url).toBe("https://gofasta.dev/docs");
+    expect(article.articleSection).toBe("Docs");
+    expect(article.image).toContain(
+      "https://gofasta.dev/api/og?title=Documentation&section=Docs",
+    );
+    expect(article.keywords).toBe("docs, kw1");
+  });
+
+  it("builds a nested /docs/cli-reference/dev payload with the right section", () => {
+    const out = buildTechArticleJsonLd({
+      segments: ["cli-reference", "dev"],
+      title: "gofasta dev",
+      description: "Bring the full local environment up.",
+      keywords: ["cli", "dev"],
+    });
+    const article = out["@graph"][1] as Record<string, unknown>;
+    expect(article.url).toBe("https://gofasta.dev/docs/cli-reference/dev");
+    expect(article.articleSection).toBe("Cli Reference");
+    expect(article.keywords).toBe("cli, dev");
+    // OG image URL must encode the title properly (space → %20).
+    expect(article.image).toBe(
+      "https://gofasta.dev/api/og?title=gofasta%20dev&section=Cli%20Reference",
+    );
+  });
+
+  it("omits the keywords field when keywords is omitted from the input", () => {
+    const out = buildTechArticleJsonLd({
+      segments: ["unknown-doc"],
+      title: "Unknown",
+      description: "Has no keywords passed.",
+    });
+    const article = out["@graph"][1] as Record<string, unknown>;
+    expect(article.keywords).toBeUndefined();
+  });
+
+  it("omits the keywords field when keywords is an empty array", () => {
+    const out = buildTechArticleJsonLd({
+      segments: ["empty"],
+      title: "Empty",
+      description: "Empty keyword list.",
+      keywords: [],
+    });
+    const article = out["@graph"][1] as Record<string, unknown>;
+    expect(article.keywords).toBeUndefined();
+  });
+});
+
+describe("buildBlogPostingJsonLd", () => {
+  it("builds a full payload with author URL + updatedAt + keywords", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "wire-explained",
+      title: "Wire Explained",
+      description: "Why we generate DI at compile time.",
+      authorName: "Jane Doe",
+      authorUrl: "https://gofasta.dev/about/jane",
+      publishedAt: "2026-05-12T09:00:00.000Z",
+      updatedAt: "2026-05-13T10:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=Wire&section=Blog",
+      keywords: ["wire", "di", "go"],
+    });
+    expect(out["@graph"]).toHaveLength(2);
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post["@type"]).toBe("BlogPosting");
+    expect(post.headline).toBe("Wire Explained");
+    expect(post.url).toBe("https://gofasta.dev/blog/wire-explained");
+    expect(post.datePublished).toBe("2026-05-12T09:00:00.000Z");
+    expect(post.dateModified).toBe("2026-05-13T10:00:00.000Z");
+    expect(post.author).toMatchObject({
+      "@type": "Person",
+      name: "Jane Doe",
+      url: "https://gofasta.dev/about/jane",
+    });
+    // No measured variants supplied → the cover URL alone, with no
+    // invented dimensions.
+    expect(post.image).toBe(
+      "https://gofasta.dev/api/og?title=Wire&section=Blog",
+    );
+    expect(post.isPartOf).toMatchObject({
+      "@type": "Blog",
+      "@id": "https://gofasta.dev/blog",
+    });
+    expect(post.keywords).toBe("wire, di, go");
+    expect((post.mainEntityOfPage as Record<string, string>)["@id"]).toBe(
+      "https://gofasta.dev/blog/wire-explained",
+    );
+  });
+
+  it("emits measured image variants as typed ImageObjects, dimensionless when unmeasured", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "with-variants",
+      title: "With Variants",
+      description: "—",
+      authorName: "Jane Doe",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/blog/covers/x/cover.png",
+      images: [
+        { url: "https://gofasta.dev/blog/covers/x/cover.png", width: 1200, height: 630 },
+        { url: "https://gofasta.dev/blog/covers/x/cover-4x3.jpg", width: 840, height: 630 },
+        { url: "https://cdn.example.com/remote.png" },
+      ],
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.image).toEqual([
+      {
+        "@type": "ImageObject",
+        url: "https://gofasta.dev/blog/covers/x/cover.png",
+        width: 1200,
+        height: 630,
+      },
+      {
+        "@type": "ImageObject",
+        url: "https://gofasta.dev/blog/covers/x/cover-4x3.jpg",
+        width: 840,
+        height: 630,
+      },
+      // Unmeasured variant: URL only — dimensions are never invented.
+      { "@type": "ImageObject", url: "https://cdn.example.com/remote.png" },
+    ]);
+  });
+
+  it("types the author as an Organization when authorType says so", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "team-post",
+      title: "Team Post",
+      description: "—",
+      authorName: "Gofasta Team",
+      authorType: "Organization",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=T&section=Blog",
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.author).toMatchObject({
+      "@type": "Organization",
+      name: "Gofasta Team",
+    });
+    // The publisher entity is the shared @id-linked Organization.
+    expect(post.publisher).toMatchObject({
+      "@id": "https://gofasta.dev/#organization",
+    });
+  });
+
+  it("omits author.url when not provided + falls back updatedAt to publishedAt + omits keywords when absent", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "no-keywords-post",
+      title: "Untitled",
+      description: "—",
+      authorName: "Gofasta Team",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=Untitled&section=Blog",
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.dateModified).toBe(post.datePublished);
+    expect(post.author).toEqual({
+      "@type": "Person",
+      name: "Gofasta Team",
+    });
+    expect((post.author as Record<string, unknown>).url).toBeUndefined();
+    // Empty/missing keywords → field omitted entirely.
+    expect(post.keywords).toBeUndefined();
+  });
+
+  it("omits the keywords field when keywords is an empty array", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "empty-keywords",
+      title: "Empty",
+      description: "Empty list.",
+      authorName: "Gofasta Team",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=Empty&section=Blog",
+      keywords: [],
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.keywords).toBeUndefined();
+  });
+
+  it("includes a typed WebPage mainEntityOfPage", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "x",
+      title: "x",
+      description: "x",
+      authorName: "x",
+      publishedAt: "2026-01-01",
+      coverImageUrl: "https://gofasta.dev/api/og?title=x&section=Blog",
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.mainEntityOfPage).toMatchObject({
+      "@type": "WebPage",
+      "@id": "https://gofasta.dev/blog/x",
+    });
+  });
+
+  it("includes wordCount / timeRequired / articleSection when provided", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "rich",
+      title: "Rich",
+      description: "All optionals set.",
+      authorName: "Gofasta Team",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=Rich&section=Blog",
+      wordCount: 1200,
+      timeRequired: "PT6M",
+      articleSection: "Golang",
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.wordCount).toBe(1200);
+    expect(post.timeRequired).toBe("PT6M");
+    expect(post.articleSection).toBe("Golang");
+  });
+
+  it("omits wordCount / timeRequired / articleSection when undefined", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "lean",
+      title: "Lean",
+      description: "Defaults only.",
+      authorName: "Gofasta Team",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=Lean&section=Blog",
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.wordCount).toBeUndefined();
+    expect(post.timeRequired).toBeUndefined();
+    expect(post.articleSection).toBeUndefined();
+    // No series → isPartOf stays the single Blog node and position is
+    // absent (the pre-series shape, pinned so series posts can't
+    // change it for everyone).
+    expect(post.isPartOf).toMatchObject({
+      "@type": "Blog",
+      "@id": "https://gofasta.dev/blog",
+    });
+    expect(post.position).toBeUndefined();
+  });
+
+  it("adds a CreativeWorkSeries to isPartOf and a position for series posts", () => {
+    const out = buildBlogPostingJsonLd({
+      slug: "deploy-2",
+      title: "First deploy",
+      description: "Part two of the deploy series.",
+      authorName: "Gofasta Team",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverImageUrl: "https://gofasta.dev/api/og?title=x&section=Blog",
+      seriesName: "Deploy Anywhere",
+      seriesPosition: 2,
+    });
+    const post = out["@graph"][1] as Record<string, unknown>;
+    expect(post.isPartOf).toEqual([
+      { "@type": "Blog", "@id": "https://gofasta.dev/blog" },
+      { "@type": "CreativeWorkSeries", name: "Deploy Anywhere" },
+    ]);
+    expect(post.position).toBe(2);
+  });
+});
+
+describe("buildBlogIndexJsonLd", () => {
+  it("emits a Blog node with breadcrumb and summary BlogPosting items", () => {
+    const out = buildBlogIndexJsonLd({
+      posts: [
+        {
+          slug: "a",
+          title: "A",
+          description: "First.",
+          publishedAt: "2026-05-01T00:00:00.000Z",
+          updatedAt: "2026-05-02T00:00:00.000Z",
+        },
+        {
+          slug: "b",
+          title: "B",
+          description: "Second.",
+          publishedAt: "2026-04-01T00:00:00.000Z",
+        },
+      ],
+    });
+    expect(out["@graph"]).toHaveLength(2);
+
+    const breadcrumb = out["@graph"][0] as Record<string, unknown>;
+    expect(breadcrumb["@type"]).toBe("BreadcrumbList");
+    expect((breadcrumb.itemListElement as unknown[])).toHaveLength(2);
+
+    const blog = out["@graph"][1] as Record<string, unknown>;
+    expect(blog["@type"]).toBe("Blog");
+    expect(blog["@id"]).toBe("https://gofasta.dev/blog");
+    expect(blog.url).toBe("https://gofasta.dev/blog");
+    expect(blog.inLanguage).toBe("en");
+    expect(blog.publisher).toMatchObject({
+      "@type": "Organization",
+      name: "Gofasta",
+      url: "https://gofasta.dev",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://gofasta.dev/logo.png",
+        width: 512,
+        height: 512,
+      },
+      sameAs: ["https://github.com/gofastadev"],
+    });
+
+    const items = blog.blogPost as Array<Record<string, unknown>>;
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      "@type": "BlogPosting",
+      headline: "A",
+      description: "First.",
+      url: "https://gofasta.dev/blog/a",
+      datePublished: "2026-05-01T00:00:00.000Z",
+      dateModified: "2026-05-02T00:00:00.000Z",
+    });
+    // updatedAt falls back to publishedAt when missing.
+    expect(items[1]).toMatchObject({
+      "@type": "BlogPosting",
+      headline: "B",
+      url: "https://gofasta.dev/blog/b",
+      datePublished: "2026-04-01T00:00:00.000Z",
+      dateModified: "2026-04-01T00:00:00.000Z",
+    });
+  });
+
+  it("works with an empty post list", () => {
+    const out = buildBlogIndexJsonLd({ posts: [] });
+    const blog = out["@graph"][1] as Record<string, unknown>;
+    expect(blog.blogPost).toEqual([]);
+  });
+});
+
+describe("humanize export", () => {
+  it("title-cases a kebab-case slug", () => {
+    expect(humanize("cli-reference")).toBe("Cli Reference");
+    expect(humanize("go")).toBe("Go");
+    expect(humanize("multi-word-tag")).toBe("Multi Word Tag");
+  });
+});
+
+describe("buildTagPageJsonLd", () => {
+  it("emits a CollectionPage with a proper ItemList mainEntity", () => {
+    const out = buildTagPageJsonLd({
+      tag: "golang",
+      posts: [
+        { slug: "first", title: "First Post" },
+        { slug: "second", title: "Second Post" },
+      ],
+    });
+    expect(out["@graph"]).toHaveLength(2);
+    const page = out["@graph"][1] as Record<string, unknown>;
+    expect(page["@type"]).toBe("CollectionPage");
+    expect(page.url).toBe("https://gofasta.dev/blog/tags/golang");
+    expect(page.isPartOf).toMatchObject({ "@id": "https://gofasta.dev/blog" });
+    expect(page.publisher).toMatchObject({
+      "@id": "https://gofasta.dev/#organization",
+    });
+    // numberOfItems lives on the ItemList, not the CollectionPage — the
+    // previous inline schema had it on the wrong node.
+    expect(page.numberOfItems).toBeUndefined();
+    expect(page.mainEntity).toMatchObject({
+      "@type": "ItemList",
+      numberOfItems: 2,
+    });
+    const items = (page.mainEntity as { itemListElement: unknown[] })
+      .itemListElement;
+    expect(items[0]).toMatchObject({
+      position: 1,
+      name: "First Post",
+      url: "https://gofasta.dev/blog/first",
+    });
+  });
+});
+
+describe("blog index summary images", () => {
+  it("includes the image on summaries that have one and omits it otherwise", () => {
+    const out = buildBlogIndexJsonLd({
+      posts: [
+        {
+          slug: "with-image",
+          title: "A",
+          description: "—",
+          publishedAt: "2026-01-01T00:00:00.000Z",
+          image: "https://gofasta.dev/blog/covers/a/cover.png",
+        },
+        {
+          slug: "without-image",
+          title: "B",
+          description: "—",
+          publishedAt: "2026-01-02T00:00:00.000Z",
+        },
+      ],
+    });
+    const blog = out["@graph"][1] as {
+      blogPost: Array<Record<string, unknown>>;
+    };
+    expect(blog.blogPost[0].image).toBe(
+      "https://gofasta.dev/blog/covers/a/cover.png",
+    );
+    expect(blog.blogPost[1]).not.toHaveProperty("image");
+  });
+});
+
+describe("serializeJsonLd", () => {
+  it("escapes < so an authored string cannot close the script tag", () => {
+    const out = serializeJsonLd({
+      headline: "</script><img src=x onerror=alert(1)>",
+    });
+    expect(out).not.toContain("</script>");
+    expect(out).not.toContain("<");
+    expect(out).toContain("\\u003c");
+  });
+
+  it("round-trips the escaped payload without altering its values", () => {
+    const payload = { headline: "a < b", author: { name: "</script>" } };
+    expect(JSON.parse(serializeJsonLd(payload))).toEqual(payload);
+  });
+
+  it("leaves a payload with no angle brackets byte-identical to JSON.stringify", () => {
+    const payload = { "@type": "BlogPosting", headline: "Wire, explained" };
+    expect(serializeJsonLd(payload)).toBe(JSON.stringify(payload));
+  });
+});

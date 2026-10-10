@@ -1,6 +1,17 @@
 ---
-title: Logger
-description: Structured logging with configurable levels, context-aware fields, and multiple output formats.
+title: pkg/logger — Structured logging via Go slog
+description: Structured logging built on Go 1.21+ log/slog — JSON or text output, configurable level, context-aware fields, trace-ID propagation, and a slog.Handler that integrates cleanly with the gofasta dev /debug/logs ring.
+keywords:
+  - "logger API"
+  - "structured logging"
+  - "slog"
+  - "log/slog"
+  - "JSON logging"
+  - "log levels"
+  - "trace correlation"
+  - "contextual logging"
+  - "observability"
+  - "log aggregation"
 ---
 
 # Logger
@@ -153,8 +164,4 @@ var LoggerSet = wire.NewSet(
 )
 ```
 
-## Related Pages
-
-- [Config](/docs/api-reference/config) -- Logger configuration loading
-- [Middleware](/docs/api-reference/middleware) -- Logging middleware for HTTP requests
-- [Observability](/docs/api-reference/observability) -- Metrics and tracing complement logging
+<RelatedPages path="api-reference/logger" />

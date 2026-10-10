@@ -1,0 +1,99 @@
+---
+title: Package Library
+description: API documentation for the independent pkg/* packages in the Gofasta library — config, logging, errors, models, HTTP utilities, middleware, auth, cache, storage, mail, messaging, WebSocket, scheduling, queues, validation, i18n, observability, sessions, and test utilities.
+keywords:
+  - "package library"
+  - "API reference"
+  - "pkg"
+  - "Go packages"
+  - "GORM"
+  - "gqlgen"
+asIndexPage: true
+---
+
+# Package Library
+
+The Gofasta library is a set of independent packages under `pkg/`. A scaffolded project imports a curated subset as its defaults — the same way any Go backend imports a curated set of community libraries. Each import is a default, not a requirement: delete one and replace it with a different library or a local implementation, and nothing else in the project has to change.
+
+The pages below document each package's public API, configuration, and the way the scaffold wires it.
+
+## Core infrastructure
+
+| Package | What it provides |
+|---|---|
+| [`pkg/config`](/docs/api-reference/config) | Koanf-backed loader: `config.yaml` plus `GOFASTA_`-prefixed env overrides into a typed `AppConfig`, with `SetupDB` for all five drivers. |
+| [`pkg/logger`](/docs/api-reference/logger) | Structured logging on `log/slog` — JSON or text, configurable level, context fields, trace-ID propagation. |
+| [`pkg/errors`](/docs/api-reference/errors) | Typed domain errors that map to HTTP status codes, with stable error codes and a GraphQL error presenter. |
+| [`pkg/models`](/docs/api-reference/models) | `BaseModelImpl`: UUID primary keys, managed timestamps, soft delete, optimistic locking via `RecordVersion`. |
+| [`pkg/types`](/docs/api-reference/types) | Shared DTOs for pagination, sorting, error payloads, and common response envelopes. |
+| [`pkg/utils`](/docs/api-reference/utils) | Pagination math, string case conversion, GORM sort/filter query builders. |
+
+## HTTP and API surface
+
+| Package | What it provides |
+|---|---|
+| [HTTP utilities](/docs/api-reference/http-utilities) | Request binding and validation, JSON response helpers, pagination support for handlers. |
+| [Middleware](/docs/api-reference/middleware) | CORS, rate limiting, request logging, authentication, panic recovery, request IDs. |
+| [`pkg/graphql`](/docs/api-reference/graphql) | Reusable gqlgen schema fragments for pagination, sorting, errors, and the health probe. |
+| [`pkg/health`](/docs/api-reference/health) | `/health`, `/health/live`, and `/health/ready` probes with per-dependency status. |
+
+## Authentication and security
+
+| Package | What it provides |
+|---|---|
+| [`pkg/auth`](/docs/api-reference/auth) | JWT generation, validation, and refresh; claims management; auth middleware; Casbin-backed RBAC. |
+| [`pkg/session`](/docs/api-reference/sessions) | Server-side sessions over gorilla/sessions with cookie and filesystem stores. |
+| [`pkg/encryption`](/docs/api-reference/encryption) | AES-256-GCM authenticated encryption for data at rest. |
+| [Validators](/docs/api-reference/validators) | Struct-tag validation on go-playground/validator with custom rules registered by the scaffold. |
+
+## Data and storage
+
+| Package | What it provides |
+|---|---|
+| [`pkg/cache`](/docs/api-reference/cache) | One caching interface over an in-memory store or Redis, with per-key TTL. |
+| [`pkg/storage`](/docs/api-reference/storage) | File storage across local filesystem and S3-compatible backends, including presigned URLs. |
+| [`pkg/seeds`](/docs/api-reference/seeds) | Ordered seeder registry — `Register(name, fn)` and `RunAll()`. |
+
+## Communication
+
+| Package | What it provides |
+|---|---|
+| [`pkg/mailer`](/docs/api-reference/mailer) | Outbound email over SMTP, SendGrid, or Brevo, with HTML template rendering and attachments. |
+| [`pkg/slack`](/docs/api-reference/slack) | Slack messages via incoming webhooks or bot tokens — files, thread replies, block kit. |
+| [`pkg/whatsapp`](/docs/api-reference/whatsapp) | WhatsApp messaging across UltraMsg, Twilio, and the Meta Cloud API. |
+| [Push notifications](/docs/api-reference/push) | Mobile push via Firebase Cloud Messaging behind a pluggable `Sender` interface. |
+| [Notifications](/docs/api-reference/notifications) | Multi-channel dispatch across email, SMS, Slack, and in-app database delivery. |
+| [`pkg/websocket`](/docs/api-reference/websocket) | WebSocket hub with a connection registry, rooms, and broadcasting. |
+
+## Background processing
+
+| Package | What it provides |
+|---|---|
+| [`pkg/scheduler`](/docs/api-reference/scheduler) | Cron scheduling on robfig/cron with 6-field expressions. |
+| [`pkg/queue`](/docs/api-reference/queue) | Async tasks on asynq and Redis — concurrency, retries with backoff, scheduled delivery, priorities. |
+| [Resilience](/docs/api-reference/resilience) | Circuit breaking and retry-with-backoff via failsafe-go. |
+
+## Operations and instrumentation
+
+| Package | What it provides |
+|---|---|
+| [Observability](/docs/api-reference/observability) | Prometheus metrics and OpenTelemetry tracing as HTTP middleware. |
+| [Feature flags](/docs/api-reference/feature-flags) | Flag evaluation through the OpenFeature Go SDK with swappable providers. |
+| [`pkg/i18n`](/docs/api-reference/i18n) | go-i18n translations from per-locale YAML, with `Accept-Language` resolution and pluralization. |
+| [Test utilities](/docs/api-reference/test-utilities) | testcontainers-backed PostgreSQL test databases with migrations applied. |
+
+<RelatedPages
+  path="api-reference"
+  extra={[
+    {
+      href: "/docs/getting-started/project-structure",
+      label: "Project Structure",
+      description: "Where a scaffolded project imports these packages and how the layers fit together.",
+    },
+    {
+      href: "/docs/white-paper",
+      label: "White Paper",
+      description: "The reasoning behind independent packages and opt-out defaults.",
+    },
+  ]}
+/>

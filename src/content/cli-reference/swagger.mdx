@@ -1,6 +1,17 @@
 ---
 title: gofasta swagger
-description: Generate OpenAPI/Swagger documentation from code annotations.
+description: Generate OpenAPI/Swagger documentation from the `@Summary`, `@Tags`, `@Router`, and `@Param` annotations the scaffold and `g endpoint` emit. Outputs `docs/swagger.json` + `docs/swagger.yaml` for consumption by Swagger UI, ReDoc, or OpenAPI clients.
+keywords:
+  - "CLI"
+  - "swagger"
+  - "OpenAPI"
+  - "API docs"
+  - "swag"
+  - "Swagger UI"
+  - "OpenAPI 3"
+  - "swagger.json"
+  - "API documentation"
+  - "gofasta swagger"
 ---
 
 # gofasta swagger
@@ -102,7 +113,4 @@ Run `gofasta swagger` after:
 - Adding new routes or controllers
 - Updating the general API information in `app/main/main.go`
 
-## Related
-
-- [gofasta serve](/docs/cli-reference/serve) -- start the server to view Swagger UI
-- [gofasta dev](/docs/cli-reference/dev) -- start the dev server to view Swagger UI
+<RelatedPages path="cli-reference/swagger" />

@@ -1,0 +1,155 @@
+---
+title: Deploy with Kamal
+description: Deploy a Gofasta application with Kamal 2 — config/deploy.yml for the generated Dockerfile, registry setup, kamal-proxy health checks on /health/ready, a PostgreSQL accessory, secrets, and migrations.
+keywords:
+  - "Kamal"
+  - "deployment"
+  - "Docker"
+  - "SSH deployment"
+  - "Go deployment"
+---
+
+# Deploy with Kamal
+
+[Kamal](https://kamal-deploy.org) is 37signals' tool for deploying Dockerized apps to any server over SSH, with zero-downtime cutover via kamal-proxy. A gofasta project slots into it **unchanged**: Kamal builds from a `Dockerfile` at the repository root by default — exactly where the scaffold puts its production build.
+
+Kamal and gofasta's built-in [`gofasta deploy`](/docs/guides/deployment) solve the same problem (SSH deploys to your own servers). The differences that matter: Kamal requires a Docker registry and gives you zero-downtime proxy cutover; `gofasta deploy` is registry-free (`docker save | ssh docker load`) with restart-based cutover and automatic rollback. This guide is for teams already standardized on Kamal.
+
+Throughout this guide the project is called `myapp` — its environment variables use the `MYAPP_` prefix. Substitute your project's name.
+
+## 1. Install Kamal
+
+```bash
+gem install kamal
+kamal init
+```
+
+`kamal init` creates `config/deploy.yml`, `.kamal/secrets`, and sample hooks. You need SSH key access to your servers (Kamal installs Docker on them automatically if missing) and a Docker registry — Docker Hub, ghcr.io, or self-hosted.
+
+## 2. config/deploy.yml
+
+A complete single-server configuration for a gofasta project:
+
+```yaml
+# config/deploy.yml
+service: myapp
+image: your-user/myapp
+
+servers:
+  web:
+    - 203.0.113.10
+
+proxy:
+  ssl: true
+  host: api.example.com
+  # The gofasta container listens on 8080 (kamal-proxy defaults to 80).
+  app_port: 8080
+  healthcheck:
+    # Readiness, not liveness: /health/ready verifies database and cache
+    # connectivity, so traffic only shifts to a release that can serve.
+    path: /health/ready
+    interval: 3
+    timeout: 3
+
+registry:
+  # server: ghcr.io          # omit for Docker Hub
+  username: your-user
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  # Build amd64 images even from an ARM Mac (cross-build via buildx).
+  arch: amd64
+
+env:
+  clear:
+    MYAPP_DATABASE_HOST: 172.17.0.1   # or your accessory/managed DB host
+    MYAPP_DATABASE_PORT: "5432"
+    MYAPP_DATABASE_USER: myapp
+    MYAPP_DATABASE_NAME: myapp
+    MYAPP_SESSION_COOKIE_SECURE: "true"
+    MYAPP_LOG_FORMAT: json
+  secret:
+    - MYAPP_DATABASE_PASSWORD
+    - MYAPP_AUTH_JWT_SECRET
+    - MYAPP_SESSION_SECRET
+```
+
+Notes:
+
+- `ssl: true` gets automatic Let's Encrypt certificates (single server with `host:` set — both conditions the config above satisfies).
+- `MYAPP_SERVER_HOST=0.0.0.0` is already baked into the gofasta image; it needs no env entry.
+- Kamal builds from a clean Git clone by default — commit your changes before deploying (or set `builder: context: .`).
+
+## 3. Secrets
+
+`.kamal/secrets` is dotenv-format and supports environment passthrough and command substitution:
+
+```bash
+KAMAL_REGISTRY_PASSWORD=$KAMAL_REGISTRY_PASSWORD
+MYAPP_DATABASE_PASSWORD=$MYAPP_DATABASE_PASSWORD
+MYAPP_AUTH_JWT_SECRET=$MYAPP_AUTH_JWT_SECRET
+MYAPP_SESSION_SECRET=$MYAPP_SESSION_SECRET
+```
+
+For team setups, `kamal secrets fetch`/`extract` integrate with 1Password, Bitwarden, LastPass, AWS Secrets Manager, Doppler, GCP Secret Manager, and Passbolt, so secrets never live in the repo.
+
+## 4. Database as a Kamal accessory
+
+If the database runs on the same server, define it as an accessory:
+
+```yaml
+accessories:
+  db:
+    image: postgres:18-alpine
+    host: 203.0.113.10
+    # Bind to localhost + the Docker bridge only — never the public interface.
+    port: "127.0.0.1:5432:5432"
+    env:
+      clear:
+        POSTGRES_USER: myapp
+        POSTGRES_DB: myapp
+      secret:
+        - POSTGRES_PASSWORD
+    directories:
+      - data:/var/lib/postgresql
+```
+
+Add `POSTGRES_PASSWORD=$MYAPP_DATABASE_PASSWORD` to `.kamal/secrets`. With the port bound as above, the app reaches the database via the Docker bridge gateway (`172.17.0.1` in the default Docker network — matching the `MYAPP_DATABASE_HOST` in step 2). Accessories are managed independently (`kamal accessory boot db`) and have no zero-downtime behavior — they're for stateful services that rarely restart.
+
+## 5. First deploy and day-to-day commands
+
+```bash
+kamal setup        # first deploy: provisions servers, boots accessories + proxy, deploys
+kamal deploy       # every subsequent deploy
+kamal app logs -f  # tail application logs
+kamal rollback     # restart a previous app container (kamal app containers lists them)
+kamal details      # what's running where
+```
+
+`kamal deploy` builds the image, pushes it to the registry, pulls it on the server, boots the new container, waits for the kamal-proxy health check (`/health/ready`) to pass, and only then shifts traffic — the gapless cutover kamal-proxy exists for.
+
+## 6. Migrations
+
+The gofasta image bundles the golang-migrate CLI and the project's migrations, exposed through the app's own subcommand. Run them against the live container after a deploy:
+
+```bash
+kamal app exec "/app migrate up"
+```
+
+To automate it, put that in a `.kamal/hooks/post-deploy` hook (hooks are plain executables; a non-zero exit aborts the Kamal command). The official Kamal docs don't prescribe a migration stage — `post-deploy` keeps migrations out of the container-boot health check window. gofasta migrations are versioned, so re-running `migrate up` is always safe. One structural note: kamal-proxy shifts traffic when `/health/ready` passes, which happens *before* a post-deploy migration runs — write migrations to be backward-compatible with the previous release, the same discipline any zero-downtime pipeline requires.
+
+## References
+
+- Kamal installation — https://kamal-deploy.org/docs/installation/
+- Configuration overview — https://kamal-deploy.org/docs/configuration/overview/
+- Proxy (ssl, app_port, healthcheck) — https://kamal-deploy.org/docs/configuration/proxy/
+- Environment variables and secrets — https://kamal-deploy.org/docs/configuration/environment-variables/
+- Docker registry — https://kamal-deploy.org/docs/configuration/docker-registry/
+- Builders (arch, context) — https://kamal-deploy.org/docs/configuration/builders/
+- Accessories — https://kamal-deploy.org/docs/configuration/accessories/
+- Commands: app — https://kamal-deploy.org/docs/commands/app/
+- Commands: rollback — https://kamal-deploy.org/docs/commands/rollback/
+- Hooks — https://kamal-deploy.org/docs/hooks/overview/
+
+<RelatedPages path="guides/deployment/kamal" />

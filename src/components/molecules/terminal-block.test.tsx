@@ -8,16 +8,21 @@ describe("TerminalBlock", () => {
     expect(screen.getByText("gofasta new myapp")).toBeInTheDocument();
   });
 
-  it("renders the Terminal label", () => {
+  it("renders the default title", () => {
     render(<TerminalBlock>content</TerminalBlock>);
-    expect(screen.getByText("Terminal")).toBeInTheDocument();
+    expect(screen.getByText("~/dev")).toBeInTheDocument();
   });
 
-  it("renders the three window dots", () => {
+  it("renders a custom title when provided", () => {
+    render(<TerminalBlock title="~/projects/myapp">content</TerminalBlock>);
+    expect(screen.getByText("~/projects/myapp")).toBeInTheDocument();
+  });
+
+  it("does not render traffic-light dots", () => {
     const { container } = render(<TerminalBlock>content</TerminalBlock>);
-    expect(container.querySelector(".bg-red-500")).toBeInTheDocument();
-    expect(container.querySelector(".bg-yellow-500")).toBeInTheDocument();
-    expect(container.querySelector(".bg-green-500")).toBeInTheDocument();
+    expect(container.querySelector(".bg-red-500")).not.toBeInTheDocument();
+    expect(container.querySelector(".bg-yellow-500")).not.toBeInTheDocument();
+    expect(container.querySelector(".bg-green-500")).not.toBeInTheDocument();
   });
 
   it("applies custom className", () => {
@@ -25,5 +30,19 @@ describe("TerminalBlock", () => {
       <TerminalBlock className="max-w-2xl">content</TerminalBlock>
     );
     expect(container.firstChild).toHaveClass("max-w-2xl");
+  });
+
+  it("renders a pre>code body by default", () => {
+    const { container } = render(<TerminalBlock>content</TerminalBlock>);
+    expect(container.querySelector("pre > code")).toBeInTheDocument();
+  });
+
+  it("renders no pre/code wrapper when bodyAs is div", () => {
+    const { container } = render(
+      <TerminalBlock bodyAs="div">content</TerminalBlock>
+    );
+    expect(container.querySelector("pre")).not.toBeInTheDocument();
+    expect(container.querySelector("code")).not.toBeInTheDocument();
+    expect(screen.getByText("content")).toBeInTheDocument();
   });
 });

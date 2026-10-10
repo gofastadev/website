@@ -1,0 +1,2027 @@
+{
+  "schemaVersion": 1,
+  "cliVersion": "v0.1.11",
+  "groups": [
+    {
+      "id": "lifecycle",
+      "title": "Project lifecycle"
+    },
+    {
+      "id": "workflow",
+      "title": "Development workflow"
+    },
+    {
+      "id": "database",
+      "title": "Database"
+    },
+    {
+      "id": "generate",
+      "title": "Code generation"
+    },
+    {
+      "id": "deploy",
+      "title": "Deployment"
+    },
+    {
+      "id": "introspection",
+      "title": "Introspection"
+    },
+    {
+      "id": "shell",
+      "title": "Shell integration"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ai",
+      "path": "gofasta ai",
+      "group": "lifecycle",
+      "short": "Install AI coding agent configuration into the current project",
+      "flags": [
+        {
+          "name": "dry-run",
+          "type": "bool",
+          "default": "false",
+          "usage": "Preview what would be written without touching disk",
+          "persistent": false
+        },
+        {
+          "name": "force",
+          "type": "bool",
+          "default": "false",
+          "usage": "Overwrite existing files whose contents differ from the template",
+          "persistent": false
+        },
+        {
+          "name": "switch",
+          "type": "bool",
+          "default": "false",
+          "usage": "Replace the currently-installed agent with this one (uninstalls the previous agent first)",
+          "persistent": false
+        }
+      ],
+      "children": [
+        {
+          "name": "list",
+          "path": "gofasta ai list",
+          "short": "List every AI agent supported by `gofasta ai`"
+        },
+        {
+          "name": "status",
+          "path": "gofasta ai status",
+          "short": "Show which AI agents have configuration installed in this project"
+        },
+        {
+          "name": "uninstall",
+          "path": "gofasta ai uninstall",
+          "short": "Remove an installed AI agent's configuration from this project",
+          "flags": [
+            {
+              "name": "dry-run",
+              "type": "bool",
+              "default": "false",
+              "usage": "Preview what would be removed without touching disk",
+              "persistent": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "completion",
+      "path": "gofasta completion",
+      "group": "shell",
+      "short": "Generate the autocompletion script for the specified shell",
+      "children": [
+        {
+          "name": "bash",
+          "path": "gofasta completion bash",
+          "short": "Generate the autocompletion script for bash",
+          "flags": [
+            {
+              "name": "no-descriptions",
+              "type": "bool",
+              "default": "false",
+              "usage": "disable completion descriptions",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "fish",
+          "path": "gofasta completion fish",
+          "short": "Generate the autocompletion script for fish",
+          "flags": [
+            {
+              "name": "no-descriptions",
+              "type": "bool",
+              "default": "false",
+              "usage": "disable completion descriptions",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "powershell",
+          "path": "gofasta completion powershell",
+          "short": "Generate the autocompletion script for powershell",
+          "flags": [
+            {
+              "name": "no-descriptions",
+              "type": "bool",
+              "default": "false",
+              "usage": "disable completion descriptions",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "zsh",
+          "path": "gofasta completion zsh",
+          "short": "Generate the autocompletion script for zsh",
+          "flags": [
+            {
+              "name": "no-descriptions",
+              "type": "bool",
+              "default": "false",
+              "usage": "disable completion descriptions",
+              "persistent": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "config",
+      "path": "gofasta config",
+      "group": "workflow",
+      "short": "Inspect and validate the project's config.yaml",
+      "children": [
+        {
+          "name": "schema",
+          "path": "gofasta config schema",
+          "short": "Emit the JSON Schema describing config.yaml"
+        }
+      ]
+    },
+    {
+      "name": "console",
+      "path": "gofasta console",
+      "group": "workflow",
+      "short": "Launch an interactive Go REPL (yaegi) in the project directory"
+    },
+    {
+      "name": "db",
+      "path": "gofasta db",
+      "group": "database",
+      "short": "Destructive database utilities (reset, rebuild, re-seed)",
+      "children": [
+        {
+          "name": "reset",
+          "path": "gofasta db reset",
+          "short": "Drop every table, re-apply all migrations, and re-run seeds",
+          "flags": [
+            {
+              "name": "skip-seed",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip running database seeds after migration",
+              "persistent": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "debug",
+      "path": "gofasta debug",
+      "group": "workflow",
+      "short": "Inspect a running gofasta app via its /debug/* endpoints",
+      "flags": [
+        {
+          "name": "app-url",
+          "type": "string",
+          "default": "",
+          "usage": "Override the app URL (default: discovered from config.yaml / PORT env)",
+          "persistent": true
+        }
+      ],
+      "children": [
+        {
+          "name": "cache",
+          "path": "gofasta debug cache",
+          "short": "List recent cache operations with hit/miss status",
+          "flags": [
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "0",
+              "usage": "Maximum entries to return (0 = all)",
+              "persistent": false
+            },
+            {
+              "name": "miss-only",
+              "type": "bool",
+              "default": "false",
+              "usage": "Filter to cache misses (only meaningful for `get` ops)",
+              "persistent": false
+            },
+            {
+              "name": "op",
+              "type": "string",
+              "default": "",
+              "usage": "Filter by op \u2014 get, set, delete, flush, ping",
+              "persistent": false
+            },
+            {
+              "name": "trace",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to ops emitted by this trace ID",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "errors",
+          "path": "gofasta debug errors",
+          "short": "Show recent recovered panics with stacks and originating requests",
+          "flags": [
+            {
+              "name": "contains",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to exceptions whose recovered value contains this substring",
+              "persistent": false
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "0",
+              "usage": "Maximum entries to return (0 = all)",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "explain",
+          "path": "gofasta debug explain",
+          "short": "Run EXPLAIN on a captured SELECT via the app's registered *gorm.DB",
+          "flags": [
+            {
+              "name": "vars",
+              "type": "stringSlice",
+              "default": "[]",
+              "usage": "Parameter values (one --vars per placeholder, or comma-separated)",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "goroutines",
+          "path": "gofasta debug goroutines",
+          "short": "Group live goroutines by top-of-stack function",
+          "flags": [
+            {
+              "name": "filter",
+              "type": "string",
+              "default": "",
+              "usage": "Keep only groups whose top-of-stack contains this substring",
+              "persistent": false
+            },
+            {
+              "name": "min-count",
+              "type": "int",
+              "default": "0",
+              "usage": "Keep only groups with at least this many goroutines",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "har",
+          "path": "gofasta debug har",
+          "short": "Export the request ring as HAR 1.2 JSON",
+          "flags": [
+            {
+              "name": "output",
+              "shorthand": "o",
+              "type": "string",
+              "default": "",
+              "usage": "File to write the HAR to (default: stdout)",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "health",
+          "path": "gofasta debug health",
+          "short": "Probe the running app and report which /debug/* endpoints are reachable"
+        },
+        {
+          "name": "last-error",
+          "path": "gofasta debug last-error",
+          "short": "Show the most recent recovered panic with surrounding context",
+          "flags": [
+            {
+              "name": "with-logs",
+              "type": "bool",
+              "default": "true",
+              "usage": "Include slog records emitted by the failing request",
+              "persistent": false
+            },
+            {
+              "name": "with-trace",
+              "type": "bool",
+              "default": "true",
+              "usage": "Include the exception's trace waterfall",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "last-slow-request",
+          "path": "gofasta debug last-slow-request",
+          "short": "Diagnose the latest request exceeding a duration threshold",
+          "flags": [
+            {
+              "name": "threshold",
+              "type": "string",
+              "default": "200ms",
+              "usage": "Minimum request duration to consider slow (e.g. 100ms, 1s)",
+              "persistent": false
+            },
+            {
+              "name": "with-logs",
+              "type": "bool",
+              "default": "true",
+              "usage": "Include slog records emitted by this request",
+              "persistent": false
+            },
+            {
+              "name": "with-sql",
+              "type": "bool",
+              "default": "true",
+              "usage": "Include SQL statements issued during this request",
+              "persistent": false
+            },
+            {
+              "name": "with-stack",
+              "type": "bool",
+              "default": "false",
+              "usage": "Include per-span call-stack snapshots (verbose)",
+              "persistent": false
+            },
+            {
+              "name": "with-trace",
+              "type": "bool",
+              "default": "true",
+              "usage": "Include the request's trace waterfall",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "logs",
+          "path": "gofasta debug logs",
+          "short": "Show slog records captured for a trace (message, level, attrs)",
+          "flags": [
+            {
+              "name": "contains",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to messages containing this substring (client-side)",
+              "persistent": false
+            },
+            {
+              "name": "level",
+              "type": "string",
+              "default": "",
+              "usage": "Minimum log level \u2014 DEBUG, INFO, WARN, ERROR",
+              "persistent": false
+            },
+            {
+              "name": "trace",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to logs with this trace ID (forwarded to /debug/logs)",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "n-plus-one",
+          "path": "gofasta debug n-plus-one",
+          "short": "Detect N+1 query patterns in recently captured SQL"
+        },
+        {
+          "name": "profile",
+          "path": "gofasta debug profile",
+          "short": "Download a pprof profile from the running app (cpu, heap, goroutine, ...)",
+          "flags": [
+            {
+              "name": "duration",
+              "type": "string",
+              "default": "",
+              "usage": "Capture duration for timed profiles (cpu, trace). Defaults: 30s cpu, 5s trace.",
+              "persistent": false
+            },
+            {
+              "name": "output",
+              "shorthand": "o",
+              "type": "string",
+              "default": "",
+              "usage": "File to write the profile to (default: stdout)",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "replay",
+          "path": "gofasta debug replay",
+          "short": "Replay a captured request by its ID (id from /debug/requests)",
+          "flags": [
+            {
+              "name": "body",
+              "type": "string",
+              "default": "",
+              "usage": "Override the body (inline, or @file, or - for stdin)",
+              "persistent": false
+            },
+            {
+              "name": "header",
+              "type": "stringSlice",
+              "default": "[]",
+              "usage": "Add/override a header (repeatable). Format: Key:Value",
+              "persistent": false
+            },
+            {
+              "name": "method",
+              "type": "string",
+              "default": "",
+              "usage": "Override the HTTP method on the replay",
+              "persistent": false
+            },
+            {
+              "name": "path",
+              "type": "string",
+              "default": "",
+              "usage": "Override the path on the replay",
+              "persistent": false
+            },
+            {
+              "name": "strip-auth",
+              "type": "bool",
+              "default": "false",
+              "usage": "Drop Authorization + Cookie headers before re-firing",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "requests",
+          "path": "gofasta debug requests",
+          "short": "List recent captured requests (method, path, status, duration, trace ID)",
+          "flags": [
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "0",
+              "usage": "Maximum number of entries to return (0 = all)",
+              "persistent": false
+            },
+            {
+              "name": "method",
+              "type": "string",
+              "default": "",
+              "usage": "Filter by HTTP method (case-insensitive)",
+              "persistent": false
+            },
+            {
+              "name": "path",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to paths containing this substring",
+              "persistent": false
+            },
+            {
+              "name": "slower-than",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to requests whose duration exceeds this value (e.g. 100ms, 1s)",
+              "persistent": false
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "default": "",
+              "usage": "Filter by status code or class \u2014 200, 201, 2xx, 4xx, 5xx, 200-299",
+              "persistent": false
+            },
+            {
+              "name": "trace",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to requests with this trace ID",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "sql",
+          "path": "gofasta debug sql",
+          "short": "List captured SQL queries (statement, vars, duration, trace ID)",
+          "flags": [
+            {
+              "name": "contains",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to statements containing this substring (case-sensitive)",
+              "persistent": false
+            },
+            {
+              "name": "errors-only",
+              "type": "bool",
+              "default": "false",
+              "usage": "Filter to queries that returned an error",
+              "persistent": false
+            },
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "0",
+              "usage": "Maximum entries to return (0 = all)",
+              "persistent": false
+            },
+            {
+              "name": "slower-than",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to queries exceeding this duration (e.g. 50ms, 1s)",
+              "persistent": false
+            },
+            {
+              "name": "trace",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to queries emitted by this trace ID",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "stack",
+          "path": "gofasta debug stack",
+          "short": "Resolve captured stack frames to source-context windows",
+          "flags": [
+            {
+              "name": "context",
+              "type": "int",
+              "default": "3",
+              "usage": "Source-context window size (lines before/after the target)",
+              "persistent": false
+            },
+            {
+              "name": "last-error",
+              "type": "bool",
+              "default": "false",
+              "usage": "Resolve the most recent recovered panic's stack",
+              "persistent": false
+            },
+            {
+              "name": "trace",
+              "type": "string",
+              "default": "",
+              "usage": "Trace ID \u2014 resolve every span's captured stack",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "trace",
+          "path": "gofasta debug trace",
+          "short": "Show the full waterfall for a single trace",
+          "flags": [
+            {
+              "name": "with-stacks",
+              "type": "bool",
+              "default": "false",
+              "usage": "Print each span's captured call stack inline",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "traces",
+          "path": "gofasta debug traces",
+          "short": "List completed traces (root span name, duration, span count, status)",
+          "flags": [
+            {
+              "name": "limit",
+              "type": "int",
+              "default": "0",
+              "usage": "Maximum number of entries to return (0 = all)",
+              "persistent": false
+            },
+            {
+              "name": "slower-than",
+              "type": "string",
+              "default": "",
+              "usage": "Filter to traces whose root duration exceeds this value (e.g. 200ms)",
+              "persistent": false
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "default": "",
+              "usage": "Filter by trace status \u2014 ok or error",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "watch",
+          "path": "gofasta debug watch",
+          "short": "Stream NDJSON events as new debug entries land",
+          "flags": [
+            {
+              "name": "cache",
+              "type": "bool",
+              "default": "false",
+              "usage": "Emit events for newly-captured cache ops",
+              "persistent": false
+            },
+            {
+              "name": "errors",
+              "type": "bool",
+              "default": "true",
+              "usage": "Emit events for newly-recovered panics",
+              "persistent": false
+            },
+            {
+              "name": "interval",
+              "type": "string",
+              "default": "1s",
+              "usage": "Poll interval (Go duration syntax \u2014 500ms, 2s, \u2026)",
+              "persistent": false
+            },
+            {
+              "name": "requests",
+              "type": "bool",
+              "default": "true",
+              "usage": "Emit events for newly-captured requests",
+              "persistent": false
+            },
+            {
+              "name": "sql",
+              "type": "bool",
+              "default": "false",
+              "usage": "Emit events for newly-captured SQL statements",
+              "persistent": false
+            },
+            {
+              "name": "trace",
+              "type": "bool",
+              "default": "false",
+              "usage": "Emit events for newly-completed traces",
+              "persistent": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "deploy",
+      "path": "gofasta deploy",
+      "group": "deploy",
+      "short": "Deploy the application to a remote server via SSH",
+      "flags": [
+        {
+          "name": "arch",
+          "type": "string",
+          "default": "",
+          "usage": "Target architecture: amd64 or arm64 (default: amd64)",
+          "persistent": true
+        },
+        {
+          "name": "dry-run",
+          "type": "bool",
+          "default": "false",
+          "usage": "Show commands without executing",
+          "persistent": true
+        },
+        {
+          "name": "host",
+          "type": "string",
+          "default": "",
+          "usage": "Deploy target (user@server)",
+          "persistent": true
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "default": "",
+          "usage": "Deploy method: docker or binary (default: docker)",
+          "persistent": true
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "default": "",
+          "usage": "Remote deploy directory (default: /opt/<appname>)",
+          "persistent": true
+        },
+        {
+          "name": "port",
+          "type": "int",
+          "default": "0",
+          "usage": "SSH port (default: 22)",
+          "persistent": true
+        }
+      ],
+      "children": [
+        {
+          "name": "logs",
+          "path": "gofasta deploy logs",
+          "short": "Tail the application log stream from the remote server"
+        },
+        {
+          "name": "rollback",
+          "path": "gofasta deploy rollback",
+          "short": "Restart the service on the previous release"
+        },
+        {
+          "name": "setup",
+          "path": "gofasta deploy setup",
+          "short": "Prepare a remote server for deployment"
+        },
+        {
+          "name": "status",
+          "path": "gofasta deploy status",
+          "short": "Show the current release and service status on the remote server"
+        }
+      ]
+    },
+    {
+      "name": "dev",
+      "path": "gofasta dev",
+      "group": "workflow",
+      "short": "Run the local dev environment \u2014 host-first by default, optional Docker services via --services",
+      "flags": [
+        {
+          "name": "all-in-docker",
+          "type": "bool",
+          "default": "false",
+          "usage": "DEPRECATED \u2014 use --services all. This flag will be removed in the next release.",
+          "persistent": false
+        },
+        {
+          "name": "attach-logs",
+          "type": "bool",
+          "default": "false",
+          "usage": "stream `docker compose logs -f` alongside Air (service-prefixed)",
+          "persistent": false
+        },
+        {
+          "name": "dashboard",
+          "type": "bool",
+          "default": "false",
+          "usage": "start the local dev dashboard \u2014 an HTML debug page with routes, health, and live service state",
+          "persistent": false
+        },
+        {
+          "name": "dashboard-port",
+          "type": "int",
+          "default": "9090",
+          "usage": "port for the dev dashboard HTTP server",
+          "persistent": false
+        },
+        {
+          "name": "dry-run",
+          "type": "bool",
+          "default": "false",
+          "usage": "print the resolved plan and exit without touching anything",
+          "persistent": false
+        },
+        {
+          "name": "env-file",
+          "type": "string",
+          "default": ".env",
+          "usage": "path to the .env file to load before starting Air",
+          "persistent": false
+        },
+        {
+          "name": "fresh",
+          "type": "bool",
+          "default": "false",
+          "usage": "drop every compose volume before starting \u2014 forces a clean DB state",
+          "persistent": false
+        },
+        {
+          "name": "keep-volumes",
+          "type": "bool",
+          "default": "true",
+          "usage": "preserve named volumes on teardown (default: true)",
+          "persistent": false
+        },
+        {
+          "name": "no-keyboard",
+          "type": "bool",
+          "default": "false",
+          "usage": "disable the interactive keyboard layer (r=restart, q=quit, h=help); use when stdin is piped or for non-interactive sessions",
+          "persistent": false
+        },
+        {
+          "name": "no-migrate",
+          "type": "bool",
+          "default": "false",
+          "usage": "skip running migrate up after services become healthy",
+          "persistent": false
+        },
+        {
+          "name": "no-teardown",
+          "type": "bool",
+          "default": "false",
+          "usage": "leave compose services running on exit (default: stop them)",
+          "persistent": false
+        },
+        {
+          "name": "port",
+          "type": "string",
+          "default": "",
+          "usage": "port the app binds (sets <PREFIX>_SERVER_PORT for the app plus PORT for compose port mappings)",
+          "persistent": false
+        },
+        {
+          "name": "profile",
+          "type": "string",
+          "default": "",
+          "usage": "additional docker compose profile to activate",
+          "persistent": false
+        },
+        {
+          "name": "rebuild",
+          "type": "bool",
+          "default": "false",
+          "usage": "force Air to do a rebuild cycle before first serve",
+          "persistent": false
+        },
+        {
+          "name": "seed",
+          "type": "bool",
+          "default": "false",
+          "usage": "run seeders after migrations (equivalent to running `gofasta seed` post-start)",
+          "persistent": false
+        },
+        {
+          "name": "services",
+          "type": "string",
+          "default": "",
+          "usage": "comma-separated list of compose services to start in Docker (e.g. 'db', 'db,cache,queue'); use 'all' for every service compose.yaml declares (full stack including app). Empty = host-only.",
+          "persistent": false
+        },
+        {
+          "name": "wait-timeout",
+          "type": "duration",
+          "default": "30s",
+          "usage": "how long to wait for compose services to report healthy",
+          "persistent": false
+        }
+      ]
+    },
+    {
+      "name": "do",
+      "path": "gofasta do",
+      "group": "workflow",
+      "short": "Run a named development workflow \u2014 a pre-defined chain of gofasta commands",
+      "flags": [
+        {
+          "name": "dry-run",
+          "type": "bool",
+          "default": "false",
+          "usage": "Print the commands the workflow would run without executing them",
+          "persistent": false
+        }
+      ]
+    },
+    {
+      "name": "doctor",
+      "path": "gofasta doctor",
+      "group": "lifecycle",
+      "short": "Audit system prerequisites, required tools, and project health"
+    },
+    {
+      "name": "facts",
+      "path": "gofasta facts",
+      "group": "introspection",
+      "short": "Emit the CLI's machine-readable facts document (commands, flags, scaffold outputs, defaults)"
+    },
+    {
+      "name": "generate",
+      "path": "gofasta generate",
+      "aliases": [
+        "g"
+      ],
+      "group": "generate",
+      "short": "Scaffold resources, models, DTOs, controllers, jobs, and tasks",
+      "children": [
+        {
+          "name": "controller",
+          "path": "gofasta generate controller",
+          "aliases": [
+            "ctrl"
+          ],
+          "short": "Generate the full REST stack: service layer + controller + routes",
+          "flags": [
+            {
+              "name": "gql",
+              "type": "bool",
+              "default": "false",
+              "usage": "Shorthand for --graphql",
+              "persistent": false
+            },
+            {
+              "name": "graphql",
+              "type": "bool",
+              "default": "false",
+              "usage": "Force GraphQL generation on (default: auto-detected from gqlgen.yml)",
+              "persistent": false
+            },
+            {
+              "name": "no-graphql",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip GraphQL generation even in a GraphQL-enabled project",
+              "persistent": false
+            },
+            {
+              "name": "swagger",
+              "type": "bool",
+              "default": "false",
+              "usage": "Add Swagger/OpenAPI annotations to the generated controller",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "dto",
+          "path": "gofasta generate dto",
+          "short": "Generate a standalone DTO file (create / update / response)"
+        },
+        {
+          "name": "email-template",
+          "path": "gofasta generate email-template",
+          "aliases": [
+            "email"
+          ],
+          "short": "Generate an HTML email template under templates/emails/"
+        },
+        {
+          "name": "endpoint",
+          "path": "gofasta generate endpoint",
+          "short": "Add an endpoint to an existing controller + register the route",
+          "flags": [
+            {
+              "name": "dry-run",
+              "type": "bool",
+              "default": "false",
+              "usage": "Preview the controller + routes + service patches without writing",
+              "persistent": false
+            },
+            {
+              "name": "handler",
+              "type": "string",
+              "default": "",
+              "usage": "Override the auto-derived handler name (e.g. --handler=ArchiveOrder)",
+              "persistent": false
+            },
+            {
+              "name": "no-service",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the service-interface patch (controller + routes only)",
+              "persistent": false
+            },
+            {
+              "name": "no-verify",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the post-generation `go build ./...` check",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "field",
+          "path": "gofasta generate field",
+          "short": "Add a field to an existing model, its DTOs, and emit a migration pair",
+          "flags": [
+            {
+              "name": "dry-run",
+              "type": "bool",
+              "default": "false",
+              "usage": "Preview the patches + migration without writing",
+              "persistent": false
+            },
+            {
+              "name": "no-create",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the create shapes (TCreate<R>Dto, Create<R>Input) when --no-dto is not set",
+              "persistent": false
+            },
+            {
+              "name": "no-dto",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip DTO/inputs/allowlist/SDL patches (only model + migration are updated)",
+              "persistent": false
+            },
+            {
+              "name": "no-response",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the response DTO + FromModel when --no-dto is not set",
+              "persistent": false
+            },
+            {
+              "name": "no-update",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the update shapes (TUpdate<R>Dto/GraphQLInput, Update<R>Patch) when --no-dto is not set",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "job",
+          "path": "gofasta generate job",
+          "short": "Generate a cron job, register it with the scheduler, and write the schedule to config"
+        },
+        {
+          "name": "method",
+          "path": "gofasta generate method",
+          "short": "Add a method to an existing service interface + impl",
+          "flags": [
+            {
+              "name": "dry-run",
+              "type": "bool",
+              "default": "false",
+              "usage": "Preview the patches without writing",
+              "persistent": false
+            },
+            {
+              "name": "no-verify",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the post-generation `go build ./...` check",
+              "persistent": false
+            },
+            {
+              "name": "returns",
+              "type": "string",
+              "default": "",
+              "usage": "Comma-separated return types (default \"error\"), e.g. --returns \"*models.Order, error\"",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "middleware",
+          "path": "gofasta generate middleware",
+          "short": "Wrap an existing route's handler with a chi middleware",
+          "flags": [
+            {
+              "name": "dry-run",
+              "type": "bool",
+              "default": "false",
+              "usage": "Preview the route file patch without writing",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "migration",
+          "path": "gofasta generate migration",
+          "short": "Generate a standalone up/down SQL migration pair"
+        },
+        {
+          "name": "mock",
+          "path": "gofasta generate mock",
+          "short": "Generate (or refresh) a testify/mock for one interface, or --all to refresh every mock",
+          "flags": [
+            {
+              "name": "all",
+              "type": "bool",
+              "default": "false",
+              "usage": "Regenerate every mock under app/services/interfaces and app/repositories/interfaces",
+              "persistent": false
+            },
+            {
+              "name": "check",
+              "type": "bool",
+              "default": "false",
+              "usage": "Don't write \u2014 exit non-zero with MOCK_DRIFT if the on-disk mock differs from the interface",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "model",
+          "path": "gofasta generate model",
+          "short": "Generate a GORM model struct and a matching schema migration"
+        },
+        {
+          "name": "provider",
+          "path": "gofasta generate provider",
+          "short": "Generate a Wire provider and patch it into container.go + wire.go"
+        },
+        {
+          "name": "relation",
+          "path": "gofasta generate relation",
+          "short": "Add a GORM association (belongs_to | has_many | has_one) between two resources",
+          "flags": [
+            {
+              "name": "dry-run",
+              "type": "bool",
+              "default": "false",
+              "usage": "Preview the model patch + migration without writing",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "rename",
+          "path": "gofasta generate rename",
+          "short": "Rename a field across model, DTOs, service, tests, and emit a rename migration",
+          "flags": [
+            {
+              "name": "apply",
+              "type": "bool",
+              "default": "false",
+              "usage": "Actually write the rename (default: preview only \u2014 show every changed file)",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "repo-method",
+          "path": "gofasta generate repo-method",
+          "short": "Add a method to an existing repository interface + impl",
+          "flags": [
+            {
+              "name": "dry-run",
+              "type": "bool",
+              "default": "false",
+              "usage": "Preview the patches without writing",
+              "persistent": false
+            },
+            {
+              "name": "no-verify",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the post-generation `go build ./...` check",
+              "persistent": false
+            },
+            {
+              "name": "returns",
+              "type": "string",
+              "default": "",
+              "usage": "Comma-separated return types (default \"error\"), e.g. --returns \"*models.Order, error\"",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "repository",
+          "path": "gofasta generate repository",
+          "aliases": [
+            "repo"
+          ],
+          "short": "Generate model, migration, and repository interface + implementation"
+        },
+        {
+          "name": "resolver",
+          "path": "gofasta generate resolver",
+          "short": "Patch the GraphQL resolver struct to add a service dependency"
+        },
+        {
+          "name": "route",
+          "path": "gofasta generate route",
+          "short": "Generate a REST route file for an existing controller"
+        },
+        {
+          "name": "scaffold",
+          "path": "gofasta generate scaffold",
+          "aliases": [
+            "s"
+          ],
+          "short": "Generate a full REST resource (model \u2192 controller) with every layer auto-wired",
+          "flags": [
+            {
+              "name": "dry-run",
+              "type": "bool",
+              "default": "false",
+              "usage": "Show the files that would be created and patched without writing to disk",
+              "persistent": false
+            },
+            {
+              "name": "gql",
+              "type": "bool",
+              "default": "false",
+              "usage": "Shorthand for --graphql",
+              "persistent": false
+            },
+            {
+              "name": "graphql",
+              "type": "bool",
+              "default": "false",
+              "usage": "Force GraphQL generation on (default: auto-detected from gqlgen.yml)",
+              "persistent": false
+            },
+            {
+              "name": "no-graphql",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip GraphQL generation even in a GraphQL-enabled project",
+              "persistent": false
+            },
+            {
+              "name": "no-verify",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the post-generation `go build ./...` check",
+              "persistent": false
+            },
+            {
+              "name": "swagger",
+              "type": "bool",
+              "default": "false",
+              "usage": "Add Swagger/OpenAPI annotations to the generated controller",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "service",
+          "path": "gofasta generate service",
+          "aliases": [
+            "svc"
+          ],
+          "short": "Generate the full persistence + service layer (no controller)",
+          "flags": [
+            {
+              "name": "gql",
+              "type": "bool",
+              "default": "false",
+              "usage": "Shorthand for --graphql",
+              "persistent": false
+            },
+            {
+              "name": "graphql",
+              "type": "bool",
+              "default": "false",
+              "usage": "Force GraphQL generation on (default: auto-detected from gqlgen.yml)",
+              "persistent": false
+            },
+            {
+              "name": "no-graphql",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip GraphQL generation even in a GraphQL-enabled project",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "task",
+          "path": "gofasta generate task",
+          "short": "Generate an async task handler for the asynq queue"
+        }
+      ]
+    },
+    {
+      "name": "impact",
+      "path": "gofasta impact",
+      "group": "introspection",
+      "short": "Show every package that depends (directly + transitively) on the target"
+    },
+    {
+      "name": "init",
+      "path": "gofasta init",
+      "group": "lifecycle",
+      "short": "Initialize the project \u2014 install deps, create .env, run migrations, verify setup"
+    },
+    {
+      "name": "inspect",
+      "path": "gofasta inspect",
+      "group": "introspection",
+      "short": "Show the full composition of a resource \u2014 model fields, routes, service methods, files \u2014 as structured output"
+    },
+    {
+      "name": "inspect-jobs",
+      "path": "gofasta inspect-jobs",
+      "group": "introspection",
+      "short": "List registered cron jobs with their schedules (static AST scan of app/jobs/)"
+    },
+    {
+      "name": "inspect-tasks",
+      "path": "gofasta inspect-tasks",
+      "group": "introspection",
+      "short": "List registered async tasks with payload + handler shapes (static AST scan of app/tasks/)"
+    },
+    {
+      "name": "migrate",
+      "path": "gofasta migrate",
+      "group": "database",
+      "short": "Apply or rollback SQL schema migrations against the configured database",
+      "children": [
+        {
+          "name": "down",
+          "path": "gofasta migrate down",
+          "short": "Rollback applied migrations (interactive menu by default; --all / --steps for scripts)",
+          "flags": [
+            {
+              "name": "all",
+              "type": "bool",
+              "default": "false",
+              "usage": "Roll back ALL applied migrations (destructive \u2014 prompts for confirmation unless --yes)",
+              "persistent": false
+            },
+            {
+              "name": "steps",
+              "type": "int",
+              "default": "0",
+              "usage": "Roll back exactly N migrations (skips the menu; default 1 in non-interactive mode)",
+              "persistent": false
+            },
+            {
+              "name": "yes",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the destructive-action confirmation prompt (use with --all in scripts)",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "repair",
+          "path": "gofasta migrate repair",
+          "short": "Fix a dirty schema_migrations row (interactive by default)",
+          "flags": [
+            {
+              "name": "complete",
+              "type": "bool",
+              "default": "false",
+              "usage": "You've manually finished the dirty migration; mark version N as current",
+              "persistent": false
+            },
+            {
+              "name": "force",
+              "type": "int",
+              "default": "-1",
+              "usage": "Mark schema_migrations.version = N directly (skips the dirty-state inspection)",
+              "persistent": false
+            },
+            {
+              "name": "revert",
+              "type": "bool",
+              "default": "false",
+              "usage": "You've manually undone the dirty migration; mark version N-1 as current",
+              "persistent": false
+            },
+            {
+              "name": "yes",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the destructive-action confirmation prompt (use in scripts)",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "up",
+          "path": "gofasta migrate up",
+          "short": "Apply every pending migration in db/migrations/ (idempotent)",
+          "flags": [
+            {
+              "name": "explain",
+              "type": "bool",
+              "default": "false",
+              "usage": "static analysis of every pending .up.sql (no DB connection) \u2014 flags risky DDL",
+              "persistent": false
+            },
+            {
+              "name": "strict",
+              "type": "bool",
+              "default": "false",
+              "usage": "with --explain: exit non-zero when any high-severity warning fires (CI gate)",
+              "persistent": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "new",
+      "path": "gofasta new",
+      "group": "lifecycle",
+      "short": "Scaffold a complete, ready-to-run Go backend project",
+      "flags": [
+        {
+          "name": "driver",
+          "type": "string",
+          "default": "postgres",
+          "usage": "Database driver: postgres|mysql|sqlite|sqlserver|clickhouse",
+          "persistent": false
+        },
+        {
+          "name": "gql",
+          "type": "bool",
+          "default": "false",
+          "usage": "Shorthand for --graphql",
+          "persistent": false
+        },
+        {
+          "name": "graphql",
+          "type": "bool",
+          "default": "false",
+          "usage": "Include GraphQL support (gqlgen) alongside REST",
+          "persistent": false
+        },
+        {
+          "name": "layout",
+          "type": "string",
+          "default": "layered",
+          "usage": "Project layout: layered|feature",
+          "persistent": false
+        }
+      ]
+    },
+    {
+      "name": "refactor",
+      "path": "gofasta refactor",
+      "group": "introspection",
+      "short": "Refactor an existing project (layout migrations, structural moves)",
+      "children": [
+        {
+          "name": "feature",
+          "path": "gofasta refactor feature",
+          "aliases": [
+            "feature-package"
+          ],
+          "short": "Migrate the project from layered to feature-package layout",
+          "flags": [
+            {
+              "name": "all",
+              "type": "bool",
+              "default": "false",
+              "usage": "Migrate every resource detected in app/models/",
+              "persistent": false
+            },
+            {
+              "name": "dry-run",
+              "type": "bool",
+              "default": "false",
+              "usage": "Show the migration plan without writing any files",
+              "persistent": false
+            },
+            {
+              "name": "force",
+              "type": "bool",
+              "default": "false",
+              "usage": "Proceed even when the working tree is dirty",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "layered",
+          "path": "gofasta refactor layered",
+          "short": "Migrate the project from feature-package back to layered layout",
+          "flags": [
+            {
+              "name": "all",
+              "type": "bool",
+              "default": "false",
+              "usage": "Migrate every feature directory detected under app/",
+              "persistent": false
+            },
+            {
+              "name": "dry-run",
+              "type": "bool",
+              "default": "false",
+              "usage": "Show the migration plan without writing any files",
+              "persistent": false
+            },
+            {
+              "name": "force",
+              "type": "bool",
+              "default": "false",
+              "usage": "Proceed even when the working tree is dirty",
+              "persistent": false
+            }
+          ]
+        },
+        {
+          "name": "status",
+          "path": "gofasta refactor status",
+          "short": "Show the current project's layout and available migrations"
+        }
+      ]
+    },
+    {
+      "name": "routes",
+      "path": "gofasta routes",
+      "group": "workflow",
+      "short": "List every registered REST route in a table (method, path, source)"
+    },
+    {
+      "name": "seed",
+      "path": "gofasta seed",
+      "group": "database",
+      "short": "Run every registered seed function against the configured database",
+      "flags": [
+        {
+          "name": "fresh",
+          "type": "bool",
+          "default": "false",
+          "usage": "Drop tables, re-migrate, then seed",
+          "persistent": false
+        }
+      ]
+    },
+    {
+      "name": "serve",
+      "path": "gofasta serve",
+      "group": "workflow",
+      "short": "Run the project's HTTP server (production-mode, no hot reload)"
+    },
+    {
+      "name": "status",
+      "path": "gofasta status",
+      "group": "workflow",
+      "short": "Report the health of the current project \u2014 Wire drift, swagger drift, pending migrations, generated-file state"
+    },
+    {
+      "name": "swagger",
+      "path": "gofasta swagger",
+      "group": "workflow",
+      "short": "Regenerate OpenAPI/Swagger docs from code annotations"
+    },
+    {
+      "name": "test",
+      "path": "gofasta test",
+      "group": "introspection",
+      "short": "Run go tests with sensible defaults (race detector on, all packages)",
+      "flags": [
+        {
+          "name": "coverage",
+          "shorthand": "c",
+          "type": "bool",
+          "default": "false",
+          "usage": "Write coverage profile to coverage.out and print total %",
+          "persistent": false
+        },
+        {
+          "name": "integration",
+          "shorthand": "i",
+          "type": "bool",
+          "default": "false",
+          "usage": "Run only Integration-named tests (-run Integration)",
+          "persistent": false
+        },
+        {
+          "name": "no-race",
+          "type": "bool",
+          "default": "false",
+          "usage": "Skip the race detector (faster, less safe)",
+          "persistent": false
+        },
+        {
+          "name": "run",
+          "shorthand": "r",
+          "type": "string",
+          "default": "",
+          "usage": "Run only tests matching the regex pattern (-run <pattern>)",
+          "persistent": false
+        },
+        {
+          "name": "short",
+          "shorthand": "s",
+          "type": "bool",
+          "default": "false",
+          "usage": "Skip long-running tests (passes -short to go test)",
+          "persistent": false
+        },
+        {
+          "name": "verbose",
+          "shorthand": "v",
+          "type": "bool",
+          "default": "false",
+          "usage": "Verbose output (passes -v to go test)",
+          "persistent": false
+        }
+      ]
+    },
+    {
+      "name": "upgrade",
+      "path": "gofasta upgrade",
+      "group": "lifecycle",
+      "short": "Self-update the CLI to the latest GitHub release (auto-detects install method)"
+    },
+    {
+      "name": "verify",
+      "path": "gofasta verify",
+      "group": "workflow",
+      "short": "Run the full preflight gauntlet (fmt, vet, lint, test, build, wire, routes)",
+      "flags": [
+        {
+          "name": "changed",
+          "type": "bool",
+          "default": "false",
+          "usage": "Scope to working-tree + staged + untracked changes (no committed comparison)",
+          "persistent": false
+        },
+        {
+          "name": "keep-going",
+          "type": "bool",
+          "default": "false",
+          "usage": "Continue after the first failure and report every result",
+          "persistent": false
+        },
+        {
+          "name": "no-lint",
+          "type": "bool",
+          "default": "false",
+          "usage": "Skip golangci-lint (use if not installed or to speed up)",
+          "persistent": false
+        },
+        {
+          "name": "no-race",
+          "type": "bool",
+          "default": "false",
+          "usage": "Skip the race detector in go test",
+          "persistent": false
+        },
+        {
+          "name": "since",
+          "type": "string",
+          "default": "",
+          "usage": "Scope fmt/vet/lint/test/build to files changed since <git-ref> (e.g. HEAD~1, main)",
+          "persistent": false
+        }
+      ]
+    },
+    {
+      "name": "version",
+      "path": "gofasta version",
+      "group": "lifecycle",
+      "short": "Print the CLI version, Go toolchain version, and OS/arch"
+    },
+    {
+      "name": "wire",
+      "path": "gofasta wire",
+      "group": "workflow",
+      "short": "Regenerate Google Wire dependency injection code"
+    },
+    {
+      "name": "xrefs",
+      "path": "gofasta xrefs",
+      "group": "introspection",
+      "short": "Find every reference to a Go symbol across the current module"
+    }
+  ],
+  "globalFlags": [
+    {
+      "name": "json",
+      "type": "bool",
+      "default": "false",
+      "usage": "Emit machine-parseable JSON output (and suppress the banner). Intended for AI agents and CI automation.",
+      "persistent": true
+    },
+    {
+      "name": "no-banner",
+      "type": "bool",
+      "default": "false",
+      "usage": "Suppress the branded banner shown before each command (also honored via GOFASTA_NO_BANNER=1)",
+      "persistent": true
+    }
+  ],
+  "scaffold": {
+    "layered": {
+      "created": [
+        "app/models/{resource}.model.go",
+        "db/migrations/<seq>_create_{resources}.up.sql",
+        "db/migrations/<seq>_create_{resources}.down.sql",
+        "app/repositories/interfaces/{resource}_repository.go",
+        "app/repositories/{resource}.repository.go",
+        "app/repositories/{resource}.repository_test.go",
+        "app/services/{resource}_errors.go",
+        "app/services/{resource}_inputs.go",
+        "app/services/{resource}_inputs_test.go",
+        "app/services/interfaces/{resource}_service.go",
+        "app/services/{resource}.service.go",
+        "app/services/{resource}.service_test.go",
+        "app/dtos/{resource}.dtos.go",
+        "app/dtos/{resource}.dtos_test.go",
+        "app/di/providers/{resource}.go",
+        "app/rest/controllers/{resource}.controller.go",
+        "app/rest/controllers/{resource}.controller_test.go",
+        "app/rest/routes/{resource}.routes.go"
+      ],
+      "patched": [
+        "app/di/container.go",
+        "app/di/wire.go",
+        "app/rest/routes/index.routes.go",
+        "cmd/serve.go"
+      ]
+    },
+    "feature": {
+      "created": [
+        "app/models/{resource}.model.go",
+        "db/migrations/<seq>_create_{resources}.up.sql",
+        "db/migrations/<seq>_create_{resources}.down.sql",
+        "app/{resource}/repository_iface.go",
+        "app/{resource}/repository.go",
+        "app/{resource}/repository_test.go",
+        "app/{resource}/errors.go",
+        "app/{resource}/inputs.go",
+        "app/{resource}/inputs_test.go",
+        "app/{resource}/service_iface.go",
+        "app/{resource}/service.go",
+        "app/{resource}/service_test.go",
+        "app/{resource}/dtos.go",
+        "app/{resource}/dtos_test.go",
+        "app/{resource}/wire.go",
+        "app/{resource}/controller.go",
+        "app/{resource}/controller_test.go",
+        "app/{resource}/routes.go"
+      ],
+      "patched": [
+        "app/di/container.go",
+        "app/di/wire.go",
+        "app/rest/routes/index.routes.go",
+        "cmd/serve.go"
+      ]
+    },
+    "graphqlExtra": {
+      "created": [
+        "app/graphql/schema/{resource}.gql",
+        "app/graphql/resolvers/{resource}.resolvers.go"
+      ],
+      "patched": [
+        "app/graphql/resolvers/resolver.go",
+        "gqlgen.yml"
+      ]
+    },
+    "createdCount": 18,
+    "patchedCount": 4
+  },
+  "skeleton": {
+    "fileCount": 78,
+    "migrations": [
+      {
+        "driver": "postgres",
+        "count": 10
+      },
+      {
+        "driver": "mysql",
+        "count": 2
+      },
+      {
+        "driver": "sqlite",
+        "count": 2
+      },
+      {
+        "driver": "sqlserver",
+        "count": 2
+      },
+      {
+        "driver": "clickhouse",
+        "count": 2
+      }
+    ]
+  },
+  "drivers": [
+    "postgres",
+    "mysql",
+    "sqlite",
+    "sqlserver",
+    "clickhouse"
+  ],
+  "layouts": [
+    "layered",
+    "feature"
+  ],
+  "fieldTypes": [
+    {
+      "key": "string",
+      "goType": "string",
+      "gqlType": "String",
+      "sql": {
+        "postgres": "VARCHAR(255) NOT NULL",
+        "mysql": "VARCHAR(255) NOT NULL",
+        "sqlite": "TEXT NOT NULL",
+        "sqlserver": "NVARCHAR(255) NOT NULL",
+        "clickhouse": "String"
+      }
+    },
+    {
+      "key": "text",
+      "goType": "string",
+      "gqlType": "String",
+      "sql": {
+        "postgres": "TEXT NOT NULL",
+        "mysql": "TEXT NOT NULL",
+        "sqlite": "TEXT NOT NULL",
+        "sqlserver": "NVARCHAR(MAX) NOT NULL",
+        "clickhouse": "String"
+      }
+    },
+    {
+      "key": "int",
+      "goType": "int",
+      "gqlType": "Int",
+      "sql": {
+        "postgres": "INTEGER NOT NULL",
+        "mysql": "INT NOT NULL",
+        "sqlite": "INTEGER NOT NULL",
+        "sqlserver": "INT NOT NULL",
+        "clickhouse": "Int32"
+      }
+    },
+    {
+      "key": "float",
+      "goType": "float64",
+      "gqlType": "Float",
+      "sql": {
+        "postgres": "DECIMAL(10,2) NOT NULL",
+        "mysql": "DECIMAL(10,2) NOT NULL",
+        "sqlite": "REAL NOT NULL",
+        "sqlserver": "DECIMAL(10,2) NOT NULL",
+        "clickhouse": "Float64"
+      }
+    },
+    {
+      "key": "bool",
+      "goType": "bool",
+      "gqlType": "Boolean",
+      "sql": {
+        "postgres": "BOOLEAN NOT NULL DEFAULT false",
+        "mysql": "TINYINT(1) NOT NULL DEFAULT 0",
+        "sqlite": "INTEGER NOT NULL DEFAULT 0",
+        "sqlserver": "BIT NOT NULL DEFAULT 0",
+        "clickhouse": "Bool"
+      }
+    },
+    {
+      "key": "uuid",
+      "goType": "uuid.UUID",
+      "gqlType": "ID",
+      "sql": {
+        "postgres": "UUID NOT NULL",
+        "mysql": "CHAR(36) NOT NULL",
+        "sqlite": "TEXT NOT NULL",
+        "sqlserver": "UNIQUEIDENTIFIER NOT NULL",
+        "clickhouse": "UUID"
+      }
+    },
+    {
+      "key": "time",
+      "aliases": [
+        "datetime"
+      ],
+      "goType": "time.Time",
+      "gqlType": "DateTime",
+      "sql": {
+        "postgres": "TIMESTAMP NOT NULL DEFAULT now()",
+        "mysql": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "sqlite": "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "sqlserver": "DATETIME2 NOT NULL DEFAULT GETDATE()",
+        "clickhouse": "DateTime"
+      }
+    }
+  ],
+  "workflows": [
+    {
+      "key": "new-rest-endpoint",
+      "description": "Scaffold a REST resource, apply its migration, regenerate Swagger",
+      "args": "<ResourceName> [field:type ...]",
+      "steps": [
+        "gofasta g scaffold <ResourceName>",
+        "gofasta migrate up",
+        "gofasta swagger"
+      ]
+    },
+    {
+      "key": "rebuild",
+      "description": "Regenerate every derived artifact (Wire + Swagger)",
+      "steps": [
+        "gofasta wire",
+        "gofasta swagger"
+      ]
+    },
+    {
+      "key": "fresh-start",
+      "description": "First-time project setup after `git clone` \u2014 install tool deps, migrate, seed",
+      "steps": [
+        "gofasta init",
+        "gofasta migrate up",
+        "gofasta seed"
+      ]
+    },
+    {
+      "key": "clean-slate",
+      "description": "Reset the dev database to a known state \u2014 drop + re-migrate + re-seed",
+      "steps": [
+        "gofasta db reset",
+        "gofasta seed"
+      ]
+    },
+    {
+      "key": "health-check",
+      "description": "Run `verify` + `status` together \u2014 the full project health report",
+      "steps": [
+        "gofasta verify",
+        "gofasta status"
+      ]
+    }
+  ],
+  "aiAgents": [
+    {
+      "key": "claude",
+      "name": "Claude Code",
+      "description": "Anthropic's official CLI coding agent"
+    },
+    {
+      "key": "cursor",
+      "name": "Cursor",
+      "description": "AI-first IDE with project-level rules and MCP support"
+    },
+    {
+      "key": "codex",
+      "name": "OpenAI Codex",
+      "description": "OpenAI's coding agent \u2014 reads AGENTS.md by default"
+    },
+    {
+      "key": "aider",
+      "name": "Aider",
+      "description": "Open-source pair-programming CLI agent"
+    },
+    {
+      "key": "windsurf",
+      "name": "Windsurf",
+      "description": "Codeium's AI-native IDE"
+    }
+  ],
+  "releasePlatforms": {
+    "goos": [
+      "linux",
+      "darwin",
+      "windows"
+    ],
+    "goarch": [
+      "amd64",
+      "arm64"
+    ]
+  },
+  "defaults": {
+    "serverPort": 8080,
+    "dashboardPort": 9090,
+    "endpoints": [
+      {
+        "name": "apiBase",
+        "path": "/api/v1"
+      },
+      {
+        "name": "health",
+        "path": "/health"
+      },
+      {
+        "name": "healthLive",
+        "path": "/health/live"
+      },
+      {
+        "name": "healthReady",
+        "path": "/health/ready"
+      },
+      {
+        "name": "graphql",
+        "path": "/graphql"
+      },
+      {
+        "name": "graphqlPlayground",
+        "path": "/graphql-playground"
+      },
+      {
+        "name": "metrics",
+        "path": "/metrics"
+      },
+      {
+        "name": "swaggerUI",
+        "path": "/swagger/index.html"
+      }
+    ]
+  }
+}

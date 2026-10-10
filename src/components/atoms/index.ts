@@ -1,8 +1,9 @@
+export { AnchoredHeading } from "./anchored-heading";
 export { Button } from "./button";
+export { Input } from "./input";
 export { Logo } from "./logo";
+export { MetaDot } from "./meta-dot";
 export { ThemeToggle } from "./theme-toggle";
-export { StepNumber } from "./step-number";
-export { FeatureIcon } from "./feature-icon";
 export { Analytics } from "./analytics";
 export { PageviewTracker } from "./pageview-tracker";
 export { SectionTracker } from "./section-tracker";

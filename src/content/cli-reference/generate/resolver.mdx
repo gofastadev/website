@@ -1,6 +1,17 @@
 ---
 title: gofasta g resolver
-description: Patch the GraphQL resolver to add a service dependency for a resource.
+description: Patch the GraphQL resolver root to add a service dependency for an existing resource — appends the service field, regenerates Wire bindings, and re-runs `gqlgen generate` so the new resolver methods land cleanly.
+keywords:
+  - "generate resolver"
+  - "GraphQL resolver"
+  - "gqlgen"
+  - "resolver wiring"
+  - "query resolver"
+  - "mutation resolver"
+  - "service injection"
+  - "GraphQL root"
+  - "resolver pattern"
+  - "gofasta generate"
 ---
 
 # gofasta g resolver
@@ -31,23 +42,39 @@ Running `gofasta g resolver Product` patches the existing GraphQL resolver file 
 
 | File | Change |
 |------|--------|
-| `app/graphql/resolver.go` | Adds `productService` field and constructor parameter |
+| `app/graphql/resolvers/resolver.go` | Adds `ProductService` field, constructor parameter, and constructor assignment |
+| `gqlgen.yml` | *(feature layout only)* Adds `"<mod>/app/product"` to the `autobind` list so gqlgen binds the schema types against the feature package's DTOs |
 
 ### Resolver Patch
 
-The resolver struct is updated to include the new service dependency:
+The resolver struct is updated to include the new service dependency. The qualifier follows the project layout (read from `config.yaml`'s `project.layout`):
 
 ```go
-// app/graphql/resolver.go
-package graphql
+// app/graphql/resolvers/resolver.go — layered layout
+package resolvers
 
 import (
     svcInterfaces "myapp/app/services/interfaces"
 )
 
 type Resolver struct {
-    userService    svcInterfaces.UserService
-    productService svcInterfaces.ProductService // Added by gofasta g resolver
+    UserService    svcInterfaces.UserServiceInterface
+    ProductService svcInterfaces.ProductServiceInterface // Added by gofasta g resolver
+}
+```
+
+```go
+// app/graphql/resolvers/resolver.go — feature layout
+package resolvers
+
+import (
+    userpkg "myapp/app/user"
+    productpkg "myapp/app/product" // Added by gofasta g resolver
+)
+
+type Resolver struct {
+    UserService    userpkg.UserServiceInterface
+    ProductService productpkg.ProductServiceInterface // Added by gofasta g resolver
 }
 ```
 
@@ -55,8 +82,4 @@ type Resolver struct {
 
 Use `gofasta g resolver` when you have already generated the service and GraphQL schema separately and need to wire them together. When using `gofasta g scaffold --graphql` or `gofasta g service --graphql`, the resolver patching is handled automatically.
 
-## Related
-
-- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers including GraphQL
-- [gofasta g service](/docs/cli-reference/generate/service) -- generate the service the resolver calls
-- [gofasta g dto](/docs/cli-reference/generate/dto) -- generate DTOs used by the resolver
+<RelatedPages path="cli-reference/generate/resolver" />

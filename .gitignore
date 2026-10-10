@@ -49,3 +49,8 @@ lighthouse-*.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.superpowers
+lh-*.json
+
+# Local AI planning notes (not shipped)
+docs/superpowers/

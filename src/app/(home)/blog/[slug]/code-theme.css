@@ -1,0 +1,65 @@
+/* Blog code-block theming — imported only by the blog post detail page
+   (src/app/(home)/blog/[slug]/page.tsx). Deliberately NOT part of
+   globals.css: Task 2 owns globals.css and already defines the full
+   `--shiki-token-*` + `--shiki-color-text` palette there for both
+   `:root` and `.dark`. This file only bridges shiki's OWN fixed
+   variable names to those existing tokens, plus a couple of layout
+   rules rehype-pretty-code's line-wrapping needs.
+
+   `rehypePrettyCode` is configured (in page.tsx) with a theme built by
+   shiki's `createCssVariablesTheme()`. That helper emits
+   `var(--shiki-<name>)` references using ITS OWN fixed suffixes,
+   decided by TextMate grammar scope — NOT all of them are ones
+   globals.css happens to define. Emitted-token → definition mapping,
+   verified empirically (see task-16-report.md "Fix round 1" for the
+   reproduction script and the exact TS/Go/bash/json/yaml/diff samples
+   run against this exact pipeline):
+
+     EMITTED VAR                        DEFINED IN                 NOTES
+     --shiki-foreground                 code-theme.css (below)     base text — globals.css calls it --shiki-color-text
+     --shiki-background                 code-theme.css (below)     base bg — globals.css has no bg var, uses --code-bg
+     --shiki-token-keyword               globals.css                exact name match, no bridge needed
+     --shiki-token-string                globals.css                exact name match — but see string-expression below
+     --shiki-token-function              globals.css                exact name match, no bridge needed
+     --shiki-token-comment               globals.css                exact name match, no bridge needed
+     --shiki-token-constant              globals.css                exact name match, no bridge needed
+     --shiki-token-punctuation           globals.css                exact name match, no bridge needed
+     --shiki-token-string-expression     code-theme.css (below)     CRITICAL, round-1 fix: TextMate's more specific
+                                                                     `string.quoted.*` / `string.template` / `string.regexp`
+                                                                     scopes (i.e. every REAL quoted string, template
+                                                                     literal, and regex literal in TS/Go/bash/json/yaml)
+                                                                     resolve here, NOT to the generic `--shiki-token-string`
+                                                                     bucket (which only wins for markdown/plain-string
+                                                                     scopes). Left unaliased, every real string in every
+                                                                     language rendered in plain foreground — losing the
+                                                                     tuned green entirely. Aliased to --shiki-token-string.
+     --shiki-token-inserted               code-theme.css (below)     diff `+` lines (```diff fences). No shiki-token
+                                                                     equivalent exists in globals.css; aliased to the
+                                                                     site's existing --success semantic (already
+                                                                     light/dark-tuned green, matches the git-diff
+                                                                     convention better than reusing the string color).
+     --shiki-token-deleted                code-theme.css (below)     diff `-` lines. Aliased to --danger (existing
+                                                                     light/dark-tuned red) for the same reason.
+
+   Because CSS custom properties resolve per-element at used-value
+   time (not at declaration time), a single `:root` block is enough —
+   under `.dark`, `--shiki-color-text` / `--code-bg` / `--success` /
+   `--danger` are already re-defined by globals.css, and the `var()`
+   references below pick up whichever value is in scope for the
+   element being painted. No separate `.dark` block required. */
+:root {
+  --shiki-foreground: var(--shiki-color-text);
+  --shiki-background: var(--code-bg);
+  --shiki-token-string-expression: var(--shiki-token-string);
+  --shiki-token-inserted: var(--success);
+  --shiki-token-deleted: var(--danger);
+}
+
+/* rehype-pretty-code wraps every source line in `[data-line]`. Give
+   each line horizontal breathing room so wrapped/highlighted lines
+   don't run edge-to-edge inside the code-block chrome (the
+   rounded-xl border + bg-code-bg applied via `prose-pre:*` classes in
+   page.tsx). */
+pre [data-line] {
+  padding: 0 1rem;
+}

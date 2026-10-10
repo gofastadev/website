@@ -10,8 +10,11 @@ services:
     volumes:
       - .:/app
       - node_modules:/app/node_modules
-    environment:
-      - NODE_ENV=development
+    # No NODE_ENV here on purpose. `next dev` sets development itself,
+    # and a container-wide NODE_ENV=development leaks into `yarn build`
+    # runs exec'd in this container, mixing development and production
+    # React in one bundle — prerender then dies nondeterministically
+    # with "Cannot read properties of null (reading 'useState')".
 
 volumes:
   node_modules:

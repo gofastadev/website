@@ -1,6 +1,17 @@
 ---
 title: gofasta g task
-description: Generate an async task handler using hibiken/asynq.
+description: Generate an asynq-backed async task — emits a `Task<Name>` constant, a `<Name>Payload` struct, a `Handle<Name>` handler, and an `Enqueue<Name>` helper. Wired into the queue worker so `EnqueueX(ctx, q, p)` and the worker pickup just work.
+keywords:
+  - "generate task"
+  - "async task"
+  - "asynq"
+  - "background task"
+  - "hibiken/asynq"
+  - "task handler"
+  - "task payload"
+  - "enqueue helper"
+  - "queue worker"
+  - "gofasta generate"
 ---
 
 # gofasta g task
@@ -114,8 +125,9 @@ func (s *UserServiceImpl) Register(req dtos.RegisterRequest) (*dtos.UserResponse
 }
 ```
 
-## Related
-
-- [gofasta g job](/docs/cli-reference/generate/job) -- generate a scheduled background job instead
-- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate a full resource
-- [gofasta dev](/docs/cli-reference/dev) -- start the dev server which also runs the task worker
+<RelatedPages
+  path="cli-reference/generate/task"
+  extra={[
+    { href: "/docs/cli-reference/dev", label: "gofasta dev" },
+  ]}
+/>

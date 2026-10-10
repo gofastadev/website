@@ -38,7 +38,7 @@ const principles = [
   {
     title: "Every package swappable",
     description:
-      "pkg/cache, pkg/mailer, pkg/auth — each is a standard Go import on an interface. Delete any one, plug in an alternative, move on.",
+      "pkg/cache, pkg/mailer, pkg/auth. Each is a standard Go import on an interface. Delete any one, plug in an alternative, move on.",
     icon: (
       <svg {...iconProps}>
         <path d="M16 3h5v5" />
@@ -65,13 +65,12 @@ const principles = [
 
 export function ArchitectureStrip() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+    <section className="section-reveal mx-auto max-w-6xl px-6 py-section">
       <SectionHeading
-        eyebrow="Architectural guarantees"
         title="Four things Gofasta will never do to your code."
-        description="Every decision is one you can read, change, or remove. These four invariants hold across the CLI and the library — and they're the line in the sand between a toolkit and a framework."
+        description="Every decision is one you can read, change, or remove. These four invariants hold across the CLI and the library, and they're the line in the sand between a toolkit and a framework."
       />
-      <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-gray-200 bg-gray-200 sm:grid-cols-2 dark:border-gray-800 dark:bg-gray-800">
+      <div className="mt-14 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-200 sm:grid-cols-2 dark:border-gray-800 dark:bg-gray-800">
         {principles.map((p) => (
           <div
             key={p.title}

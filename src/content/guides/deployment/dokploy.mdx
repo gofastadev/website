@@ -1,0 +1,120 @@
+---
+title: Deploy to Dokploy
+description: Deploy a Gofasta application to Dokploy using the generated Dockerfile — build type setup, domains, PostgreSQL, environment variables, migrations, zero-downtime health checks, and auto-deploy.
+keywords:
+  - "Dokploy"
+  - "deployment"
+  - "self-hosted PaaS"
+  - "Docker Swarm"
+  - "Go deployment"
+---
+
+# Deploy to Dokploy
+
+[Dokploy](https://dokploy.com) is an open-source, self-hosted PaaS built on Docker Swarm and Traefik. A gofasta project deploys to it **unchanged**: the scaffold's root `Dockerfile` is a standard multi-stage build that Dokploy's Dockerfile build type consumes directly. No adapter files, no gofasta-specific configuration.
+
+Prefer gofasta's zero-dependency built-in deploy instead? See [Deploy to a VPS](/docs/guides/deployment).
+
+Throughout this guide the project is called `myapp` — its environment variables use the `MYAPP_` prefix. Substitute your project's name.
+
+## 1. Install Dokploy
+
+On a server with at least 2 GB RAM and 30 GB disk (Ubuntu 18.04–24.04, Debian 10–12, Fedora, and CentOS are the tested distributions), with ports 80/443 free for Traefik and 3000 for the dashboard:
+
+```bash
+curl -sSL https://dokploy.com/install.sh | sh
+```
+
+The script installs Docker if it's missing. Open `http://<server-ip>:3000` to finish setup.
+
+## 2. Create the application
+
+1. Create a project, then an **Application** inside it.
+2. Pick your code source: the GitHub App integration (works for organizations and private repos), GitLab/Bitbucket/Gitea, or a plain Git URL (private repos over SSH — generate the key in Dokploy's SSH Keys section and use the `git@...` URL).
+3. Under **Build Type**, select **Dockerfile** and set:
+   - **Dockerfile Path**: `Dockerfile` (the scaffold ships it at the repo root)
+   - **Docker Context Path**: `.`
+
+No build arguments are needed — gofasta reads all configuration at runtime.
+
+## 3. Provision the database
+
+Create a database service in the same project (Dokploy provisions PostgreSQL, MySQL, MariaDB, MongoDB, and Redis, with volume persistence and S3 backups). Open the database's **Connection** tab and copy the **Internal Host** and **Internal Port** — services in the same Dokploy network reach the database through those, with no public exposure.
+
+## 4. Set environment variables
+
+In the application's **Environment** tab:
+
+```bash
+MYAPP_DATABASE_HOST=<Internal Host from the database's Connection tab>
+MYAPP_DATABASE_PORT=5432
+MYAPP_DATABASE_USER=myapp
+MYAPP_DATABASE_PASSWORD=<database password>
+MYAPP_DATABASE_NAME=myapp
+MYAPP_AUTH_JWT_SECRET=<openssl rand -hex 32>
+MYAPP_SESSION_SECRET=<openssl rand -hex 32>
+MYAPP_SESSION_COOKIE_SECURE=true
+MYAPP_LOG_FORMAT=json
+```
+
+Dokploy also supports project-level shared variables referenced as `${{project.VARIABLE_NAME}}` — useful when several services share database credentials.
+
+## 5. Domain and HTTPS
+
+In the **Domains** tab, add your domain with:
+
+- **Host**: `api.example.com` (DNS A record pointing at the server)
+- **Container Port**: `8080` — this tells Traefik which port to forward to inside the container; the gofasta image listens on 8080 and binds all interfaces (`MYAPP_SERVER_HOST=0.0.0.0` is baked in)
+- **HTTPS** enabled with the **Let's Encrypt** certificate option
+
+Domain changes for applications take effect without a redeploy. For quick tests without DNS, Dokploy can generate a free `traefik.me` domain (HTTP only).
+
+## 6. Zero-downtime health checks
+
+Dokploy deploys via Docker Swarm, which can keep the old container serving until the new one is healthy. In the application's **Advanced → Cluster Settings → Swarm Settings**, add a health check against gofasta's liveness endpoint (times are in nanoseconds) and a rollback-on-failure update policy:
+
+```json
+{
+  "Test": ["CMD", "wget", "-qO", "/dev/null", "http://localhost:8080/health/live"],
+  "Interval": 30000000000,
+  "Timeout": 10000000000,
+  "StartPeriod": 30000000000,
+  "Retries": 3
+}
+```
+
+```json
+{ "FailureAction": "rollback", "Order": "start-first" }
+```
+
+The gofasta runtime image is Alpine — BusyBox `wget` is available in the container, `curl` is not, so use `wget` in the `Test` command. `/health/ready` (which also verifies database and cache connectivity) is the stricter alternative to `/health/live`.
+
+## 7. Migrations
+
+Dokploy has no pre/post-deploy command hook; the documented paths are:
+
+- **Run Command** (Advanced tab): execute `/app migrate up` inside the running container — the image bundles the golang-migrate CLI and the project's migrations.
+- **Schedule Jobs**: define an application job running `/app migrate up` via `docker exec` if you want it automated per interval.
+
+Because gofasta migrations are versioned and idempotent (already-applied steps are skipped), running `migrate up` after each deploy is safe.
+
+## 8. Deploy and auto-deploy
+
+Click **Deploy**. For continuous deployment, enable **Auto Deploy** in the application's General tab — with the GitHub App integration no webhook setup is needed; other providers take the webhook URL from the deployment logs. **Watch Paths** can restrict deploys to relevant file changes.
+
+For larger apps, Dokploy's production guidance is to avoid building on the Dokploy server itself: build the image in CI (for example with the scaffold's release workflow as a starting point), push it to a registry, and switch the application's source type to **Docker image** — DockerHub pushes can auto-deploy via webhook, and any registry can trigger deploys through Dokploy's API.
+
+## References
+
+- Dokploy installation — https://docs.dokploy.com/docs/core/installation
+- Applications — https://docs.dokploy.com/docs/core/applications
+- Build types (Dockerfile) — https://docs.dokploy.com/docs/core/applications/build-type
+- Domains — https://docs.dokploy.com/docs/core/domains
+- Databases and connections — https://docs.dokploy.com/docs/core/databases/connection
+- Environment variables — https://docs.dokploy.com/docs/core/variables
+- Zero-downtime deployments — https://docs.dokploy.com/docs/core/applications/zero-downtime
+- Going production — https://docs.dokploy.com/docs/core/applications/going-production
+- Auto-deploy — https://docs.dokploy.com/docs/core/auto-deploy
+- Schedule jobs — https://docs.dokploy.com/docs/core/schedule-jobs
+
+<RelatedPages path="guides/deployment/dokploy" />

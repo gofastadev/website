@@ -1,11 +1,19 @@
 ---
 title: gofasta deploy
-description: Deploy a Gofasta application to a remote VPS via SSH using Docker or a compiled binary.
+description: Deploy a Gofasta application to a remote VPS via SSH using Docker or a compiled binary, with a health gate and automatic rollback.
+keywords:
+  - "CLI"
+  - "deploy"
+  - "deployment"
+  - "VPS deployment"
+  - "Docker deployment"
+  - "rollback"
+  - "gofasta deploy"
 ---
 
 # gofasta deploy
 
-Deploys your application to a remote server via SSH. Supports two methods: **Docker** (default) — builds and transfers a Docker image, runs with Docker Compose; and **binary** — cross-compiles a Go binary, transfers via SCP, manages with systemd.
+Deploys your application to a remote server via SSH. Supports two methods: **Docker** (default) — builds and transfers a Docker image, restarts a fixed Docker Compose project onto it; and **binary** — cross-compiles a Go binary, transfers via SCP, manages with systemd. Every deploy is gated on the app's health endpoint; a release that fails its migrations or health check is **automatically rolled back** to the previous release.
 
 ## Usage
 
@@ -18,6 +26,8 @@ Run this command from the root directory of your Gofasta project.
 
 ## Flags
 
+The flag set is persistent — every flag works on `gofasta deploy` **and on every subcommand** (including `--dry-run`).
+
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--host` | string | | Deploy target (`user@server`) |
@@ -27,16 +37,16 @@ Run this command from the root directory of your Gofasta project.
 | `--arch` | string | `amd64` | Target architecture: `amd64` or `arm64` |
 | `--dry-run` | bool | `false` | Show commands without executing |
 
-All flags can also be set in the `deploy` section of `config.yaml` or via `GOFASTA_DEPLOY_*` environment variables.
+All flags can also be set in the `deploy` section of `config.yaml` or via `GOFASTA_DEPLOY_*` environment variables. Positional arguments are rejected — a typo like `gofasta deploy statuss` errors out instead of silently running a full deploy.
 
 ## Subcommands
 
 | Command | Description |
 |---------|-------------|
-| `gofasta deploy setup` | Prepare a fresh server (install Docker, nginx, create directories) |
-| `gofasta deploy status` | Check the status of the deployed application |
+| `gofasta deploy setup` | Prepare a fresh server: system packages, Docker (docker method) or service user + migrate CLI (binary method), directory structure, and — when `deploy.domain` is set — the nginx vhost |
+| `gofasta deploy status` | Show the current release and container/service state |
 | `gofasta deploy logs` | Tail application logs from the remote server |
-| `gofasta deploy rollback` | Rollback to the previous release |
+| `gofasta deploy rollback` | Restart the service on the newest release older than current, verify health, then move the pointer |
 
 ## Examples
 
@@ -58,10 +68,11 @@ Deploy as a compiled binary instead of Docker:
 gofasta deploy --method binary
 ```
 
-Preview all commands without executing:
+Preview any command without executing (works on all subcommands):
 
 ```bash
 gofasta deploy --dry-run --host deploy@api.example.com
+gofasta deploy setup --dry-run --host deploy@api.example.com
 ```
 
 First-time server setup:
@@ -80,51 +91,55 @@ gofasta deploy rollback
 
 ## Configuration
 
-Add a `deploy` section to your `config.yaml`:
+Add a `deploy` section to your `config.yaml` (a scaffolded project ships one):
 
 ```yaml
 deploy:
   host: deploy@api.example.com
-  method: docker        # docker or binary
+  method: docker            # docker or binary
   port: 22
   path: /opt/myapp
-  arch: amd64           # amd64 or arm64
-  health_path: /health
-  health_timeout: 30    # seconds
-  keep_releases: 3      # for rollback
+  arch: amd64               # amd64 or arm64
+  health_path: /health/ready
+  health_timeout: 30        # seconds
+  keep_releases: 3          # old releases retained for rollback
+  strict_host_key: accept-new  # accept-new (default), yes, or no
+  domain: ""                # nginx vhost domain, used by `deploy setup`
 ```
 
-Environment variable overrides use the `GOFASTA_` prefix:
+`health_path` defaults to `/health/ready` — the readiness endpoint, which verifies real database and cache connectivity rather than bare process liveness. `strict_host_key: yes` requires the server's host key to already be in `known_hosts`; the `accept-new` default pins on first connect.
+
+Every deploy config value is validated at load time (they end up inside remote shell commands, so hostile values from a cloned repo's `config.yaml` are rejected rather than executed).
+
+Environment variable overrides use the `GOFASTA_` prefix and cover every key, including multi-word ones:
 
 ```bash
 export GOFASTA_DEPLOY_HOST=deploy@api.example.com
 export GOFASTA_DEPLOY_METHOD=binary
+export GOFASTA_DEPLOY_HEALTH_TIMEOUT=60
 ```
 
 ## How It Works
 
 ### Docker Method
 
-1. Builds a Docker image locally using the project's `Dockerfile`
-2. Transfers the image to the server via `docker save | ssh docker load`
-3. Copies `.env` and `config.yaml` to a shared directory on the server
-4. Copies the production compose file to a versioned release directory
-5. Runs `docker compose up -d` on the server
-6. Runs database migrations inside the container
-7. Polls the `/health` endpoint until the app responds
-8. Updates the `current` symlink to point to the new release
-9. Cleans up old releases beyond the `keep_releases` threshold
+1. Builds a Docker image locally using the project's `Dockerfile`, tagged with the release timestamp
+2. Transfers the image to the server via `docker save | ssh docker load` — no registry involved
+3. Stages the release directory: the production compose file, links to `shared/.env` and `shared/config.yaml`, and a `RELEASE_IMAGE` file recording the image tag
+4. Records which release is currently live (the rollback target)
+5. **Cutover**: points `current` at the new release and restarts the fixed compose project with `APP_IMAGE` pinned to the new tag — a brief restart, after which containers, network, and the database volume are the same objects as before (data persists across deploys)
+6. Runs database migrations inside the app container; **a failure aborts and rolls back**
+7. Polls the health endpoint; **a failure rolls back** to the previous release's image
+8. Prunes old releases beyond `keep_releases` (never the one `current` points at) along with their images
 
 ### Binary Method
 
-1. Cross-compiles a static binary (`CGO_ENABLED=0 GOOS=linux`)
-2. Transfers the binary, migrations, templates, and configs via SCP
-3. Installs the binary to `/usr/local/bin/<appname>`
-4. Installs or updates the systemd service file
-5. Runs database migrations
-6. Restarts the systemd service
-7. Polls the `/health` endpoint until the app responds
-8. Updates the `current` symlink and cleans up old releases
+1. Cross-compiles a static binary (`CGO_ENABLED=0 GOOS=linux`) for `deploy.arch`
+2. Transfers the binary, migrations, templates, and configs via SCP; installs the systemd unit
+3. Runs database migrations **before cutover** using the release's own binary — a failure aborts without touching the running service
+4. **Cutover**: installs the binary to `/usr/local/bin/<appname>`, points `current` at the release, restarts the systemd service
+5. Polls the health endpoint; **a failure reinstalls the previous release's binary** and restores the pointer
+6. Prunes old releases
 
 ### Release Directory Structure
 
@@ -132,31 +147,38 @@ Deployments use a Capistrano-style release structure on the server:
 
 ```
 /opt/myapp/
-  current -> releases/20260409-153000/   # symlink to active release
+  current -> releases/20260409-153000/   # pointer to the live release
   releases/
     20260409-153000/                     # newest
     20260409-120000/                     # previous (available for rollback)
   shared/
-    .env                                 # shared across all releases
+    .env                                 # production secrets, shared across releases
     config.yaml
 ```
 
-Each deploy creates a new timestamped release directory. The `current` symlink is only updated after the health check passes. If a deploy fails, the previous release remains active.
+Each deploy creates a new timestamped release directory. Cutover is restart-based (a brief blip, not zero-downtime); if the new release fails its health gate, gofasta automatically restores the previous release and deletes the failed release directory. On the very first deploy there is nothing to restore, so a failed release is left running for inspection.
+
+Migration steps that were already applied are **not** reverted on rollback (golang-migrate has no automatic undo) — rollback restores the previous code.
 
 ### Rollback
 
-`gofasta deploy rollback` activates the previous release by:
+`gofasta deploy rollback` reverts manually:
 
-1. Finding the release before `current`
-2. Starting the previous release's containers (Docker) or installing its binary (binary method)
-3. Updating the `current` symlink
-4. Running a health check to verify
+1. Lists releases by name and reads the `current` pointer (an unreadable pointer is a hard error — it never guesses)
+2. Selects the newest release **strictly older** than current — a leftover directory newer than current is never chosen
+3. Activates it: Docker restarts the compose project on the release's recorded `RELEASE_IMAGE`; binary reinstalls the release's binary and restarts
+4. Health-checks the target, and only then leaves the `current` pointer on it — if the target is unhealthy, the release that was live before is restored
+
+## Errors
+
+Deploy failures carry structured error codes (`DEPLOY_HOST_REQUIRED`, `DEPLOY_CONFIG_INVALID`, `SSH_FAILED`, `HEALTH_CHECK_FAILED`, `DOCKER_COMMAND_FAILED`, `ROLLBACK_FAILED`, `MIGRATION_FAILED`), each with a hint and docs link — in `--json` mode they arrive as machine-readable fields. See [error codes](/docs/cli-reference/error-codes#deploy).
 
 ## Prerequisites
 
 - **SSH key-based access** to the target server (password auth is not supported)
 - **Docker method**: Docker installed locally and on the server
 - **Binary method**: systemd on the server
+- Your production `.env` placed at `<path>/shared/.env` on the server (deploys reuse it)
 
 Use `gofasta deploy setup` to install prerequisites on a fresh Ubuntu/Debian server.
 
@@ -164,14 +186,20 @@ Use `gofasta deploy setup` to install prerequisites on a fresh Ubuntu/Debian ser
 
 **"deploy host is required"** -- Set `deploy.host` in `config.yaml` or pass `--host`.
 
+**"invalid deploy.path" / "invalid deploy.arch" / similar** -- Deploy config values are strictly validated; fix the offending value in `config.yaml`.
+
 **SSH connection refused** -- Verify the host, port, and that your SSH key is authorized on the server. Test with `ssh -p <port> user@server echo ok`.
 
-**Health check failed** -- The app didn't respond at the health endpoint within the timeout. Check logs with `gofasta deploy logs`. The previous release remains active.
+**Health check failed** -- The new release didn't answer the health endpoint within `health_timeout`. Gofasta rolled back automatically and the previous release is serving again; run `gofasta deploy logs` to see why the new release failed. On a first deploy the failed release is left running for inspection.
+
+**Migrations failed** -- The deploy aborted (docker: rolled back; binary: the running service was never touched). Already-applied migration steps are not auto-reverted.
 
 **Docker not found on remote** -- Run `gofasta deploy setup` to install Docker on the server.
 
-## Related
-
-- [Deployment Guide](/docs/guides/deployment) -- full walkthrough of the Docker and binary methods, systemd, nginx, and GitHub Actions
-- [gofasta serve](/docs/cli-reference/serve) -- start the production server
-- [Configuration Guide](/docs/guides/configuration) -- application configuration
+<RelatedPages
+  path="cli-reference/deploy"
+  extra={[
+    { href: "/docs/guides/deployment", label: "Deployment Guide" },
+    { href: "/docs/guides/configuration", label: "Configuration Guide" },
+  ]}
+/>

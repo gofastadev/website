@@ -18,7 +18,6 @@ vi.stubGlobal(
   MockIntersectionObserver as unknown as typeof IntersectionObserver
 );
 
-// Mock next/image
 vi.mock("next/image", () => ({
   default: (props: Record<string, unknown>) => {
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
@@ -26,7 +25,6 @@ vi.mock("next/image", () => ({
   },
 }));
 
-// Mock next/link
 vi.mock("next/link", () => ({
   default: ({
     children,
@@ -50,7 +48,6 @@ vi.mock("next/link", () => ({
 // in tested components are no-ops under test.
 vi.mock("server-only", () => ({}));
 
-// Mock next-themes
 const mockSetTheme = vi.fn();
 vi.mock("next-themes", () => ({
   useTheme: () => ({

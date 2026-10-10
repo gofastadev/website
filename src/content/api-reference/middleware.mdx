@@ -1,6 +1,11 @@
 ---
 title: Middleware
 description: HTTP middleware for CORS, rate limiting, logging, authentication, panic recovery, and request ID injection.
+keywords:
+  - "middleware API"
+  - "HTTP middleware"
+  - "request pipeline"
+  - "interceptors"
 ---
 
 # Middleware
@@ -95,9 +100,13 @@ Access the authenticated claims in your handler:
 
 ```go
 func profileHandler(w http.ResponseWriter, r *http.Request) {
-    claims := auth.ClaimsFromContext(r.Context())
-    fmt.Println(claims.UserID) // "user-123"
-    fmt.Println(claims.Roles)  // ["admin"]
+    claims, err := auth.ClaimsFromContext(r.Context())
+    if err != nil {
+        http.Error(w, "unauthenticated", http.StatusUnauthorized)
+        return
+    }
+    fmt.Println(claims.SubjectID()) // "user-123" — the `sub` claim
+    fmt.Println(claims.Roles)       // ["admin"]
 }
 ```
 
@@ -146,12 +155,4 @@ recoveryMiddleware := middleware.Recovery(log)
 // 500 {"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}
 ```
 
-## Related Pages
-
-- [Auth](/docs/api-reference/auth) -- JWT and RBAC configuration used by auth middleware
-- [Logger](/docs/api-reference/logger) -- Logger used by logging and recovery middleware
-- [HTTP Utilities](/docs/api-reference/http-utilities) -- Response helpers used within middleware
-- [Errors](/docs/api-reference/errors) -- Recovery middleware turns panics into AppError responses
-- [Observability](/docs/api-reference/observability) -- Tracing + metrics middleware
-- [Sessions](/docs/api-reference/sessions) -- Session-loading middleware
-- [i18n](/docs/api-reference/i18n) -- Locale-detection middleware
+<RelatedPages path="api-reference/middleware" />

@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LandingTemplate } from "@/components/templates";
-import { getKeywordsForPath } from "@/lib/seo-keywords";
+import { SITE_URL, withBaseKeywords } from "@/lib/seo";
+import { getAllPosts, getAllTags } from "@/lib/blog";
 
 export const metadata: Metadata = {
   title: "Sitemap",
   description:
-    "Complete sitemap of the Gofasta documentation — all guides, CLI reference, and API reference pages.",
-  keywords: getKeywordsForPath("/"),
+    "Complete sitemap of the Gofasta documentation: all guides, CLI reference, and API reference pages.",
+  keywords: withBaseKeywords("sitemap", "site map", "all pages", "index"),
   alternates: {
-    canonical: "https://gofasta.dev/sitemap",
+    canonical: `${SITE_URL}/sitemap`,
   },
 };
 
@@ -45,6 +46,9 @@ const sections = [
       { href: "/docs/guides/testing", label: "Testing" },
       { href: "/docs/guides/debugging/overview", label: "Debugging" },
       { href: "/docs/guides/deployment", label: "Deployment" },
+      { href: "/docs/guides/deployment/coolify", label: "Deploy to Coolify" },
+      { href: "/docs/guides/deployment/dokploy", label: "Deploy to Dokploy" },
+      { href: "/docs/guides/deployment/kamal", label: "Deploy with Kamal" },
       { href: "/docs/guides/configuration", label: "Configuration" },
     ],
   },
@@ -76,7 +80,7 @@ const sections = [
     ],
   },
   {
-    title: "CLI Reference — Generate",
+    title: "CLI Reference: Generate",
     links: [
       { href: "/docs/cli-reference/generate/scaffold", label: "scaffold" },
       { href: "/docs/cli-reference/generate/model", label: "model" },
@@ -136,6 +140,26 @@ const sections = [
 ];
 
 export default function SitemapPage() {
+  // Blog index, every published post, and every active tag — surfaced
+  // here so the HTML sitemap stays accurate without manual edits.
+  const blogPosts = getAllPosts();
+  const blogTags = getAllTags();
+  const blogSection = {
+    title: "Blog",
+    links: [
+      { href: "/blog", label: "Blog index" },
+      ...blogPosts.map((p) => ({
+        href: `/blog/${p.slug}`,
+        label: p.title,
+      })),
+      ...blogTags.map(({ tag, count }) => ({
+        href: `/blog/tags/${tag}`,
+        label: `#${tag} (${count})`,
+      })),
+    ],
+  };
+  const allSections = [...sections, blogSection];
+
   return (
     <LandingTemplate>
       <section className="mx-auto max-w-4xl px-6 pt-32 pb-20">
@@ -147,7 +171,7 @@ export default function SitemapPage() {
         </p>
 
         <nav className="mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
-          {sections.map((section) => (
+          {allSections.map((section) => (
             <div key={section.title}>
               <h2 className="text-lg font-semibold text-foreground">
                 {section.title}

@@ -1,6 +1,16 @@
 ---
 title: gofasta config
 description: Inspect and validate your project's config.yaml — currently the schema emitter, more subcommands to come.
+keywords:
+  - "CLI"
+  - "config"
+  - "config schema"
+  - "JSON Schema"
+  - "config.yaml"
+  - "config validation"
+  - "agent-friendly"
+  - "gofasta config"
+  - "gofasta config schema"
 ---
 
 # gofasta config
@@ -137,8 +147,10 @@ When the gofasta library adds struct tags to config fields, the emitter translat
 | `validate:"oneof=a b c"` | Field schema gets `enum: ["a","b","c"]` |
 | `desc:"..."` | Field schema gets a `description` |
 
-## Related
-
-- [Configuration guide](/docs/guides/configuration) -- what each config section does
-- [`pkg/config` reference](/docs/api-reference/config) -- programmatic access
-- [`gofasta do rebuild`](/docs/cli-reference/do) -- regenerate every derived artifact
+<RelatedPages
+  path="cli-reference/config"
+  extra={[
+    { href: "/docs/guides/configuration", label: "Configuration guide" },
+    { href: "/docs/api-reference/config", label: "`pkg/config` reference" },
+  ]}
+/>

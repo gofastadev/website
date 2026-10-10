@@ -1,0 +1,61 @@
+---
+title: Guides
+description: Task-focused walkthroughs for building with Gofasta — REST and GraphQL APIs, database migrations, authentication and RBAC, code generation, background jobs, email and notifications, testing, debugging, deployment, and configuration.
+keywords:
+  - "guides"
+  - "Go backend tutorial"
+  - "REST API"
+  - "GraphQL"
+  - "migrations"
+  - "authentication"
+  - "deployment"
+asIndexPage: true
+---
+
+# Guides
+
+Each guide walks one task end to end in a scaffolded Gofasta project: what the CLI generates, what the generated code does, and where to change it. They assume you have already worked through [Getting Started](/docs/getting-started).
+
+## Building the API surface
+
+- **[Building REST APIs with chi](/docs/guides/rest-api)** — Controllers, routes, DTOs, middleware, and the response helpers every generated endpoint uses.
+- **[Building GraphQL APIs with gqlgen](/docs/guides/graphql)** — Schemas, resolvers, queries, mutations, and subscriptions alongside (or instead of) REST.
+- **[Code Generation](/docs/guides/code-generation)** — Using the CLI to generate models, services, controllers, and full scaffolds, and how the generated files get wired into the container and routes.
+
+## Data and access
+
+- **[Database & Migrations](/docs/guides/database-and-migrations)** — Database setup, GORM models, migration pairs, multi-driver support, and relationships.
+- **[Authentication](/docs/guides/authentication)** — JWT login and registration flows, auth middleware, Casbin RBAC, and token refresh.
+- **[Configuration](/docs/guides/configuration)** — `config.yaml`, environment-variable overrides, and the database, JWT, Redis, and feature-flag sections.
+
+## Work that happens off the request path
+
+- **[Background Jobs](/docs/guides/background-jobs)** — Cron scheduling, async task queues, job definitions, and recurring work.
+- **[Email & Notifications](/docs/guides/email-and-notifications)** — SMTP, SendGrid, and Brevo delivery, HTML templates, and the notification channels.
+
+## Verifying and shipping
+
+- **[Testing](/docs/guides/testing)** — Test layout, testcontainers-backed integration tests, mocking, and the `testutil/testdb` helper.
+- **[Debugging](/docs/guides/debugging)** — The local dev dashboard: trace waterfalls, per-request logs, N+1 detection, EXPLAIN plans, pprof, and replay.
+- **[Deployment](/docs/guides/deployment)** — Ship to a VPS with `gofasta deploy` — Docker or compiled binary over SSH, with systemd, nginx, and GitHub Actions wired up.
+
+## Related sections
+
+- **[CLI Reference](/docs/cli-reference)** — The command-by-command detail behind every step in these guides.
+- **[Package Library](/docs/api-reference)** — API documentation for the `pkg/*` packages the generated code imports.
+
+<RelatedPages
+  path="guides"
+  extra={[
+    {
+      href: "/docs/getting-started/quick-start",
+      label: "Quick Start",
+      description: "Scaffold a project and generate your first resource before working through a guide.",
+    },
+    {
+      href: "/docs/cli-reference/generate",
+      label: "gofasta generate",
+      description: "The generator family these guides drive — scaffold, model, service, controller, and the surface-add commands.",
+    },
+  ]}
+/>

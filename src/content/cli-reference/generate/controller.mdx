@@ -1,6 +1,17 @@
 ---
 title: gofasta g controller
-description: Generate a REST controller with CRUD handlers and all prerequisite layers.
+description: Generate a REST controller (with CRUD handlers) plus every prerequisite layer — model, migration, repository, service, DTOs, Wire provider, and routes. Same shape as `g scaffold` but explicitly focused on the controller side.
+keywords:
+  - "generate controller"
+  - "HTTP handler"
+  - "REST controller"
+  - "CRUD handlers"
+  - "chi router"
+  - "request handler"
+  - "httputil.Handle"
+  - "controller layer"
+  - "API endpoint"
+  - "gofasta generate"
 ---
 
 # gofasta g controller
@@ -161,9 +172,4 @@ HTTP Request --> Controller --> Service --> Repository --> Database
 - Request validation uses `go-playground/validator`
 - All business logic is delegated to the service layer
 
-## Related
-
-- [gofasta g service](/docs/cli-reference/generate/service) -- generate the service this controller calls
-- [gofasta g dto](/docs/cli-reference/generate/dto) -- generate the DTOs used in request/response
-- [gofasta g route](/docs/cli-reference/generate/route) -- generate route definitions for this controller
-- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers at once
+<RelatedPages path="cli-reference/generate/controller" />

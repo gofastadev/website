@@ -2,251 +2,127 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/atoms";
-import { CopyableCommand, TerminalBlock } from "@/components/molecules";
+import { TerminalBlock } from "@/components/molecules";
 import { trackEvent } from "@/lib/analytics";
 
 export function Hero() {
   const router = useRouter();
 
   return (
-    <section className="relative overflow-hidden px-6 pt-28 pb-20 sm:pt-36 sm:pb-28">
-      {/* Ambient background layers — dotted grid, radial glow, and two
-          slowly floating orbs. All aria-hidden, all pointer-events-none,
-          all disabled when the user prefers reduced motion. */}
-      <div
-        aria-hidden="true"
-        className="gofasta-grid-bg pointer-events-none absolute inset-0 -z-20 opacity-60"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_70%_55%_at_50%_0%,theme(colors.primary/12),transparent_70%)] dark:bg-[radial-gradient(ellipse_70%_55%_at_50%_0%,theme(colors.primary/18),transparent_70%)]"
-      />
-      <div
-        aria-hidden="true"
-        className="gofasta-orb pointer-events-none absolute -top-20 -left-28 -z-10 h-80 w-80 rounded-full bg-[radial-gradient(circle,theme(colors.primary/30),transparent_70%)] blur-2xl sm:h-[28rem] sm:w-[28rem]"
-      />
-      <div
-        aria-hidden="true"
-        className="gofasta-orb-slow pointer-events-none absolute -top-10 -right-24 -z-10 h-72 w-72 rounded-full bg-[radial-gradient(circle,theme(colors.accent/25),transparent_70%)] blur-2xl sm:h-96 sm:w-96"
-      />
-
-      {/* Ambient Go code fragments — real snippets (types, func sigs,
-          channels, defer) scattered through the hero as background
-          atmosphere. Each breathes independently (staggered animation
-          delays) with opacity capped low enough to stay visibly behind
-          the foreground content. text-muted keeps them off the primary
-          hue so they don't compete with the brand-coloured accents.
-
-          `hidden sm:block`: only render at sm+ (640px+). Below that
-          the spans are too cramped to read AND they overlap the
-          radial orbs enough to fail WCAG color-contrast (Lighthouse
-          audits run at 412px and would flag every span). Hiding them
-          on mobile keeps the layout clean and lets the a11y score
-          stay at 100 on the form factor most users measure. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden text-muted sm:block"
-      >
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute left-[4%] top-[12%] font-mono text-xs whitespace-nowrap"
-          style={{ animationDelay: "0s" }}
-        >
-          package backend
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute right-[6%] top-[10%] font-mono text-xs whitespace-nowrap"
-          style={{ animationDelay: "1.2s" }}
-        >
-          import &quot;context&quot;
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute left-[8%] top-[24%] font-mono text-sm whitespace-nowrap"
-          style={{ animationDelay: "2.4s" }}
-        >
-          type User struct &#123;
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute right-[4%] top-[26%] font-mono text-sm whitespace-nowrap"
-          style={{ animationDelay: "0.6s" }}
-        >
-          func (s *svc) Get(ctx) …
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute left-[5%] top-[42%] font-mono text-xs whitespace-nowrap"
-          style={{ animationDelay: "3.6s" }}
-        >
-          defer wg.Done()
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute right-[7%] top-[44%] font-mono text-xs whitespace-nowrap"
-          style={{ animationDelay: "1.8s" }}
-        >
-          go func() &#123; … &#125;()
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute left-[7%] top-[58%] font-mono text-xs whitespace-nowrap"
-          style={{ animationDelay: "4.8s" }}
-        >
-          chan&lt;- events
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute right-[5%] top-[60%] font-mono text-xs whitespace-nowrap"
-          style={{ animationDelay: "2.2s" }}
-        >
-          return nil, err
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute left-[6%] top-[74%] font-mono text-[11px] whitespace-nowrap"
-          style={{ animationDelay: "5.4s" }}
-        >
-          {"// 78 files scaffolded"}
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute right-[9%] top-[76%] font-mono text-[11px] whitespace-nowrap"
-          style={{ animationDelay: "3.0s" }}
-        >
-          interface &#123;&#125;
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute left-[3%] top-[88%] font-mono text-xs whitespace-nowrap"
-          style={{ animationDelay: "6.6s" }}
-        >
-          ctx, cancel := context.…
-        </span>
-        <span
-          aria-hidden="true"
-          className="gofasta-code-breath absolute right-[3%] top-[90%] font-mono text-xs whitespace-nowrap"
-          style={{ animationDelay: "4.2s" }}
-        >
-          wire.Build(…)
-        </span>
-      </div>
-
-      <div className="mx-auto flex max-w-5xl flex-col items-center text-center">
-        <h1 className="max-w-4xl text-4xl font-bold leading-[1.05] tracking-tight sm:text-6xl md:text-7xl">
-          A Go backend you&rsquo;d write yourself —{" "}
-          <span className="gofasta-headline-shimmer bg-gradient-to-br from-primary to-primary/60 bg-clip-text text-transparent">
-            scaffolded.
-          </span>
-        </h1>
-
-        <p className="mt-6 max-w-2xl text-base leading-relaxed text-gray-600 dark:text-gray-400 sm:text-lg md:text-xl">
-          Gofasta is a CLI and library for Go backend services. It scaffolds
-          a project in one command — standard Go, compile-time DI, every
-          package swappable — with first-class tooling for AI coding agents.
-        </p>
-
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={() => {
-              trackEvent("cta_get_started", {
-                location: "hero",
-                destination: "/docs/getting-started/introduction",
-              });
-              router.push("/docs/getting-started/introduction");
-            }}
-          >
-            Get Started
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => {
-              trackEvent("cta_view_github", {
-                location: "hero",
-                repo: "gofastadev/cli",
-              });
-              window.open(
-                "https://github.com/gofastadev/cli",
-                "_blank",
-                "noopener,noreferrer",
-              );
-            }}
-          >
-            View on GitHub
-          </Button>
+    <section className="px-6 pt-24 pb-section-sm sm:pb-section">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-[1fr_1.1fr]">
+        <div className="flex flex-col items-start text-left">
+          <h1 className="font-display text-5xl font-extrabold leading-[1.02] tracking-tight text-balance text-foreground sm:text-6xl lg:text-5xl">
+            A production Go backend in one command
+          </h1>
+          <p className="mt-5 max-w-[46ch] text-lg leading-relaxed text-gray-600 dark:text-gray-400">
+            gofasta scaffolds plain, idiomatic Go and generates the repetitive
+            layers. Every default is swappable.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-4">
+            <Button
+              size="lg"
+              onClick={() => {
+                trackEvent("cta_get_started", {
+                  location: "hero",
+                  destination: "/docs/getting-started/introduction",
+                });
+                router.push("/docs/getting-started/introduction");
+              }}
+            >
+              Get started
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              onClick={() => {
+                trackEvent("cta_read_docs", {
+                  location: "hero",
+                  destination: "/docs",
+                });
+                router.push("/docs");
+              }}
+            >
+              Read the docs
+            </Button>
+          </div>
         </div>
 
-        <CopyableCommand
-          className="mt-6 max-w-xl"
-          size="sm"
-          command="go install github.com/gofastadev/cli/cmd/gofasta@latest"
-        />
-
-        <TerminalBlock className="mt-14 max-w-2xl">
+        <TerminalBlock title="~/projects" className="min-w-0">
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "0.1s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "0s" } as React.CSSProperties}
+          >
+            <span className="text-gray-400">$</span> go install
+            github.com/gofastadev/cli/cmd/gofasta@latest
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "0.17s" } as React.CSSProperties}
           >
             <span className="text-gray-400">$</span>{" "}
             <span className="text-terminal-accent">gofasta</span> new myapp
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "0.4s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "0.34s" } as React.CSSProperties}
           >
-            <span className="text-terminal-accent">🚀 Creating new gofasta project: myapp</span>
-          </span>
-          <span
-            className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "0.7s" } as React.CSSProperties}
-          >
-            <span className="text-gray-400">📁 Creating directory myapp/</span>
-          </span>
-          <span
-            className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "1.0s" } as React.CSSProperties}
-          >
-            <span className="text-gray-400">📦 Initializing Go module: myapp</span>
-          </span>
-          <span
-            className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "1.3s" } as React.CSSProperties}
-          >
-            <span className="text-gray-400">🏗  Creating project structure...</span>
-          </span>
-          <span
-            className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "1.6s" } as React.CSSProperties}
-          >
-            <span className="text-gray-400">📦 Installing gofasta library...</span>
-          </span>
-          <span
-            className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "1.9s" } as React.CSSProperties}
-          >
-            <span className="text-gray-400">🔌 Generating Wire DI code...</span>
-          </span>
-          <span
-            className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "2.2s" } as React.CSSProperties}
-          >
-            <span className="text-gray-400">🔧 Initializing git repository...</span>
-          </span>
-          <span
-            className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "2.5s" } as React.CSSProperties}
-          >
-            <span className="text-green-400">
-              ✓ Project myapp created successfully!
+            <span className="text-terminal-accent">
+              Creating new gofasta project: myapp
             </span>
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "3.0s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "0.51s" } as React.CSSProperties}
+          >
+            <span className="text-gray-400">Creating directory myapp/</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "0.68s" } as React.CSSProperties}
+          >
+            <span className="text-gray-400">
+              Initializing Go module: myapp
+            </span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "0.85s" } as React.CSSProperties}
+          >
+            <span className="text-gray-400">Creating project structure...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "1.02s" } as React.CSSProperties}
+          >
+            <span className="text-gray-400">
+              Installing gofasta library...
+            </span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "1.19s" } as React.CSSProperties}
+          >
+            <span className="text-gray-400">Generating Wire DI code...</span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "1.36s" } as React.CSSProperties}
+          >
+            <span className="text-gray-400">
+              Initializing git repository...
+            </span>
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "1.53s" } as React.CSSProperties}
+          >
+            <span className="term-ok">ok</span> Project myapp created
+            successfully!
+          </span>
+          <span
+            className="gofasta-term-line"
+            style={{ "--gofasta-term-delay": "1.7s" } as React.CSSProperties}
           >
             {"\n"}
             <span className="text-gray-400">$</span> cd myapp &&{" "}
@@ -254,29 +130,30 @@ export function Hero() {
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "3.3s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "1.87s" } as React.CSSProperties}
           >
-            <span className="text-terminal-accent">Starting gofasta development server...</span>
+            <span className="text-terminal-accent">
+              Starting gofasta development server...
+            </span>
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "3.6s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "2.04s" } as React.CSSProperties}
           >
-            <span className="text-gray-400">🗄  Running migrations...</span>
+            <span className="text-gray-400">Running migrations...</span>
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "3.9s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "2.21s" } as React.CSSProperties}
           >
-            <span className="text-gray-400">🚀 Starting air (hot reload)...</span>
+            <span className="text-gray-400">Starting air (hot reload)...</span>
           </span>
           <span
             className="gofasta-term-line"
-            style={{ "--gofasta-term-delay": "4.2s" } as React.CSSProperties}
+            style={{ "--gofasta-term-delay": "2.38s" } as React.CSSProperties}
           >
             <span className="text-gray-400">   REST API:  </span>
-            <span className="text-terminal-accent">http://localhost:8080</span>
-            {" "}
+            <span className="text-terminal-accent">http://localhost:8080</span>{" "}
             <span className="gofasta-cursor" aria-hidden="true" />
           </span>
         </TerminalBlock>

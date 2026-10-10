@@ -1,6 +1,12 @@
 ---
-title: Overview
+title: Debugging dashboard — overview
 description: The local dev dashboard — trace waterfalls, per-request logs, N+1 detection, EXPLAIN plans, pprof, replay, and the zero-cost build-tag model behind them.
+keywords:
+  - "debugging"
+  - "debug dashboard"
+  - "devtools build tag"
+  - "gofasta dev --dashboard"
+  - "localhost:9090"
 ---
 
 # Debugging in gofasta projects
@@ -30,8 +36,11 @@ The dashboard dies cleanly on `Ctrl+C` along with the rest of the `gofasta dev` 
 - **[How It Works](/docs/guides/debugging/architecture)** — the Wire + middleware + OTel wiring that gives you visibility without dirtying your business code, plus the endpoint reference and the production-safety build-tag model.
 - **[Customization](/docs/guides/debugging/customization)** — ring sizes (and how rotation works), disabling individual hooks, where the devtools code lives in your project, library coupling points.
 
-## Related
-
-- [`gofasta dev`](/docs/cli-reference/dev) — full flag + event reference for the dev pipeline
-- [Testing guide](/docs/guides/testing) — how the same trace + ring infrastructure makes integration tests observable
-- [`pkg/observability`](/docs/api-reference/observability) — the Prometheus + OpenTelemetry primitives the devtools package hooks into
+<RelatedPages
+  path="guides/debugging/overview"
+  extra={[
+    { href: "/docs/cli-reference/dev", label: "`gofasta dev`" },
+    { href: "/docs/guides/testing", label: "Testing guide" },
+    { href: "/docs/api-reference/observability", label: "`pkg/observability`" },
+  ]}
+/>

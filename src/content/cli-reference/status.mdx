@@ -1,6 +1,16 @@
 ---
 title: gofasta status
 description: Report the health of the current project — Wire drift, swagger drift, pending migrations, uncommitted generated files, module freshness.
+keywords:
+  - "CLI"
+  - "status"
+  - "drift detection"
+  - "Wire drift"
+  - "Swagger drift"
+  - "pending migrations"
+  - "generated files"
+  - "agent-friendly"
+  - "gofasta status"
 ---
 
 # gofasta status
@@ -84,10 +94,4 @@ Fields are stable API.
 
 After any round of code generation or manual edits, several derived artifacts (Wire, Swagger) can drift from their inputs without any warning — the code still compiles, but routes go missing or DTOs become stale in the API docs. `gofasta status` surfaces every drift in one command so agents checking their own work get a structured report instead of running five separate checks.
 
-## Related
-
-- [`gofasta verify`](/docs/cli-reference/verify) -- quality gates (complementary to drift detection)
-- [`gofasta do health-check`](/docs/cli-reference/do) -- runs `verify` + `status` together
-- [`gofasta wire`](/docs/cli-reference/wire) -- remediation for Wire drift
-- [`gofasta swagger`](/docs/cli-reference/swagger) -- remediation for Swagger drift
-- [`gofasta migrate up`](/docs/cli-reference/migrate) -- remediation for pending migrations
+<RelatedPages path="cli-reference/status" />

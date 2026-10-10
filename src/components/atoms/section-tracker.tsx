@@ -17,7 +17,10 @@ interface SectionTrackerProps {
 // organism so we can answer questions like:
 //
 //   - "What percent of visitors scroll past the Hero?"
-//   - "Does anyone actually see the FeaturesGrid?"
+//   - "Does anyone actually see the FeatureIndex?" (analytics param name
+//     "features_grid" is intentionally frozen — renaming it would break
+//     continuity with historical GA4 data, even though the component
+//     itself was renamed from FeaturesGrid to FeatureIndex.)
 //   - "Is the AgentSpotlight reaching the audience it's pitched to?"
 //
 // Implementation note — fires exactly once per page load via

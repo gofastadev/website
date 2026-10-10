@@ -10,16 +10,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  // Dark navy text on Go cyan reaches ~6:1 contrast (passes WCAG AA
-  // for normal text and AAA for large/bold). White text on the same
-  // bg only hits ~2.3:1 and fails Lighthouse's color-contrast audit.
-  // The dark-navy is the gopher's outline color — brand-coherent.
-  primary:
-    "bg-primary text-[#00283A] dark:text-[#00283A]",
-  // Secondary keeps the inverse: outline-only at rest, solid on hover.
-  // Same dark-text rule when the cyan fill activates.
+  // primary-contrast is the gopher-outline navy (#00283A): ~6:1 on the
+  // cyan fill (AA normal / AAA large). White would only reach ~2.3:1.
+  primary: "bg-primary text-primary-contrast hover:bg-primary-400 dark:hover:bg-primary-300",
   secondary:
-    "border border-primary text-primary hover:bg-primary hover:text-[#00283A] dark:hover:text-[#00283A]",
+    "border border-primary text-primary hover:bg-primary hover:text-primary-contrast",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -36,7 +31,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex cursor-pointer items-center justify-center rounded-lg font-semibold transition-[background-color]",
+        "inline-flex cursor-pointer items-center justify-center rounded-lg font-semibold transition-[background-color,transform] duration-(--duration-fast) ease-(--ease-brand) active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         variantStyles[variant],
         sizeStyles[size],
         className,

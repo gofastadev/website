@@ -1,0 +1,331 @@
+---
+title: Deployment
+description: Deploy Gofasta applications to a VPS with the built-in gofasta deploy command — Docker or compiled binary via SSH, with automatic rollback, systemd, nginx, and GitHub Actions wired up.
+keywords:
+  - "deployment"
+  - "Docker"
+  - "production"
+  - "CI/CD"
+  - "hosting"
+  - "rollback"
+asIndexPage: true
+---
+
+# Deployment
+
+Gofasta's built-in deployment story targets one concrete environment: **a Linux VPS running Docker or systemd, reached over SSH**. The `gofasta deploy` command handles the full pipeline — build, ship, migrate, health-check, and automatic rollback when a release fails — without requiring any cloud vendor account or third-party platform.
+
+This page covers:
+
+- The fastest path: `gofasta deploy` end-to-end.
+- How releases, cutover, and automatic rollback actually work.
+- How the generated `Dockerfile`, `systemd` unit, `nginx` config, and CI workflows fit together.
+- Activating the CI workflows (they ship inert; you opt into the ones you want).
+
+Already running a self-hosted platform? The generated `Dockerfile` and compose file deploy to those unchanged — see the platform guides for [Coolify](/docs/guides/deployment/coolify), [Dokploy](/docs/guides/deployment/dokploy), and [Kamal](/docs/guides/deployment/kamal). Cloud-managed deployment (ECS, Cloud Run, App Service, etc.) is not currently supported.
+
+## The short version
+
+```bash
+# One-time — prepare a fresh Ubuntu/Debian server.
+gofasta deploy setup --host deploy@api.example.com
+
+# Put your production secrets on the server (deploys reuse them).
+scp .env deploy@api.example.com:/opt/myapp/shared/.env
+
+# Deploy the current working copy.
+gofasta deploy
+
+# Observe, debug, roll back.
+gofasta deploy status
+gofasta deploy logs
+gofasta deploy rollback
+```
+
+Configure the target in `config.yaml`:
+
+```yaml
+deploy:
+  host: deploy@api.example.com
+  method: docker            # "docker" (default) or "binary"
+  port: 22
+  path: /opt/myapp
+  arch: amd64               # "amd64" or "arm64"
+  health_path: /health/ready
+  health_timeout: 30
+  keep_releases: 3          # old releases retained for rollback
+  strict_host_key: accept-new  # or "yes" to require a pre-pinned host key
+  domain: ""                # set to install the nginx vhost during setup
+```
+
+Every key can also be overridden per-invocation with flags (`--host`, `--method`, `--port`, `--path`, `--arch`, `--dry-run` — they work on every subcommand) or via environment variables (`GOFASTA_DEPLOY_HOST`, `GOFASTA_DEPLOY_HEALTH_TIMEOUT`, …). Full reference: [gofasta deploy CLI](/docs/cli-reference/deploy).
+
+## Releases, cutover, and automatic rollback
+
+Both methods use the same Capistrano-style layout on the remote host:
+
+```
+/opt/myapp/
+├── current -> releases/20260417-153000/   # pointer to the live release
+├── releases/
+│   ├── 20260417-153000/                   # active release
+│   └── 20260417-120000/                   # previous (available for rollback)
+└── shared/
+    ├── .env                               # production secrets, shared across releases
+    └── config.yaml
+```
+
+**Cutover is restart-based.** Each deploy stages a new timestamped release directory, then restarts the service onto it — a brief restart blip, not a zero-downtime handover. After the restart, the deploy polls the health endpoint (`/health/ready` by default, which verifies real database and cache connectivity — not just that the process is up).
+
+**Failed releases roll back automatically.** If migrations fail or the health check never passes, gofasta restarts the previous release, restores the `current` pointer, verifies the old release is healthy again, and deletes the failed release directory. The deploy exits non-zero with the reason. Two caveats worth knowing:
+
+- On the very **first** deploy there is nothing to roll back to — the failed release is left running so you can inspect it with `gofasta deploy logs`.
+- Migration steps that were already applied are **not** reverted (golang-migrate has no automatic undo). Rollback restores the previous *code*; write migrations to be backward-compatible with the release before them.
+
+`gofasta deploy rollback` reverts manually with the same mechanics: it activates the newest release older than `current`, health-checks it, and only then commits the pointer — if the rollback target turns out unhealthy, the release that was live before is restored.
+
+Old releases are pruned down to `keep_releases`, ordered by release name (never by file modification time), and the release `current` points at is always kept. Docker deploys also remove each pruned release's image from the server.
+
+## Deployment methods
+
+`gofasta deploy` supports two methods. Both target the same VPS layout; only the packaging differs.
+
+### Docker method (default)
+
+1. Builds a Docker image locally using the project's `Dockerfile`, tagged per release.
+2. Transfers it to the server via `docker save | ssh docker load` — no registry required.
+3. Stages the release directory: production compose file, links to `shared/.env` and `shared/config.yaml`, and a `RELEASE_IMAGE` file recording the image tag.
+4. Cutover: restarts a **fixed compose project** onto the pinned image (`APP_IMAGE`). The stable project name keeps container names, the network, and the database volume identical across releases — your data survives every deploy.
+5. Runs pending migrations inside the app container (`docker compose exec app /app migrate up`). A failure aborts and rolls back.
+6. Polls `/health/ready`. A failure rolls back to the previous image.
+7. Prunes old releases and their images.
+
+Best for: teams that want parity between local (`gofasta dev --all-in-docker`) and production, or that already use Docker Compose locally.
+
+### Binary method
+
+1. Cross-compiles a static binary with `CGO_ENABLED=0 GOOS=linux` for `deploy.arch`.
+2. Transfers the binary, migrations, templates, and configs over SCP, and installs the systemd unit.
+3. Runs pending migrations **before cutover**, using the release's own binary from the release directory — a failed migration aborts without ever touching the running service.
+4. Cutover: installs the binary to `/usr/local/bin/<appname>`, points `current` at the release, and restarts the systemd service.
+5. Polls the health endpoint. A failure reinstalls the previous release's binary and restores the pointer.
+6. Prunes old releases.
+
+Best for: teams that prefer no Docker daemon on the server, or deploy to a low-resource VPS where every MB matters.
+
+## Deployment files in the scaffold
+
+A `gofasta new` project ships deployment-adjacent files under `deployments/` plus a `Dockerfile` and `compose.yaml` at the project root:
+
+```
+.
+├── Dockerfile                         # multi-stage build for the `docker` deploy method
+├── compose.yaml                       # local dev compose file
+└── deployments/
+    ├── ci/                            # GitHub Actions workflow templates (opt-in — see below)
+    │   ├── github-actions-test.yml
+    │   ├── github-actions-release.yml
+    │   └── github-actions-deploy-vps.yml
+    ├── docker/
+    │   ├── compose.production.yaml    # production compose file used by `gofasta deploy`
+    │   └── dev.dockerfile             # dev image with Air for hot reload
+    ├── nginx/
+    │   └── app.conf                   # reverse-proxy snippet for TLS termination
+    └── systemd/
+        └── app.service                # service unit for the `binary` deploy method
+```
+
+Everything under `deployments/` is standard, ownable configuration — feel free to edit, delete, or replace any of it.
+
+## Dockerfile
+
+The root `Dockerfile` is a two-stage build optimized for a minimal Alpine runtime image running as a non-root user. It also bakes in the golang-migrate CLI, which the app's own `migrate` subcommand shells out to:
+
+```dockerfile
+FROM golang:1.25.0-alpine AS builder
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app ./app/main
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.1
+
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /app /app
+COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
+COPY db/migrations /migrations
+COPY config.yaml /config.yaml
+COPY templates /templates
+RUN addgroup -S app && adduser -S -G app app
+USER app
+ENV MYAPP_SERVER_HOST=0.0.0.0
+EXPOSE 8080
+ENTRYPOINT ["/app"]
+CMD ["serve"]
+```
+
+`gofasta deploy --method docker` invokes `docker build` against this file, then ships the resulting image to the server over SSH. The production compose file consumes it via `image: ${APP_IMAGE:-myapp:latest}` — the deploy pins `APP_IMAGE` to the release's tag, while a standalone `docker compose up -d --build` still works without it.
+
+## systemd (binary method)
+
+The `deployments/systemd/app.service` unit runs the app from the `current` release, with production secrets sourced from `shared/.env`:
+
+```ini
+[Unit]
+Description=MyApp Application Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=myapp
+Group=myapp
+WorkingDirectory=/opt/myapp/current
+EnvironmentFile=-/opt/myapp/shared/.env
+Environment="MYAPP_SERVER_HOST=0.0.0.0"
+ExecStart=/usr/local/bin/myapp serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`gofasta deploy --method binary` installs this unit automatically on every deploy (so unit edits ship with the release). Useful commands on the server:
+
+```bash
+sudo systemctl status myapp
+sudo journalctl -u myapp -f
+```
+
+## nginx reverse proxy
+
+`deployments/nginx/app.conf` is a reverse-proxy config with security headers and a quiet `/health` location. `gofasta deploy setup` installs it **only when `deploy.domain` is set** in `config.yaml` — it substitutes your domain and app port, enables the site, and reloads nginx. With no domain configured, setup skips nginx and prints instructions instead of installing a vhost that matches no request.
+
+```yaml
+deploy:
+  domain: api.example.com
+```
+
+For HTTPS, provision a certificate after setup:
+
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d api.example.com
+```
+
+## GitHub Actions workflows
+
+### How activation works
+
+The scaffold ships three workflow templates under `deployments/ci/` — **not** under `.github/workflows/`. That's deliberate: GitHub Actions only picks up workflow files from `.github/workflows/*.yml`. Files anywhere else are inert.
+
+The scaffold stores them as inert templates so a first `git push` doesn't immediately fire a deploy with unset secrets. Each template's top comment documents its required secrets. Read the header, configure the secrets under **Settings → Secrets and variables → Actions**, *then* copy the file in:
+
+```bash
+mkdir -p .github/workflows
+cp deployments/ci/github-actions-test.yml .github/workflows/test.yml
+git add .github/workflows/test.yml
+git commit -m "ci: enable test workflow"
+git push
+```
+
+### Available templates
+
+| Template | Purpose |
+|---|---|
+| `github-actions-test.yml` | On every push + PR: spin up a service container matching your database driver (SQLite runs container-free), run the project's full preflight (fmt, vet, lint, race tests, build) plus `gofasta test --coverage`, upload coverage to Codecov, and run `govulncheck`. No secrets required unless you enable Codecov. |
+| `github-actions-release.yml` | On `v*` tag push, cross-compile binaries for linux/darwin/windows (amd64 + arm64), generate checksums, and publish a GitHub Release. |
+| `github-actions-deploy-vps.yml` | On push to `main` or manual dispatch, install the gofasta CLI and run `gofasta deploy` against your VPS — the same release layout, health gate, and automatic rollback as a local deploy. Requires `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, and `DEPLOY_PORT` secrets. |
+
+### The VPS deploy workflow
+
+The shipped template boils down to this — CI runs the exact command you run locally:
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: Install gofasta CLI
+        run: go install github.com/gofastadev/cli/cmd/gofasta@latest
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          echo "IdentityFile ~/.ssh/id_deploy" >> ~/.ssh/config
+          ssh-keyscan -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+      - name: Deploy
+        run: |
+          gofasta deploy \
+            --host "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            --port "${{ secrets.DEPLOY_PORT }}"
+```
+
+Two prerequisites, both one-time: run `gofasta deploy setup` from your machine so the server is provisioned, and place your production `.env` at `<deploy.path>/shared/.env` on the server — CI runners never see production secrets; every deploy reuses the copy already there.
+
+## First-time server setup
+
+`gofasta deploy setup` automates everything below on an Ubuntu/Debian VPS. Use this section as reference for what it's doing under the hood or when running on a distribution it doesn't cover.
+
+```bash
+# On the server (one-time)
+sudo apt update && sudo apt install -y curl nginx
+curl -fsSL https://get.docker.com | sudo sh                 # docker method only
+sudo useradd -r -U -s /usr/sbin/nologin myapp               # binary method only
+# binary method also needs the migrate CLI on the server —
+# setup downloads golang-migrate v4.18.1 into /usr/local/bin
+sudo mkdir -p /opt/myapp/{releases,shared}
+sudo chown -R <ssh-user> /opt/myapp
+
+# Copy your production .env into /opt/myapp/shared/
+# Run `gofasta deploy` from your local machine.
+```
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| `deploy host is required` | `deploy.host` not set in `config.yaml` and `--host` not passed. |
+| `invalid deploy.path` / `invalid deploy.arch` | Deploy config values are validated strictly (they end up in remote shell commands); fix the value in `config.yaml`. |
+| SSH connection refused | Host/port wrong, or your SSH key isn't in the server's `~/.ssh/authorized_keys`. Test: `ssh -p <port> user@server echo ok`. |
+| Health check failed | The new release didn't answer `/health/ready` within `health_timeout`. Gofasta **rolled back automatically** — the previous release is serving again. Run `gofasta deploy logs` to inspect why the new one failed. On a first deploy there is nothing to restore, so the failed release is left running for inspection. |
+| Migrations failed | The deploy aborted (docker: rolled back; binary: running service untouched). Applied migration steps are not auto-reverted — check `migrate` output in the deploy log. |
+| Database is empty after deploy | You are on a gofasta version older than the fixed compose project naming — upgrade the CLI; current deploys reuse one compose project so the data volume persists across releases. |
+| `docker: command not found` on remote | Run `gofasta deploy setup` first, or install Docker manually and re-deploy. |
+| Workflow doesn't run after `git push` | You likely forgot to copy the file from `deployments/ci/` into `.github/workflows/`. GitHub Actions only reads the latter. |
+
+## Deploying to a self-hosted platform instead
+
+`gofasta deploy` is the zero-dependency default, but nothing about a gofasta project requires it. The scaffold's root `Dockerfile` and `deployments/docker/compose.production.yaml` are standard artifacts that self-hosted platforms consume directly:
+
+- [Deploy to Coolify](/docs/guides/deployment/coolify) — connect the repo, pick the Dockerfile build pack, done.
+- [Deploy to Dokploy](/docs/guides/deployment/dokploy) — Dockerfile or compose deployment on Docker/Swarm.
+- [Deploy with Kamal](/docs/guides/deployment/kamal) — registry-based SSH deploys for teams standardized on Kamal.
+
+## Next Steps
+
+- [gofasta deploy CLI reference](/docs/cli-reference/deploy) — every flag and subcommand.
+- [Configure your application](/docs/guides/configuration) — what goes in `config.yaml` vs `.env`.
+- [Health check API reference](/docs/api-reference/health) — liveness and readiness endpoints.
+- [Observability API reference](/docs/api-reference/observability) — metrics and tracing.
+
+<RelatedPages path="guides/deployment" />

@@ -6,18 +6,47 @@ import {
   ValuePillars,
   AgentSpotlight,
   DashboardPreview,
-  FeaturesGrid,
+  FeatureIndex,
   ArchitectureStrip,
   QuickStartSection,
   CtaSection,
 } from "@/components/organisms";
 import { ScrollDepthTracker, SectionTracker } from "@/components/atoms";
-import { getKeywordsForPath } from "@/lib/seo-keywords";
+import { AGENT_DOC_ALTERNATES, SITE_URL, withBaseKeywords } from "@/lib/seo";
+import { serializeJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
-  keywords: getKeywordsForPath("/"),
+  keywords: withBaseKeywords(
+    "code generation",
+    "scaffolding",
+    "CLI",
+    "REST API",
+    "GraphQL",
+    "production-ready",
+    "AI coding agent",
+    "agent-native",
+    "Claude Code",
+    "Cursor",
+    "OpenAI Codex",
+    "Aider",
+    "Windsurf",
+    "AGENTS.md",
+    "llms.txt",
+    "LLM-friendly documentation",
+  ),
   alternates: {
-    canonical: "https://gofasta.dev",
+    canonical: SITE_URL,
+    // These `types` are NOT redundant with the root layout's. Next
+    // merges metadata per top-level field, so this `alternates` object
+    // replaces the layout's entirely — declaring only `canonical` here
+    // was silently stripping the blog feed <link>s from the homepage,
+    // the one page most likely to be handed to a feed reader. Restated
+    // here so the homepage advertises the feeds AND the llms files.
+    types: {
+      "application/rss+xml": "/blog/rss.xml",
+      "application/feed+json": "/blog/feed.json",
+      "text/plain": AGENT_DOC_ALTERNATES,
+    },
   },
 };
 
@@ -26,16 +55,28 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "Organization",
+      // Same @id the blog's publisher/author nodes reference — one
+      // merged entity across the whole site instead of disconnected
+      // inline copies.
+      "@id": "https://gofasta.dev/#organization",
       name: "Gofasta",
       url: "https://gofasta.dev",
-      logo: "https://gofasta.dev/logo.png",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://gofasta.dev/logo.png",
+        width: 512,
+        height: 512,
+      },
+      sameAs: ["https://github.com/gofastadev"],
       description:
         "Agent-native Go toolkit that scaffolds production backends in one command. Auth, databases, jobs, observability, and deployment wired on day one. Standard Go, zero lock-in.",
     },
     {
       "@type": "WebSite",
+      "@id": "https://gofasta.dev/#website",
       name: "Gofasta",
       url: "https://gofasta.dev",
+      publisher: { "@id": "https://gofasta.dev/#organization" },
       description:
         "Agent-native Go toolkit that scaffolds production backends in one command. Auth, databases, jobs, observability, and deployment wired on day one. Standard Go, zero lock-in.",
       potentialAction: {
@@ -66,7 +107,7 @@ export default function HomePage() {
     <LandingTemplate>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       {/* Page-level analytics:
           - ScrollDepthTracker fires 25/50/75/100% milestones.
@@ -91,7 +132,7 @@ export default function HomePage() {
         <DashboardPreview />
       </SectionTracker>
       <SectionTracker name="features_grid">
-        <FeaturesGrid />
+        <FeatureIndex />
       </SectionTracker>
       <SectionTracker name="architecture_strip">
         <ArchitectureStrip />

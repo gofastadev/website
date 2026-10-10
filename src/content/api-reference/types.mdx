@@ -1,6 +1,17 @@
 ---
-title: Types
-description: Shared DTO types, pagination inputs, sorting, and common API response types used across Gofasta packages.
+title: pkg/types — Shared DTOs, pagination, and common API shapes
+description: Common cross-package types — TPaginationInputDto, TSortingInputDto, TPaginationObjectDto, TCommonAPIErrorDto, TCommonResponseDto, and the SortOrientation enum — keep API shapes consistent across every resource the scaffold generates.
+keywords:
+  - "types API"
+  - "shared DTOs"
+  - "pagination types"
+  - "sorting types"
+  - "API response types"
+  - "common types"
+  - "TCommonResponseDto"
+  - "TPaginationInputDto"
+  - "cross-package types"
+  - "API contract"
 ---
 
 # Types
@@ -142,8 +153,4 @@ sorting := types.TSortingInputDto{
 
 `SortOrientation` implements JSON and GQL marshaling/unmarshaling, making it compatible with both REST and GraphQL APIs.
 
-## Related Pages
-
-- [Validators](/docs/api-reference/validators) -- ValidateStruct returns []*TCommonAPIErrorDto
-- [HTTP Utilities](/docs/api-reference/http-utilities) -- Pagination helpers complement these types
-- [Utils](/docs/api-reference/utils) -- Utility functions for working with these types
+<RelatedPages path="api-reference/types" />

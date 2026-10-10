@@ -1,65 +1,60 @@
-import { SectionHeading, StepCard } from "@/components/molecules";
+import {
+  SectionHeading,
+  TerminalBlock,
+  CopyableCommand,
+} from "@/components/molecules";
 
-const steps = [
+const commands = [
   {
-    step: 1,
-    title: "Install the CLI",
-    code: "go install github.com/gofastadev/cli/cmd/gofasta@latest",
+    command: "gofasta new myapp --driver postgres",
+    output: [
+      "Creating new gofasta project: myapp",
+      "Generating Wire DI code",
+      "Project myapp created successfully",
+    ],
   },
   {
-    step: 2,
-    title: "Create a project",
-    code: "gofasta new myapp",
+    command: "gofasta dev",
+    output: [
+      "Starting gofasta development server",
+      "Running migrations",
+      "REST API: http://localhost:8080",
+    ],
   },
   {
-    step: 3,
-    title: "Start developing",
-    code: "cd myapp && gofasta dev",
+    command: "gofasta g scaffold post title:string body:text",
+    output: [
+      "created app/models/post.model.go",
+      "created db/migrations/000006_create_posts.up.sql",
+      "patched app/rest/routes/index.routes.go",
+    ],
   },
 ];
 
 export function QuickStartSection() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-      <SectionHeading
-        eyebrow="Quick start"
-        title="Install and run"
-        description="Three commands. No cloud service, no signup, no configuration wizard. The CLI does the rest."
-      />
+    <section className="section-reveal px-6 py-section">
+      <div className="mx-auto max-w-6xl">
+        <SectionHeading
+          title="Three commands to a running backend"
+          description="No cloud service, no signup, no configuration wizard. The CLI does the rest."
+        />
 
-      {/* Flow connector overlay. Lives behind the step cards and draws
-          an animated dashed line (horizontal on lg+, vertical below)
-          with a traveling dot that sweeps the full length. */}
-      <div className="relative mt-14">
-        {/* Horizontal connector (lg+). Spans between the middle of the
-            first and last step cards. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-[16%] top-1/2 hidden h-[2px] -translate-y-1/2 lg:block"
-        >
-          <div className="gofasta-flow-bar h-full w-full" />
-          <span className="gofasta-flow-dot" />
-        </div>
-
-        {/* Vertical connector (mobile + tablet). Hidden on lg+ where
-            the horizontal one takes over. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-6 bottom-6 hidden w-[2px] -translate-x-1/2 sm:block lg:hidden"
-        >
-          <div className="gofasta-flow-bar-vert h-full w-full" />
-          <span className="gofasta-flow-dot gofasta-flow-dot-vert" />
-        </div>
-
-        <div className="relative grid gap-6 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3">
-          {steps.map((item) => (
-            <StepCard
-              key={item.step}
-              step={item.step}
-              title={item.title}
-              code={item.code}
-            />
-          ))}
+        <div className="mx-auto mt-12 max-w-3xl">
+          <TerminalBlock title="quick start" bodyAs="div">
+            <div className="flex flex-col gap-6">
+              {commands.map((item) => (
+                <div key={item.command} className="flex flex-col gap-1.5">
+                  <CopyableCommand command={item.command} size="sm" />
+                  {item.output.map((line) => (
+                    <span key={line} className="pl-1 text-gray-400">
+                      {line}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </TerminalBlock>
         </div>
       </div>
     </section>

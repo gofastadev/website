@@ -183,6 +183,45 @@ Nextra provides built-in components you can use in any MDX file without importin
 
 The page set grows with the library and CLI — see [gofasta.dev/docs](https://gofasta.dev/docs) for the live count via the sidebar.
 
+## Blog
+
+Posts live in `data/blog/<slug>.mdx` and are written in the Keystatic editor at `/keystatic`. Each save opens a pull request on a `keystatic/…` branch. CI validates every post (`src/lib/blog-content.test.ts`), and the Vercel preview deploy renders the post, drafts included, for review. Merging publishes it.
+
+### How visibility works
+
+| Post state | Production | Preview deploys and `next dev` |
+|---|---|---|
+| `draft: true` | hidden everywhere (pages, sitemap, feeds, tags, search, `llms.txt`) | shown |
+| future `publishedAt` | hidden until the first rebuild after that date | hidden |
+| published | shown | shown |
+
+Any build that is not a Vercel preview and not `next dev` hides drafts. That covers Vercel production, Docker images and a local `next build`.
+
+**Scheduling.** Uncheck Draft and set a future *Published at* (entered in UTC). The `Scheduled publish` workflow runs daily at 06:00 UTC. When a post's date has arrived, it triggers a production rebuild through a Vercel Deploy Hook and notifies search engines. A post therefore goes live within a day of its date.
+
+**Search engines.** The `Notify search engines` workflow submits newly public or edited posts to IndexNow (Bing and others) and pings WebSub after each push to `main`. It polls the production sitemap until the deploy is live. Google discovers posts through `sitemap.xml`; submit it once in Search Console.
+
+### Configuration
+
+Set these in Vercel (Production scope, plus Preview if you want to edit or review there). `NEXT_PUBLIC_*` values are inlined at build time, so redeploy after changing them.
+
+| Variable | Feature | When unset |
+|---|---|---|
+| `NEXT_PUBLIC_KEYSTATIC_GITHUB_APP_SLUG` | Keystatic in GitHub mode | the editor runs in local mode, which is available under `next dev` only |
+| `KEYSTATIC_GITHUB_CLIENT_ID`, `KEYSTATIC_GITHUB_CLIENT_SECRET`, `KEYSTATIC_SECRET` (32+ chars) | Keystatic OAuth | `/keystatic` and `/api/keystatic` return 404 outside `next dev` |
+| `NEXT_PUBLIC_GISCUS_REPO`, `NEXT_PUBLIC_GISCUS_REPO_ID`, `NEXT_PUBLIC_GISCUS_CATEGORY`, `NEXT_PUBLIC_GISCUS_CATEGORY_ID` | comments (giscus.app) | no comments section |
+| `NEXT_PUBLIC_BUTTONDOWN_USERNAME` | newsletter signup (Buttondown) | no signup form |
+
+Repository secret: `VERCEL_DEPLOY_HOOK_URL`. Create it under Vercel → Settings → Git → Deploy Hooks, for the `main` branch. It is needed for scheduled posts.
+
+### One-time Keystatic setup
+
+1. Run `NEXT_PUBLIC_KEYSTATIC_STORAGE=github yarn dev` and open `http://localhost:3000/keystatic`. Follow the wizard to create the GitHub App, which writes the four Keystatic variables to `.env`.
+2. In the GitHub App settings, add the callback URL `https://gofasta.dev/api/keystatic/github/oauth/callback` (plus your preview domain if you edit on previews). Install the app on `gofastadev/website`.
+3. Copy the four variables from `.env` into Vercel and redeploy.
+
+Without step 1, `yarn dev` uses local storage, which edits the files in your checkout directly.
+
 ## Analytics
 
 The site supports two complementary analytics integrations: **Google Analytics 4** for aggregate behavior metrics, and **Microsoft Clarity** for session replay + heatmaps. Each is opt-in via its own environment variable; when an env var is unset (the default for local development) the corresponding `<script>` tag is not rendered and no third-party domain is contacted.
@@ -261,9 +300,13 @@ The home page hits target. The doc-page performance gap is dominated by Nextra v
 - **`color-contrast` audit on the landing's ambient code spans** (`gofasta-code-breath`). The spans are decorative atmosphere set inside an `aria-hidden="true"` parent, with each span individually marked `aria-hidden="true"` as well. Lighthouse / axe-core still flags them because contrast checks run on visually-rendered text regardless of `aria-hidden` (the rule is about low-vision sighted users, not screen readers). The contrast is design-intentional. Score impact: −4 on accessibility for the home page.
 - **`unused-javascript`** opportunities (~450ms on home, ~600ms on docs). Most of this is Next.js / Nextra runtime code that is genuinely loaded; some is React Compiler emit. Aggressively code-splitting beyond what Next does by default usually trades one Lighthouse number for another.
 
-
+## Maintenance and sustainability
 
 Gofasta is currently maintained by one person; sustainability planning — release cadence, security SLOs, the solo-to-team transition, and the automation arc that retires manual steps as the project matures — is documented in the [release coordination repo](https://github.com/gofastadev/release), specifically in [`CADENCE.md`](https://github.com/gofastadev/release/blob/main/CADENCE.md), [`RELEASING.md`](https://github.com/gofastadev/release/blob/main/RELEASING.md), and [`COMMUNITY.md`](https://github.com/gofastadev/release/blob/main/COMMUNITY.md). Read those three together for the full picture.
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 

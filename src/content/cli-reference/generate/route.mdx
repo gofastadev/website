@@ -1,6 +1,17 @@
 ---
 title: gofasta g route
-description: Generate REST route definitions for a resource.
+description: Generate a per-resource chi routes file under `app/rest/routes/` — the registration function (`<Resource>Routes(r chi.Router)`) that the index router mounts. Patches `index.routes.go` to mount the new file so the resource is reachable end-to-end.
+keywords:
+  - "generate route"
+  - "chi router"
+  - "HTTP route"
+  - "REST endpoint"
+  - "route registration"
+  - "routing"
+  - "route mount"
+  - "index.routes.go"
+  - "app/rest/routes"
+  - "gofasta generate"
 ---
 
 # gofasta g route
@@ -75,7 +86,4 @@ func RegisterRoutes(r chi.Router, container *di.Container) {
 | `PUT` | `/api/v1/products/{id}` | `Update` |
 | `DELETE` | `/api/v1/products/{id}` | `Delete` |
 
-## Related
-
-- [gofasta g controller](/docs/cli-reference/generate/controller) -- generate the controller these routes point to
-- [gofasta g scaffold](/docs/cli-reference/generate/scaffold) -- generate all layers with automatic route registration
+<RelatedPages path="cli-reference/generate/route" />

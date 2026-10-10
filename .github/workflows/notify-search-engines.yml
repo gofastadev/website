@@ -1,0 +1,63 @@
+# Notifies search engines after a production deploy.
+#
+#   - IndexNow → Bing, Yandex, Naver, Seznam, Yep (and transitively
+#     DuckDuckGo / Yahoo / Ecosia / ChatGPT Search via the Bing index)
+#   - WebSub  → Google's documented push channel for feed changes
+#
+# Google's own discovery path stays the sitemap (accurate per-post
+# lastmod) — Google does not consume IndexNow.
+#
+# Runs on pushes to main that touch blog posts. The script submits only
+# the posts whose files changed in the push and are public (not a draft,
+# not scheduled), after polling the production sitemap until the Vercel
+# deploy for this commit has them live. Posts that go live later on
+# their scheduled date are handled by scheduled-publish.yml.
+
+name: Notify search engines
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/blog/**"
+      - "scripts/submit-indexnow.mjs"
+      - "scripts/lib/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Submit changed URLs (IndexNow + WebSub)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          # Manual runs, and the first push of a branch (BEFORE is all
+          # zeros), submit every public post.
+          if [ "$EVENT_NAME" != "push" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            node scripts/submit-indexnow.mjs
+            exit 0
+          fi
+          mapfile -t changed < <(git diff --name-only --diff-filter=d "$BEFORE" "$SHA" -- 'data/blog/*.mdx')
+          if [ "${#changed[@]}" -eq 0 ]; then
+            echo "No blog posts changed in this push."
+            exit 0
+          fi
+          node scripts/submit-indexnow.mjs --changed "${changed[@]}"
