@@ -1,26 +1,12 @@
-# Security Policy
+# Security
 
-## Supported Versions
+If you've found a security problem in gofasta.dev, thank you for telling us first.
 
-| Version | Supported |
-|---------|-----------|
-| latest  | Yes       |
+**Please don't open a public issue.** Use [GitHub's private vulnerability reporting](https://github.com/gofastadev/website/security/advisories/new) instead. Tell us what you found, how to reproduce it, and what you think the impact is. A suggested fix is welcome but not expected.
 
-## Reporting a Security Issue
+You'll hear back within 72 hours. Once we've confirmed the problem we'll fix it and deploy; the site isn't versioned, so the fix goes live with the next deploy rather than a release. We'll credit you in the advisory unless you'd rather stay anonymous.
 
-**Please do not report security issues through public GitHub issues.**
-
-Instead, use [GitHub's private vulnerability reporting](https://github.com/gofastadev/website/security/advisories/new) to submit a report. Include:
-
-- A description of the issue and its potential impact
-- Steps to reproduce or a proof-of-concept
-- Any suggested fix if you have one
-
-You should receive a response within 72 hours. Once confirmed, we will work on a fix and coordinate a release. We will credit you in the release notes unless you prefer to remain anonymous.
-
-## Scope
-
-This policy covers the gofasta.dev documentation website. For issues in the Gofasta library or CLI, report to their respective repositories:
+This policy covers the website only. For the library or the CLI, report there:
 
 - Library: [gofastadev/gofasta](https://github.com/gofastadev/gofasta/security/advisories/new)
 - CLI: [gofastadev/cli](https://github.com/gofastadev/cli/security/advisories/new)
