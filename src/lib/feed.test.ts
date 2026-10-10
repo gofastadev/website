@@ -294,3 +294,38 @@ describe("renderMdxToHtml GFM support", () => {
     expect(renderMdxToHtml("Plain prose.\n")).toBe("<p>Plain prose.</p>");
   });
 });
+
+describe("feed URLs and titles", () => {
+  it("rewrites root-relative links and images to absolute URLs", () => {
+    const html = renderMdxToHtml(
+      "See [docs](/docs/intro) and ![shot](/blog/inline/a.png).",
+      "https://gofasta.dev",
+    );
+    expect(html).toContain('href="https://gofasta.dev/docs/intro"');
+    expect(html).toContain('src="https://gofasta.dev/blog/inline/a.png"');
+  });
+
+  it("leaves absolute, protocol-relative, and fragment URLs alone", () => {
+    const html = renderMdxToHtml(
+      "[a](https://x.dev/p) [b](//cdn.dev/i) [c](#top)",
+      "https://gofasta.dev",
+    );
+    expect(html).toContain('href="https://x.dev/p"');
+    expect(html).toContain('href="//cdn.dev/i"');
+    expect(html).toContain('href="#top"');
+  });
+
+  it("keeps relative URLs when no site URL is given", () => {
+    expect(renderMdxToHtml("[d](/docs)")).toContain('href="/docs"');
+  });
+
+  it("drops a leading H1 that repeats the post title in both feeds", () => {
+    const p = post({ title: "Hello, World", body: "# Hello, World\n\nBody [x](/docs)." });
+    const rss = buildRssFeed([p], META);
+    const json = buildJsonFeed([p], META);
+    expect(rss).not.toContain("<h1>Hello, World</h1>");
+    expect(rss).toContain('href="https://gofasta.dev/docs"');
+    expect(json.items[0].content_html).not.toContain("<h1>");
+    expect(json.items[0].content_html).toContain('href="https://gofasta.dev/docs"');
+  });
+});

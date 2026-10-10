@@ -4,7 +4,8 @@ import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 import { toHast } from "mdast-util-to-hast";
 import { toHtml } from "hast-util-to-html";
-import type { BlogPost } from "./blog";
+import type { Element, Root, RootContent } from "hast";
+import { stripTitleH1, type BlogPost } from "./blog";
 
 // ─────────────────────────────────────────────────────────────────────
 // src/lib/feed.ts
@@ -31,7 +32,26 @@ export interface SiteMeta {
   language: string;
 }
 
-export function renderMdxToHtml(source: string): string {
+// Feed readers have no base URL for the post, so a root-relative
+// `/docs/...` link or `/blog/inline/...` image (what Keystatic writes)
+// resolves against the reader itself. Protocol-relative `//host` URLs are
+// already absolute and left alone.
+function absolutizeUrls(node: Root | RootContent, siteUrl: string): void {
+  if (node.type === "element") {
+    const props = (node as Element).properties;
+    for (const key of ["href", "src"] as const) {
+      const value = props[key];
+      if (typeof value === "string" && /^\/(?!\/)/.test(value)) {
+        props[key] = `${siteUrl}${value}`;
+      }
+    }
+  }
+  if ("children" in node) {
+    for (const child of node.children) absolutizeUrls(child, siteUrl);
+  }
+}
+
+export function renderMdxToHtml(source: string, siteUrl?: string): string {
   // Same GFM requirement as the page renderer: without these extensions a
   // markdown table reaches feed readers as a paragraph of pipe characters.
   const mdast = fromMarkdown(source, {
@@ -39,7 +59,14 @@ export function renderMdxToHtml(source: string): string {
     mdastExtensions: [gfmFromMarkdown()],
   });
   const hast = toHast(mdast);
+  if (siteUrl) absolutizeUrls(hast, siteUrl);
   return toHtml(hast);
+}
+
+// The feed item carries the title separately, so a body opening with the
+// same `# Title` would repeat it, exactly as on the page.
+function renderPostHtml(post: BlogPost, siteUrl: string): string {
+  return renderMdxToHtml(stripTitleH1(post.body, post.title), siteUrl);
 }
 
 function escapeXml(value: string): string {
@@ -91,7 +118,7 @@ export function buildRssFeed(posts: BlogPost[], meta: SiteMeta): string {
 
   const itemBlocks = posts.slice(0, FEED_MAX_ITEMS).map((post) => {
     const link = `${meta.siteUrl}/blog/${post.slug}`;
-    const html = escapeCdata(renderMdxToHtml(post.body));
+    const html = escapeCdata(renderPostHtml(post, meta.siteUrl));
     const categoryLines = post.tags.map(
       (tag) => `    <category>${escapeXml(tag)}</category>`,
     );
@@ -190,7 +217,7 @@ export function buildJsonFeed(posts: BlogPost[], meta: SiteMeta): JsonFeed {
         url,
         title: post.title,
         summary: post.description,
-        content_html: renderMdxToHtml(post.body),
+        content_html: renderPostHtml(post, meta.siteUrl),
         date_published: post.publishedAt,
         authors: [author],
         tags: post.tags,
