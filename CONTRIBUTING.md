@@ -46,7 +46,7 @@ Some things we hold to:
 
 ## Writing a blog post
 
-Posts live in `data/blog/` and are edited through Keystatic at `/keystatic` on your dev server, which writes the MDX file for you and handles the cover image. Posts are reviewed as pull requests like everything else. The README has the details on drafts and scheduling.
+Posts live in `data/blog/` and are edited through Keystatic at `/keystatic` on your dev server, which writes the MDX file for you and handles the cover image. Posts are reviewed as pull requests like everything else. Drafts and scheduling are explained in [docs/operations.md](./docs/operations.md#blog-posts).
 
 ## Before you open the pull request
 

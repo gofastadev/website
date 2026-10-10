@@ -32,27 +32,11 @@ That's `http://localhost:3000` for the landing page, `/docs` for the docs and `/
 
 Add a page by creating the `.mdx` file in the right folder under `src/content/`, giving it `title` and `description` frontmatter, and adding its key to that folder's `_meta.js`. Pages missing from `_meta.js` still render but land alphabetically at the end of the sidebar.
 
-One thing to know: every `gofasta …` command inside a shell code block is validated against `src/data/cli-facts.json`, a snapshot of the CLI's commands and flags pinned to the version in `.cli-version`. Document a flag that doesn't exist and `yarn build` fails with the file and line. When a new CLI version ships, install it and refresh the snapshot:
-
-```bash
-gofasta facts --json | node scripts/sync-cli-facts.mjs
-```
-
-then bump `.cli-version` to match.
+Every `gofasta …` command inside a shell code block is checked at build time against the CLI's real commands and flags, so a flag that doesn't exist fails `yarn build` with the file and line. Fix the command, not the check.
 
 ## Writing for the blog
 
-Open `/keystatic` on a dev server. Locally it edits the files in `data/blog/` directly. On production it runs against GitHub, and every save opens a pull request from a `keystatic/…` branch, so a post gets reviewed like any other change. CI validates the frontmatter of every post, and the Vercel preview of the pull request renders it, drafts included.
-
-How a post becomes visible:
-
-| State | Production | Previews and `yarn dev` |
-|---|---|---|
-| `draft: true` | hidden everywhere, including the sitemap, feeds and `llms.txt` | shown |
-| `publishedAt` in the future | hidden until the first rebuild after that date | hidden |
-| published | shown | shown |
-
-To schedule a post, un-draft it and set a future *Published at* (in UTC). A workflow runs every day at 06:00 UTC, triggers a production rebuild when a date has arrived, and tells search engines about the new page. So a scheduled post goes live within a day of its date, not at the exact minute.
+Posts are MDX files in `data/blog/`, edited through Keystatic at `/keystatic` on a dev server. On production the editor opens a pull request for every save, so posts are reviewed like any other change, and the pull request's preview renders them, drafts included. Drafts, scheduling and publishing are covered in [docs/operations.md](./docs/operations.md#blog-posts).
 
 ## Before you open a pull request
 
@@ -61,33 +45,17 @@ CI runs exactly these, so running them locally saves a round trip:
 ```bash
 yarn lint
 npx tsc --noEmit
-yarn test          # vitest; coverage must stay at 100% for src/lib and src/components
-yarn build         # also runs the docs and image checks, then builds the search index
+yarn test
+yarn build
 ```
 
-The 100% coverage rule only applies to `src/lib` and `src/components`. If you add a component, add its test next to it. Pages under `src/app` aren't measured.
+Details on tests, coverage and pull requests are in [CONTRIBUTING.md](./CONTRIBUTING.md). For anything security-related, follow [SECURITY.md](./SECURITY.md) instead of opening an issue. The [code of conduct](./CODE_OF_CONDUCT.md) applies to issues, pull requests and reviews alike.
 
-Branch from `main`, keep one change per pull request, and say what you changed and why in the description. More in [CONTRIBUTING.md](./CONTRIBUTING.md); for anything security-related, please follow [SECURITY.md](./SECURITY.md) instead of opening an issue. The [code of conduct](./CODE_OF_CONDUCT.md) applies to issues, pull requests and reviews alike.
+## Deploys
 
-## Deploys and configuration
+Vercel deploys `main` to production and builds a preview for every pull request, so you can see your change rendered before anyone reviews it.
 
-Vercel deploys `main` to production and builds a preview for every pull request. The `Dockerfile` produces a standalone image if you want to run the site somewhere else; it behaves like production, so drafts are hidden there too.
-
-The features below switch on only when their variables are set. Nothing here is needed to run the site locally or to contribute.
-
-| Variable | Turns on |
-|---|---|
-| `NEXT_PUBLIC_KEYSTATIC_GITHUB_APP_SLUG`, `KEYSTATIC_GITHUB_CLIENT_ID`, `KEYSTATIC_GITHUB_CLIENT_SECRET`, `KEYSTATIC_SECRET` (32+ characters) | the blog editor on production; without all four, `/keystatic` is a 404 outside `yarn dev` |
-| `NEXT_PUBLIC_GISCUS_REPO`, `NEXT_PUBLIC_GISCUS_REPO_ID`, `NEXT_PUBLIC_GISCUS_CATEGORY`, `NEXT_PUBLIC_GISCUS_CATEGORY_ID` | comments under posts, through [giscus](https://giscus.app) |
-| `NEXT_PUBLIC_BUTTONDOWN_USERNAME` | the newsletter form, through Buttondown |
-| `NEXT_PUBLIC_GA4_MEASUREMENT_ID`, `NEXT_PUBLIC_CLARITY_PROJECT_ID` | analytics; set these on production only |
-| `VERCEL_DEPLOY_HOOK_URL` (GitHub Actions secret) | the daily rebuild for scheduled posts |
-
-`NEXT_PUBLIC_*` values are baked in at build time, so a change needs a redeploy.
-
-To set up the blog editor for the first time, run `NEXT_PUBLIC_KEYSTATIC_STORAGE=github yarn dev`, open `/keystatic` and let the wizard create the GitHub App; it writes the four Keystatic variables to `.env`. Give the app `https://gofasta.dev/api/keystatic/github/oauth/callback` as its callback URL, install it on this repo, and copy the variables into Vercel.
-
-On analytics and consent: the site ships a cookie banner and a `/cookies` page. Google Analytics loads with Consent Mode v2 set to denied, so it sends cookieless aggregate pings only until a visitor accepts. Microsoft Clarity isn't loaded at all until they do. Declining or revoking later removes Clarity from the page. All of this is in `src/components/atoms/analytics.tsx` and `src/contexts/consent-context.tsx`.
+Comments, the newsletter form, analytics and the production blog editor are switched on by environment variables that only exist on the deployed site. Locally they're off, which is expected, not something missing from your setup. How they're configured is in [docs/operations.md](./docs/operations.md).
 
 ## License
 
