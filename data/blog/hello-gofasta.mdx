@@ -1,5 +1,5 @@
 ---
-draft: true
+draft: false
 title: Hello, Gofasta!
 description: >-
   What the Gofasta toolkit ships, what a freshly scaffolded project actually
@@ -11,7 +11,7 @@ tags:
   - golang
   - toolkit
   - agent-native
-cover: /blog/covers/hello-gofasta/cover.png
+cover: /blog/covers/hello-gofasta/cover.webp
 ---
 # Hello, Gofasta!
 
@@ -31,13 +31,13 @@ go install github.com/gofastadev/cli/cmd/gofasta@latest
 
 It scaffolds projects, generates full CRUD layers from one command, runs migrations, regenerates dependency injection, and tells you when your tree has drifted. At runtime it never imports the library. It only writes files.
 
-The library lives at [`github.com/gofastadev/gofasta`](https://github.com/gofastadev/gofasta). Thirty-odd packages under `pkg/*`, each one a thing backends keep needing: config loading, JWT auth with RBAC, caching, structured errors, HTTP middleware, mailer, notifications, WebSockets, scheduled jobs, task queues, observability, feature flags, file storage, sessions, i18n, encryption.
+The library lives at [`github.com/gofastadev/gofasta`](https://github.com/gofastadev/gofasta). Independent packages under `pkg/*`, each one a thing backends keep needing: config loading, JWT auth with RBAC, caching, structured errors, HTTP middleware, mailer, notifications, WebSockets, scheduled jobs, task queues, observability, feature flags, file storage, sessions, i18n, encryption.
 
 Every package imports on its own. There is no umbrella that drags the rest in behind it. Where two packages do touch, it is because the job requires it. `pkg/health` pings the database and the cache, which is precisely what a health probe is for.
 
 ## The code is yours
 
-`gofasta new myapp` writes about 80 files of plain, idiomatic Go. The server is a stdlib `http.Server` with [chi](https://github.com/go-chi/chi) in front of it. The commands you run, `serve` and `migrate` and `seed`, are ordinary Cobra subcommands. Models are GORM structs. Dependency injection resolves at compile time through [Google Wire](https://github.com/google/wire), so there is no reflection and no container magic waiting to be debugged at 2am. You can read the whole project in an afternoon.
+`gofasta new myapp` writes about 80 files of plain, idiomatic Go. The server is a stdlib `http.Server` with [chi](https://github.com/go-chi/chi) in front of it. The commands you run, `serve` and `migrate` and `seed`, are ordinary [Cobra](https://github.com/spf13/cobra) subcommands. Models are [GORM](https://github.com/go-gorm/gorm) structs. Dependency injection resolves at compile time through [Google Wire](https://github.com/google/wire), so there is no reflection and no container magic waiting to be debugged at 2am. You can read the whole project in an afternoon.
 
 That is also the honest answer to whether this is a framework. It is not. Nothing owns your code. There is no application object to register handlers into, no lifecycle wrapped around your program, no runtime that has to be present for the rest to make sense. `go build`, `go test`, `golangci-lint`, Delve and your IDE all behave exactly as they do in any other Go repo, because nothing here is custom.
 
