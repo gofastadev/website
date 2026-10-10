@@ -15,9 +15,12 @@ describe("robots.txt", () => {
   it("keeps the internal and admin paths disallowed", () => {
     const txt = buildRobotsTxt();
     expect(txt).toContain("Disallow: /api/");
-    expect(txt).toContain("Disallow: /_next/");
     expect(txt).toContain("Disallow: /keystatic/");
     expect(txt).toContain("Disallow: /api/keystatic/");
+  });
+
+  it("lets crawlers fetch Next.js assets and optimized images", () => {
+    expect(buildRobotsTxt()).not.toContain("Disallow: /_next/");
   });
 
   it("does not disallow the llms files", () => {

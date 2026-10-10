@@ -16,7 +16,10 @@ import { AGENT_DOC_FILES, SITE_URL } from "@/lib/seo";
 // (RFC 9309 §2.2.2), so it takes precedence for that prefix alone.
 
 const ALLOW = ["/", "/api/og"];
-const DISALLOW = ["/api/", "/_next/", "/keystatic/", "/api/keystatic/"];
+//
+// `/_next/` is deliberately NOT disallowed: Googlebot needs `/_next/static`
+// to render pages and `/_next/image` to fetch every blog cover.
+const DISALLOW = ["/api/", "/keystatic/", "/api/keystatic/"];
 
 export function buildRobotsTxt(): string {
   const lines = [

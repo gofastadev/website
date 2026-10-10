@@ -15,6 +15,9 @@ function formatDate(iso: string): string {
     year: "numeric",
     month: "long",
     day: "numeric",
+    // Publish times are UTC instants; without a fixed zone the shown
+    // day would depend on the build machine's timezone.
+    timeZone: "UTC",
   });
 }
 
