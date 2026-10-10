@@ -69,7 +69,7 @@ yarn build         # also runs the docs and image checks, then builds the search
 
 The 100% coverage rule only applies to `src/lib` and `src/components`. If you add a component, add its test next to it. Pages under `src/app` aren't measured.
 
-Branch from `main`, keep one change per pull request, and say what you changed and why in the description. More in [CONTRIBUTING.md](./CONTRIBUTING.md); for anything security-related, please follow [SECURITY.md](./SECURITY.md) instead of opening an issue.
+Branch from `main`, keep one change per pull request, and say what you changed and why in the description. More in [CONTRIBUTING.md](./CONTRIBUTING.md); for anything security-related, please follow [SECURITY.md](./SECURITY.md) instead of opening an issue. The [code of conduct](./CODE_OF_CONDUCT.md) applies to issues, pull requests and reviews alike.
 
 ## Deploys and configuration
 
@@ -91,6 +91,6 @@ To set up the blog editor for the first time, run `NEXT_PUBLIC_KEYSTATIC_STORAGE
 
 On analytics and consent: the site ships a cookie banner and a `/cookies` page. Google Analytics loads with Consent Mode v2 set to denied, so it sends cookieless aggregate pings only until a visitor accepts. Microsoft Clarity isn't loaded at all until they do. Declining or revoking later removes Clarity from the page. All of this is in `src/components/atoms/analytics.tsx` and `src/contexts/consent-context.tsx`.
 
-## Licence
+## License
 
-MIT. See [LICENSE](./LICENSE) and the [code of conduct](./CODE_OF_CONDUCT.md).
+MIT. See [LICENSE](./LICENSE).

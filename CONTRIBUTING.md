@@ -73,6 +73,6 @@ Pull requests get a Vercel preview, so you can check your change rendered the wa
 
 If you've found a security problem, don't open an issue. See [SECURITY.md](./SECURITY.md).
 
-## Licence
+## License
 
 By contributing you agree that your work is released under the [MIT License](./LICENSE), the same as the rest of the repo.
