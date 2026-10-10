@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for wanting to help. This file is the practical part; the [README](./README.md) explains how the repo is laid out and how it's deployed.
+This file covers how to contribute. The [README](./README.md) explains how the repo is laid out and how it's deployed.
 
 ## What's worth contributing
 

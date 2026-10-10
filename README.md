@@ -2,9 +2,7 @@
 
 [![CI](https://github.com/gofastadev/website/actions/workflows/ci.yml/badge.svg)](https://github.com/gofastadev/website/actions/workflows/ci.yml) [![CodeQL](https://github.com/gofastadev/website/actions/workflows/codeql.yml/badge.svg)](https://github.com/gofastadev/website/actions/workflows/codeql.yml) [![codecov](https://codecov.io/gh/gofastadev/website/graph/badge.svg)](https://codecov.io/gh/gofastadev/website) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/gofastadev/website/blob/main/LICENSE) [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org) [![Nextra](https://img.shields.io/badge/Nextra-4-000?logo=nextra)](https://nextra.site) [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com) [![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-black?logo=vercel)](https://gofasta.dev)
 
-Hi, and thanks for stopping by.
-
-This is the source of [gofasta.dev](https://gofasta.dev): the docs and the blog for Gofasta, a Go backend toolkit. The toolkit itself lives in two other repos, [`gofasta`](https://github.com/gofastadev/gofasta) (the library) and [`cli`](https://github.com/gofastadev/cli) (the `gofasta` binary). If what you want to change is the code the docs describe, head there. If it's the words, the pages or the site, you're in the right place.
+The source of [gofasta.dev](https://gofasta.dev): the docs and the blog for Gofasta, a Go backend toolkit. The toolkit itself lives in two other repos, [`gofasta`](https://github.com/gofastadev/gofasta) (the library) and [`cli`](https://github.com/gofastadev/cli) (the `gofasta` binary). Changes to the code the docs describe go there; changes to the words, the pages or the site go here.
 
 Most contributions here are small: a typo, an example that doesn't compile, a guide that assumes too much. Those are the ones we want most. The docs are written for someone who knows Go but has never seen Gofasta, so if a page lost you, that's a bug, and an issue saying "this confused me" is a real contribution.
 
