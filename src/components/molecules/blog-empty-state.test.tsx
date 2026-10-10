@@ -21,7 +21,7 @@ describe("BlogEmptyState", () => {
       screen.getByRole("link", { name: /subscribe via rss/i }),
     ).toHaveAttribute("href", "/blog/rss.xml");
     const repo = screen.getByRole("link", { name: /follow the toolkit/i });
-    expect(repo).toHaveAttribute("href", "https://github.com/gofastadev/gofasta");
+    expect(repo).toHaveAttribute("href", "https://github.com/gofastadev");
     expect(repo).toHaveAttribute("rel", "noopener noreferrer");
   });
 

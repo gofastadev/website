@@ -59,7 +59,7 @@ export function BlogEmptyState() {
         <p className="mt-6 text-sm text-gray-600 dark:text-gray-400">
           Prefer commits to prose?{" "}
           <a
-            href="https://github.com/gofastadev/gofasta"
+            href="https://github.com/gofastadev"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-primary underline-offset-4 hover:underline"

@@ -103,16 +103,16 @@ export function NavLinks({ variant = "header", className }: NavLinksProps) {
         Blog
       </Link>
       <Link
-        href="https://github.com/gofastadev/gofasta"
+        href="https://github.com/gofastadev"
         target="_blank"
         rel="noopener noreferrer"
-        className={linkClassName("https://github.com/gofastadev/gofasta")}
+        className={linkClassName("https://github.com/gofastadev")}
         onClick={() =>
           isHeader
             ? trackEvent("nav_to_github_library", {
-                destination: "https://github.com/gofastadev/gofasta",
+                destination: "https://github.com/gofastadev",
               })
-            : trackFooterClick("GitHub", "https://github.com/gofastadev/gofasta")
+            : trackFooterClick("GitHub", "https://github.com/gofastadev")
         }
       >
         GitHub

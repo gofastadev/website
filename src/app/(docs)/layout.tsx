@@ -33,7 +33,7 @@ export default async function DocsLayout({
               <span className="text-lg font-bold">Gofasta</span>
             </span>
           }
-          projectLink="https://github.com/gofastadev/gofasta"
+          projectLink="https://github.com/gofastadev"
         >
           {/* The blog is a site section, not documentation content — it
               lives in the top bar (and footer), deliberately NOT in the
