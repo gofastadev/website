@@ -1,26 +1,30 @@
 import { makeRouteHandler } from "@keystatic/next/route-handler";
-import config, { hasGithubCredentials } from "../../../../../keystatic.config";
+import config, { isKeystaticEnabled } from "../../../../../keystatic.config";
 
 // Keystatic's backend route handler. Owns OAuth callbacks, GitHub
 // API proxying, save/commit/PR flows, and image uploads. The route
-// is hit only by the Keystatic admin client — see robots.ts which
-// disallows /api/keystatic/ for SEO.
+// is hit only by the Keystatic admin client — robots.txt disallows
+// /api/keystatic/ for SEO.
 
-const handlers = makeRouteHandler({ config });
+type Handlers = ReturnType<typeof makeRouteHandler>;
 
-// Fail closed in production, mirroring the /keystatic layout: with the
-// GitHub OAuth secrets missing the config falls back to unauthenticated
-// `local` storage — fine for CI/dev/preview builds, never acceptable on
-// the production domain.
-function productionLockout(): Response | null {
-  if (process.env.VERCEL_ENV === "production" && !hasGithubCredentials) {
-    return new Response("Not found", { status: 404 });
-  }
-  return null;
+// Built on first use rather than at import: in GitHub mode Keystatic
+// throws while constructing the handler when its secrets are missing,
+// which would otherwise fail every build that lacks them.
+let handlers: Handlers | undefined;
+function getHandlers(): Handlers {
+  handlers ??= makeRouteHandler({ config });
+  return handlers;
 }
 
-export const GET: typeof handlers.GET = async (...args) =>
-  productionLockout() ?? handlers.GET(...args);
+// Fail closed, mirroring the /keystatic layout: no unauthenticated local
+// storage outside `next dev`, no GitHub mode without its secrets.
+function notFound(): Response {
+  return new Response("Not found", { status: 404 });
+}
 
-export const POST: typeof handlers.POST = async (...args) =>
-  productionLockout() ?? handlers.POST(...args);
+export const GET: Handlers["GET"] = async (...args) =>
+  isKeystaticEnabled() ? getHandlers().GET(...args) : notFound();
+
+export const POST: Handlers["POST"] = async (...args) =>
+  isKeystaticEnabled() ? getHandlers().POST(...args) : notFound();
