@@ -99,9 +99,11 @@ type ParseResult =
 // field just made the post disappear — so they are now logged at build
 // time and fail CI through `blog-content.test.ts`.
 //
-// Future-dating hides a post from every surface. The date is evaluated at
-// build time, so the post appears at the first rebuild after its date —
-// the daily scheduled-publish workflow guarantees one within a day.
+// Future-dating hides a post from every public surface. The date is
+// evaluated at build time, so the post appears at the first rebuild after
+// its date — the daily scheduled-publish workflow guarantees one within a
+// day. Review contexts (`next dev`, Vercel previews) show scheduled posts
+// the same way they show drafts.
 function parsePost(
   filename: string,
   source: string,
@@ -217,7 +219,13 @@ function parsePost(
 
   // Validation runs before these skips so a draft with a broken field
   // still fails CI while it is being reviewed.
-  if (publishDate.getTime() > now.getTime()) return { skip: "scheduled" };
+  //
+  // Both gates are review-aware: a scheduled post is as much "not yet
+  // public" as a draft, so `next dev` and preview deploys show it, and
+  // only production builds wait for the date.
+  if (publishDate.getTime() > now.getTime() && !includeDrafts) {
+    return { skip: "scheduled" };
+  }
   // Strict `=== true` so a missing or non-boolean value reads as
   // published, matching Keystatic checkbox semantics.
   if (fm.draft === true && !includeDrafts) return { skip: "draft" };
@@ -261,9 +269,10 @@ export function validatePostFile(
 export interface BlogServiceOptions {
   now?: () => Date;
   /**
-   * Defaults to the deploy context, failing closed: drafts render only on
-   * Vercel preview deploys and under `next dev`, because Keystatic's PR
-   * mode exists to review a post on its preview deploy. Every other build
+   * Defaults to the deploy context, failing closed: drafts and scheduled
+   * (future-dated) posts render only on Vercel preview deploys and under
+   * `next dev`, because Keystatic's PR mode exists to review a post on its
+   * preview deploy. Every other build
    * — Vercel production, Docker, a local `next build` — hides them, so a
    * deploy that lacks VERCEL_ENV cannot publish drafts.
    */
