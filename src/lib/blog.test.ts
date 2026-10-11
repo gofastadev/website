@@ -711,6 +711,29 @@ describe("createBlogService draft visibility", () => {
     expect(s.getPost("draft-post")).not.toBeNull();
   });
 
+  it("includes scheduled posts when includeDrafts is true (preview review)", () => {
+    fs.writeFileSync(
+      path.join(dir, "scheduled-post.mdx"),
+      [
+        "---",
+        'title: "Scheduled Post"',
+        'description: "A future-dated post that reviewers need to see on preview deploys."',
+        "publishedAt: 2026-06-01T10:00:00.000Z",
+        'author: "Test Author"',
+        "tags: []",
+        'cover: "sample.jpg"',
+        "draft: false",
+        "---",
+        "Body",
+      ].join("\n"),
+      "utf8",
+    );
+    const preview = createBlogService(dir, { now: () => NOW, includeDrafts: true });
+    expect(preview.getPost("scheduled-post")).not.toBeNull();
+    const production = createBlogService(dir, { now: () => NOW, includeDrafts: false });
+    expect(production.getPost("scheduled-post")).toBeNull();
+  });
+
   it("excludes drafts when includeDrafts is false (production)", () => {
     const s = createBlogService(dir, { now: () => NOW, includeDrafts: false });
     expect(s.getPost("draft-post")).toBeNull();
