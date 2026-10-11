@@ -64,7 +64,7 @@ The code is the leanest of the four. Stdlib-first, minimal dependencies, the kin
 
 [Gofasta](https://gofasta.dev) is ours, so we will describe it the way we would want a competitor to describe us. Accurately, including the parts that might put you off.
 
-`gofasta new myapp` scaffolds roughly 80 files of plain Go: a stdlib `http.Server` behind a [chi](https://github.com/go-chi/chi) router, GORM models, [golang-migrate](https://github.com/golang-migrate/migrate) migrations, JWT auth with Casbin RBAC, `slog` logging, Swagger generation and Docker setup. `--driver` picks Postgres, MySQL, SQLite, SQL Server or ClickHouse. `--graphql` wires gqlgen alongside REST. `--layout` chooses between layered and feature-based organization. The scaffold imports packages from our companion library as opt-out defaults, so you can delete `pkg/auth`, `go get` your preferred JWT library, and nothing else changes.
+`gofasta new myapp` scaffolds roughly 80 files of plain Go: a stdlib `http.Server` behind a [chi](https://github.com/go-chi/chi) router, GORM models, [golang-migrate](https://github.com/golang-migrate/migrate) migrations, JWT auth with Casbin RBAC, `slog` logging, Swagger generation and Docker setup. `--driver` picks Postgres, MySQL, SQLite, SQL Server or ClickHouse. `--graphql` wires gqlgen alongside REST. `--layout` chooses between layered and feature-based organization. The scaffold imports packages from our companion library as opt-out defaults, so you can delete `pkg/auth`, `go get` your preferred JWT library, and change only the two DI files that wired it in.
 
 The honest difference from the other three is not the scaffold. It is that the CLI keeps being useful afterward.
 

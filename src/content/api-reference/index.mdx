@@ -13,7 +13,7 @@ asIndexPage: true
 
 # Package Library
 
-The Gofasta library is a set of independent packages under `pkg/`. A scaffolded project imports a curated subset as its defaults — the same way any Go backend imports a curated set of community libraries. Each import is a default, not a requirement: delete one and replace it with a different library or a local implementation, and nothing else in the project has to change.
+The Gofasta library is a set of independent packages under `pkg/`. A scaffolded project imports a curated subset as its defaults — the same way any Go backend imports a curated set of community libraries. Each import is a default, not a requirement: delete one and replace it with a different library or a local implementation. The files that import it have to change and nothing else does; the measured count per package is in the [white paper, §1.4](/docs/white-paper#14-curated-defaults-not-lock-in).
 
 The pages below document each package's public API, configuration, and the way the scaffold wires it.
 

@@ -28,7 +28,7 @@ Run it from the project root. `gofasta serve` defines no flags of its own, but b
 1. Loads `.env` from the project root into the environment. This matters: a scaffolded project keeps its database credentials, `REDIS_URL`, and similar in `.env`, and the library's config loader reads from the process environment without loading `.env` itself. The CLI populates the environment before spawning so the child inherits everything it needs.
 2. Spawns `go run ./app/main serve` with stdin, stdout, and stderr wired straight through, so the server's logs stream to your terminal and `Ctrl+C` reaches the server.
 
-Server configuration — host, port, environment, database, cache, queue — comes from `config.yaml` and its `GOFASTA_`-prefixed environment overrides, not from CLI flags. See the [Configuration guide](/docs/guides/configuration).
+Server configuration — host, port, environment, database, cache, queue — comes from `config.yaml` and its project-prefixed environment overrides (`MYAPP_SERVER_PORT` for a project named `myapp`), not from CLI flags. See the [Configuration guide](/docs/guides/configuration).
 
 ## Endpoints
 

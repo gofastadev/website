@@ -41,7 +41,7 @@ Authorization is role enforcement backed by [Casbin](https://casbin.org), so "is
 
 The scaffold's migrations include a users table from day one, and the middleware is already in the chain for protected routes. Sign-up, sign-in and token refresh are present and testable the moment `gofasta dev` boots.
 
-One framing note that matters to us. `pkg/auth` is an opt-out default, not a requirement. It is an ordinary import in your repository. If your organization standardizes on a different JWT library, or on sessions via `pkg/session`, or on an external identity provider, delete the import and wire in your alternative. The rest of the project does not care. That is the deal with every package the scaffold pulls in, and it is the difference between a default and a dependency you are stuck with.
+One framing note that matters to us. `pkg/auth` is an opt-out default, not a requirement. It is an ordinary import in your repository. If your organization standardizes on a different JWT library, or on sessions via `pkg/session`, or on an external identity provider, delete the import from the DI container and the provider set, wire in your alternative, and regenerate Wire. Those two files are the whole change; the rest of the project does not care. That is the deal with every package the scaffold pulls in, and it is the difference between a default and a dependency you are stuck with.
 
 ## Authentication answers "who" and cannot answer "may"
 

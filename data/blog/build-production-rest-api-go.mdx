@@ -34,7 +34,7 @@ Postgres is the default. If your team runs MySQL, SQLite, SQL Server or ClickHou
 
 What lands on disk is roughly 80 files of ordinary Go. Not a starter kit that imports some application object, and not a zip file you will be afraid to touch. The server is a stdlib `http.Server` with [chi](https://github.com/go-chi/chi) routing requests. Models are [GORM](https://gorm.io) structs. Dependency injection resolves at compile time with [Google Wire](https://github.com/google/wire). Logging goes through `slog`. The commands you will run, `serve` and `migrate` and `seed`, are Cobra subcommands you can read in a minute each.
 
-The scaffold imports packages from the Gofasta library, `pkg/config` and `pkg/auth` and `pkg/middleware` among them, as opt-out defaults. It is the same relationship any Go service has with its chosen router or ORM. If you do not like one, delete the import and bring your own. Nothing else moves.
+The scaffold imports packages from the Gofasta library, `pkg/config` and `pkg/auth` and `pkg/middleware` among them, as opt-out defaults. It is the same relationship any Go service has with its chosen router or ORM. If you do not like one, delete the import, bring your own, and fix the handful of files that wired it in. For `pkg/auth` that is two, both under `app/di/`. Nothing else moves.
 
 ## A tour before we build anything
 

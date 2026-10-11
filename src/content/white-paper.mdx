@@ -164,7 +164,51 @@ The CLI generates plain Go code — the same code a senior engineer would write 
 
 A scaffolded project imports packages from `gofastadev/gofasta/pkg/*` — configuration loading, structured logging, JWT authentication, caching, and so on. These are standard Go library imports, not framework bindings. Each package is independently importable, has no side effects, and does not reference any other `pkg/*` package unless functionally necessary (for example, `pkg/health` accepts a `*gorm.DB` and a `cache.CacheService` to check their connectivity).
 
-The relationship between a project and `pkg/cache` is identical to the relationship between a project and `redis/go-redis` — it is a dependency the developer chose, and it can be removed with a single import deletion. No other file in the project needs to change.
+The relationship between a project and `pkg/cache` is the same as the relationship between a project and `redis/go-redis` — it is a dependency the developer chose, and it can be removed. Removing it is not free, and the cost is measurable, so this document measures it rather than asserting it.
+
+**The definition.** A default is an import you can delete without unpicking the rest of the project. If deleting it means rewriting half the files, it is not a default; it is a dependency with a nicer name.
+
+**The measurement.** Delete the import, run `go build ./...`, and count the hand-written files you had to touch to make the build pass. `wire_gen.go` is excluded because `gofasta wire` regenerates it; test files are excluded because they follow the code they test. Every file that imports a package has to change, so the import count is the floor of that cost, not the ceiling: a file can use a value from a package without importing it (`cmd/serve.go` reads the loaded configuration through the DI container without importing `pkg/config`), and such files are not counted.
+
+**The numbers.** Measured in October 2026 on a fresh `gofasta new` with the default layered layout, CLI v0.1.12 and library v0.1.15. Every `pkg/*` package the scaffold imports is listed; nothing is left out.
+
+| Package | Hand-written files that import it | Where |
+|---|---|---|
+| `pkg/config` | 5 | DI container, provider set, `cmd/migrate.go`, `cmd/seed.go`, `cmd/schema/main.go` |
+| `pkg/utils` | 5 | user repository, user service, password generator, app validator, user controller |
+| `pkg/cache` | 5 | DI container, provider set, and three files under `app/devtools/` (build-tag gated; 2 without them) |
+| `pkg/httputil` | 3 | user controller, `index.routes.go`, `user.routes.go` |
+| `pkg/logger` | 3 | provider set, `cmd/migrate.go`, `cmd/seed.go` |
+| `pkg/websocket` | 3 | DI container, provider set, `index.routes.go` |
+| `pkg/auth` | 2 | DI container, provider set |
+| `pkg/encryption` | 2 | DI container, provider set |
+| `pkg/i18n` | 2 | DI container, provider set |
+| `pkg/mailer` | 2 | DI container, provider set |
+| `pkg/notify` | 2 | DI container, provider set |
+| `pkg/queue` | 2 | DI container, provider set |
+| `pkg/session` | 2 | DI container, provider set |
+| `pkg/slack` | 2 | DI container, provider set |
+| `pkg/storage` | 2 | DI container, provider set |
+| `pkg/whatsapp` | 2 | DI container, provider set |
+| `pkg/health` | 2 | `index.routes.go`, `cmd/serve.go` |
+| `pkg/scheduler` | 2 | `app/jobs/example.go`, `cmd/serve.go` |
+| `pkg/errors` | 1 | user controller |
+| `pkg/middleware` | 1 | `cmd/serve.go` |
+| `pkg/models` | 1 | user model |
+| `pkg/observability` | 1 | `cmd/serve.go` |
+| `pkg/seeds` | 1 | `db/seeds/seed.go` |
+| `pkg/types` | 1 | `app/dtos/aliases.go` |
+| `pkg/validators` | 1 | `app/validators/register.go` |
+
+Not imported by the default scaffold, so opt-in rather than opt-out (`go get` them when needed): `pkg/auditlog`, `pkg/database`, `pkg/featureflag`, `pkg/graphql`, `pkg/httpcontext`, `pkg/push`, `pkg/resilience`. `pkg/testutil` appears only in test files.
+
+**What the numbers mean.** Three bands fall out of the table. They are drawn from the data, not chosen to flatter it.
+
+- *One file.* The package is used in exactly one place, and swapping it is editing that file: `pkg/errors`, `pkg/middleware`, `pkg/models`, `pkg/observability`, `pkg/seeds`, `pkg/types`, `pkg/validators`.
+- *Two files.* Most packages are wired through the DI container and the provider set and used nowhere else. Swapping one is replacing its provider and running `gofasta wire`. `pkg/health` and `pkg/scheduler` are also two files, through the routes and `cmd/serve.go` rather than DI. This is the shape the scaffold aims for.
+- *Three to five files.* The package is used across layers or by every entry point. `pkg/config` is read by every command that boots. `pkg/utils` is called from the repository, service, validator and controller layers. `pkg/httputil` is the request and response vocabulary of every controller and route file. These are dependencies in the sense of this section: replaceable, at the cost of several files, and the scaffold does not call them anything else.
+
+The count is a property of the project, not of the package, and it grows with the project. Every `gofasta g scaffold` resource adds a model, repository, service, controller and routes file, and between them those import `pkg/models`, `pkg/utils`, `pkg/httputil` and `pkg/errors`. A project with ten resources will measure `pkg/httputil` well above three. That is the honest shape of the deal: the one-file and two-file packages stay cheap to leave for the life of the project, and the cross-cutting ones get more expensive the more you build, exactly as a router or an ORM would.
 
 The toolkit provides these packages as curated defaults: a tested, documented set of libraries that work well together and cover the concerns most backends share. A developer who prefers a different JWT library, a different cache client, or a different email provider can swap any individual package without touching the rest. The value is not lock-in. The value is that someone already made the selection, wrote the tests, and documented the integration — so each team does not have to.
 
@@ -658,7 +702,7 @@ log:
   format: json
 ```
 
-Every value can be overridden via environment variables using the prefix `GOFASTA_` with dot-separated keys mapped to underscores (e.g., `GOFASTA_DATABASE_HOST=db`). This allows committing safe development defaults while managing production secrets through the environment.
+Every value can be overridden via environment variables, with dot-separated keys mapped to underscores. The library's `LoadConfig` uses the prefix `GOFASTA_`; a scaffolded project calls `LoadConfigWithPrefix` with its own uppercased name, so a project called `myapp` reads `MYAPP_DATABASE_HOST=db`. This allows committing safe development defaults while managing production secrets through the environment.
 
 ---
 
@@ -1638,7 +1682,7 @@ Every `pkg/*` import in a scaffolded project can be replaced independently:
 3. Update the Wire provider to construct your alternative implementation.
 4. Run `gofasta wire` to regenerate the DI container.
 
-No other files in the project need to change. The service layer depends on interfaces, not concrete types, so swapping the underlying implementation is a single-provider change.
+Steps 1 and 3 touch the files that import the package — for `pkg/auth` that is the DI container and the provider set, two hand-written files — and step 4 regenerates `wire_gen.go`. The service layer depends on interfaces, not concrete types, so swapping the underlying implementation stops at the provider. The measured per-package counts are in §1.4.
 
 ### 22.4 Ejecting Entirely
 
