@@ -1,6 +1,6 @@
 ---
 draft: true
-title: Default or dependency? A five-minute test for every import in your Go project
+title: "Opt-out defaults: the number that separates a dependency you chose from one you can't leave"
 description: >-
   Pick any import in your Go project and delete it. How many files stop
   building? That one number separates a default from a dependency. I measured
@@ -13,90 +13,102 @@ tags:
 cover: >-
   /blog/covers/default-or-dependency-a-five-minute-test-for-every-import-in-your-go-project/cover.webp
 ---
-Go developers are not allergic to dependencies. Open any production service and you will find chi or gorilla, pgx or GORM, zerolog or slog handlers, go-redis, testify. Nobody calls those lock-in. They were chosen, they are called by your code rather than the other way round, and you can read what they do.
+Go developers aren't allergic to dependencies. Open any production service and you'll find chi, GORM, go-redis, testify. Nobody calls those lock-in. Somebody chose them, your code calls them and not the other way round, and you can read what they do.
 
-What Go developers are allergic to is a dependency they cannot leave. The one that looked like an ordinary import on day one and turned out, on the day someone tried to replace it, to have its fingers in thirty files. We have a word for the big version of that, and the word is framework. We do not have a word for the small version, which is a pity, because the small version is everywhere, and most of us have written one.
+What Go developers are allergic to is a dependency they can't leave. The one that looked like an ordinary import on day one and turned out to have its fingers in thirty files the day someone tried to replace it. We have a word for the big version of that, and the word is framework. We don't have a word for the small version, which is a pity, because it's everywhere and most of us have written one.
 
-This post proposes a word, a definition that goes with it, and a test that takes five minutes.
+This post proposes two words, a definition for each, and a five-minute test. I'll also show what I got on my own project, which wasn't the number I'd been telling people.
 
 ## Two words
 
-Call an import a **default** when you can delete it without unpicking the rest of the project. You remove the import, you swap in something else or write ten lines yourself, you touch the one or two files that wired it in, and you are done. The rest of the codebase has no opinion.
+Call an import a **default** when you can delete it without unpicking the rest of the project. You remove it, swap in something else or write the ten lines yourself, touch the one or two files that wired it in, and you're done. The rest of the codebase has no opinion. That's what I mean by an opt-out default: it ships wired in, and leaving is cheap.
 
-Call it a **dependency** when deleting it means a day of work. Not because the replacement is hard, but because the thing you are removing has spread: it is imported from every layer, or every entry point reads it, or it holds state that other packages reach into.
+Call it a **dependency** when deleting it costs you a day. Not because the replacement is hard, but because the thing has spread. Every layer imports it, or every entry point reads it, or it holds state that other packages reach into.
 
-Neither word is an insult. Every project has dependencies, and some things should be dependencies. A configuration loader that every command reads at boot is load-bearing by nature. The failure is not having one. The failure is calling it a default, in a README or a whitepaper or a conference talk, and letting someone find out the truth on the day they try to leave.
+Neither word is an insult. Every project has dependencies, and some things should be: a configuration loader that every command reads at boot is load-bearing by nature. The failure isn't having a dependency. It's calling it a default, in a README or a whitepaper or a conference talk, and letting someone find out on the day they try to leave.
 
-So the question is never "does this project have dependencies". It is "which of my imports are defaults, which are dependencies, and have I told the truth about each".
+So the question is never "does this project have dependencies". It's "which of my imports are defaults, which are dependencies, and have I told the truth about each".
 
 ## The test
 
-You cannot answer that by reading the code. Everything looks loosely coupled from the inside. You answer it by trying to leave.
+You can't answer that by reading the code; everything looks loosely coupled from the inside. You answer it by trying to leave.
 
 1. Delete the import.
 2. Run `go build ./...`.
 3. Count the hand-written files you had to touch before the build passed again.
 
-One or two files: a default. Ten: a dependency. The gap between those is wide enough that you will rarely be unsure.
+One or two files: a default. Ten: a dependency. You'll rarely be unsure.
 
-Three rules keep the count honest.
+**Count hand-written files only.** If a generated file breaks, a `wire_gen.go` or a `*.pb.go`, regenerate it and move on. The number you care about is how many files a person has to open and understand.
 
-**Count hand-written files only.** If a generated file breaks, a `wire_gen.go` or a `*.pb.go` or a mock, regenerate it and do not count it. The number you care about is how many files a person has to open and understand.
+**Use `go build`, not `go vet` and not the IDE.** The compiler can't be argued with, and it's the judge the next person will face.
 
-**Use `go build`, not `go vet` and not the IDE.** The compiler is the only judge that cannot be argued with, and it is the same judge the next person will face.
+**Treat the import count as the floor.** Every file that imports the package has to change, so that's your minimum. The real number can be higher: a file can use a package's value through a struct field without importing it, and only the build finds those.
 
-**Treat the import count as the floor.** Before you start, `grep -l` for the import path. Every file that imports the package will have to change, so that count is the minimum. The real number can be higher: a file can use a value from a package without importing it, through a struct field or a function argument, and only the build will find those.
-
-The floor for every import in a module is two commands. The first lists how many of your packages import each path:
-
-```bash
-go list -f '{{join .Imports "\n"}}' ./... | sort | uniq -c | sort -rn | head -20
-```
-
-The second gives the file count for one of them:
+The floor for one import is a single line: search for the import path, skip tests and generated files, count what's left:
 
 ```bash
 grep -rl --include='*.go' '"github.com/redis/go-redis/v9"' . \
   | grep -v -e _test.go -e wire_gen.go | wc -l
 ```
 
-The top of the first list is where your dependencies are, whatever your README says.
+That's the whole tool. Three or four imports in, you'll know more about your project's shape than the README does.
 
 ## The number belongs to the project, not the package
 
-This is the part that surprised me when I started running the test. The same package can be a two in one codebase and a nine in another. go-redis is a default in a service that wraps it behind a `Cache` interface in one file. It is a dependency in a service that calls `client.Get` from every handler. The package did not change. The wiring did.
+This surprised me when I started running the test: the same package can be a two in one codebase and a nine in another. Here is go-redis as a default:
 
-So the test is not a verdict on libraries. It is a verdict on how you integrated them. Which is good news, because that is the part you control. A dependency becomes a default by putting an interface at the boundary you would actually swap, and making sure only one or two files know what is behind it.
+```go
+// the only file that knows about go-redis
+type Cache interface {
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key, value string, ttl time.Duration) error
+}
 
-Two shapes come up again and again on the dependency side of the line.
+func NewRedisCache(client *redis.Client) Cache { return &redisCache{client} }
+```
 
-**Package-level state.** An `Init` you call once and never pass anything to afterwards. A global client. A `var` set at boot and read everywhere. The moment a package holds its backend in a global, the backend stops being a parameter, and no amount of "it's just an import" changes that. You can import the package on its own. You cannot change what it talks to. Importable is not swappable.
+Every handler takes a `Cache`. Swap Redis out and you edit this file and the line that constructs it. The dependency version is the same client reached from every handler, `h.redis.Get(r.Context(), key)`, in twenty files.
 
-**The shim.** A small adapter dropped into the calling code to paper over a mismatch, because fixing it properly would mean releasing the library first and you want to move on tonight. The shim works. It is also now in every project that copies that code, with the caller's name on the commit. That is lock-in in disguise: it looks like your code, so nobody thinks to question it.
+The package didn't change. The wiring did. So the test isn't a verdict on libraries, it's a verdict on how you integrated them, and that's the part you control: put an interface at the boundary you'd actually swap, and let only one or two files know what's behind it.
+
+Two shapes come up again and again on the wrong side of the line.
+
+**Package-level state.** An `Init` you call once and never pass anything to afterwards:
+
+```go
+var client *redis.Client
+
+func Init(addr string) { client = redis.NewClient(&redis.Options{Addr: addr}) }
+```
+
+Once a package keeps its backend in a global, the backend stops being a parameter. You can import the package on its own. You can't change what it talks to. Importable is not swappable.
+
+**The shim.** A small adapter dropped into the calling code to paper over a mismatch, because fixing it properly means releasing the library first and you want to go to bed. It works. It's also now in every project that copies that code, with the caller's name on the commit: lock-in in disguise, and nobody questions it because it looks like your code.
 
 ## Senior engineers already do this. They just don't measure it.
 
-None of this is new. It is the thing experienced engineers reach for instead of a framework, stated in several vocabularies over thirty years, and the test above is only a ruler for it.
+None of this is new. It's what experienced engineers reach for instead of a framework, said in several vocabularies over thirty years, and the test is only a ruler for it.
 
-**Program to an interface, and let the details depend on you.** Robert Martin's [Dependency Inversion Principle](https://en.wikipedia.org/wiki/Dependency_inversion_principle) (1996) says high-level policy should not depend on low-level detail; both should depend on an abstraction. In Go that is an interface declared where it is consumed, with the concrete client behind it. A package you can delete in two files is a package whose only entry point was that interface. A package you cannot is one whose concrete type leaked past it.
+**Program to an interface, and let the details depend on you.** Robert Martin's [Dependency Inversion Principle](https://en.wikipedia.org/wiki/Dependency_inversion_principle) (1996): high-level policy shouldn't depend on low-level detail; both depend on an abstraction. The `Cache` above is the whole principle in six lines.
 
-**Ports and adapters.** Alistair Cockburn's [hexagonal architecture](https://alistair.cockburn.us/hexagonal-architecture/) (2005) was written so an application could "equally be driven by users, programs, automated test or batch scripts" and be developed apart from its eventual database and devices. The ports are the seams you would swap. The adapters are the files you would touch. Count the adapters and you have the test.
+**Ports and adapters.** Alistair Cockburn's [hexagonal architecture](https://alistair.cockburn.us/hexagonal-architecture/) (2005) was written so an application could "equally be driven by users, programs, automated test or batch scripts". The ports are the seams you'd swap. The adapters are the files you'd touch. Count the adapters and you have the test.
 
-**Frameworks are tools, not ways of life.** Martin's [Screaming Architecture](https://blog.cleancoder.com/uncle-bob/2011/09/30/Screaming-Architecture.html) (2011) argues that frameworks are "tools to be used, not architectures to be conformed to", and that the payoff comes later, "if you have kept your frameworks at arms-length". The default-versus-dependency test is the arm's-length check, applied one import at a time, to libraries as well as frameworks.
+**Frameworks are tools, not ways of life.** Martin again, in [Screaming Architecture](https://blog.cleancoder.com/uncle-bob/2011/09/30/Screaming-Architecture.html) (2011): frameworks are "tools to be used, not architectures to be conformed to", and the payoff comes later, "if you have kept your frameworks at arms-length". The test is that arm's-length check, one import at a time.
 
-**A little copying is better than a little dependency.** Rob Pike's [Go proverb](https://go-proverbs.github.io/) (2015) is usually read as "write the ten lines yourself". The reason it is true is the exit cost, not the import line. Sandi Metz made the same point from the other side a year later: ["duplication is far cheaper than the wrong abstraction"](https://sandimetz.com/blog/2016/1/20/the-wrong-abstraction). A dependency that spread is a wrong abstraction you did not write.
+**A little copying is better than a little dependency.** Rob Pike's [Go proverb](https://go-proverbs.github.io/) (2015) usually gets read as "write the ten lines yourself". The reason it's true is the exit cost, not the import line. Sandi Metz made the same point from the other side: ["duplication is far cheaper than the wrong abstraction"](https://sandimetz.com/blog/2016/1/20/the-wrong-abstraction). A dependency that has spread is a wrong abstraction you didn't even write.
 
-**Dependencies are an ongoing cost, so price them.** Russ Cox's [Our Software Dependency Problem](https://research.swtch.com/deps) (2019) defines a dependency as "additional code that you want to call from your program", notes that adding one "outsources the work of developing that code", and warns that "even after all that work, you're not done tending your dependencies". His essay is about trust and maintenance. The test prices the one cost he leaves to you: what leaving will cost later.
+**Dependencies are an ongoing cost, so price them.** Russ Cox's [Our Software Dependency Problem](https://research.swtch.com/deps) (2019) warns that "even after all that work, you're not done tending your dependencies". His essay prices trust and maintenance. The test prices the one cost he leaves to you: leaving.
 
-**No package-level state.** Dave Cheney's [Go, without package scoped variables](https://dave.cheney.net/2017/06/11/go-without-package-scoped-variables) (2017) calls package-scoped variables "fundamentally singletons, used to smuggle state between unrelated concerns" that "encourage tight coupling". Peter Bourgon compressed it to a slogan in [A theory of modern Go](https://peter.bourgon.org/blog/2017/06/09/theory-of-modern-go.html): "magic is bad; global state is magic". That is the importable-but-not-swappable smell from the previous section, named by people who had been bitten by it before I was.
+**No package-level state.** Dave Cheney's [Go, without package scoped variables](https://dave.cheney.net/2017/06/11/go-without-package-scoped-variables) (2017) calls them "fundamentally singletons, used to smuggle state between unrelated concerns". Peter Bourgon got it down to a slogan in [A theory of modern Go](https://peter.bourgon.org/blog/2017/06/09/theory-of-modern-go.html): "magic is bad; global state is magic". Both were bitten by the `Init` shape above before I was.
 
-**Hyrum's Law.** [With a sufficient number of users of an API, "all observable behaviors of your system will be depended on by somebody"](https://www.hyrumslaw.com/). Inside one codebase the users are your own files, and the law explains why a dependency spreads without anyone deciding: every file that could reach the package did, and now every one of them is a file you will touch.
+**Hyrum's Law.** [With enough users of an API, "all observable behaviors of your system will be depended on by somebody"](https://www.hyrumslaw.com/). Inside one codebase the users are your own files, which is how a dependency spreads without anyone deciding it should.
 
-The standard library is the proof that Go was built for this. `database/sql` is a port with drivers as adapters; swapping Postgres for SQLite is one import and one connection string. `io.Writer`, `http.Handler` and `slog.Handler` are each a one-method or near-one-method boundary that the whole ecosystem swaps behind. Senior Go engineers do not avoid dependencies. They put every dependency behind a boundary that small, and then they can leave. The test just tells you whether you actually did.
+The standard library is the proof that Go was built for this. `database/sql` is a port with drivers as adapters; swapping Postgres for SQLite is one import and one connection string. `io.Writer`, `http.Handler` and `slog.Handler` are each a boundary a few methods wide that the whole ecosystem swaps behind. Senior Go engineers don't avoid dependencies. They put each one behind a boundary that small, so they can leave whenever they like. The test only tells you whether you did.
 
 ## What the numbers look like on a real codebase
 
-I build gofasta, a CLI that generates a plain Go backend, plus a library of packages the generated code imports. The generated project treats those packages the way any Go service treats chi or go-redis: as choices. So the scaffold is a good place to run the test, because it is the kind of code where the words "default" and "dependency" are actually used. Fresh project, hand-written files only, generated and test files excluded:
+I build gofasta, a CLI that generates a plain Go backend, plus a library of packages the generated code imports. The generated project treats those packages as choices, the way any Go service treats chi or go-redis. For a long time the whitepaper said each one "can be removed with a single import deletion", no other file touched. I wrote that before measuring anything. Then I ran the test on a fresh scaffold, hand-written files only:
 
 | Files | Packages                                                                                            |
 | ----- | --------------------------------------------------------------------------------------------------- |
@@ -105,28 +117,53 @@ I build gofasta, a CLI that generates a plain Go backend, plus a library of pack
 | 2     | auth, encryption, i18n, mailer, notify, queue, session, slack, storage, whatsapp, health, scheduler |
 | 1     | errors, middleware, models, observability, seeds, types, validators                                 |
 
-Three bands fall out of the data without anyone drawing them.
+Three bands fall out without anyone drawing them.
 
-The one-file band is the package used in exactly one place. Swapping it is editing that file.
+The one-file band is a package used in one place. Swapping it means editing that file.
 
-The two-file band is the big one, and the two files are always the same pair: the DI container and the provider set. Delete the import there, regenerate Wire, build, done. That is the shape a default should have, and it is reassuring to see it come out of the compiler rather than the marketing.
+The two-file band is the big one, and the two files are always the same pair, the DI container and the provider set. Deleting `pkg/auth` looks like this:
 
-Then there is config at five. Every command that boots reads it: migrate, seed, the schema tool, the container, the providers. By the definition above that is a dependency. It is also fine. A project where nothing can read configuration is not better. The only thing to do with a five is to write five, next to the twos, where users can see it. People will trust the two more because you did not round the five down.
+```diff
+ // app/di/container.go
+-	JWTService  *auth.JWTService
+-	RBACService *auth.RBACService
 
-The table also moves. Every generated resource adds a model, a controller and a routes file, and those import the models, HTTP helper and error packages. A project with ten resources will measure those well above the fresh-scaffold number. That is the honest shape of the deal with any cross-cutting library: the one-file and two-file imports stay cheap to leave for the life of the project, and the ones every layer uses get more expensive the more you build, exactly as a router or an ORM would.
+ // app/di/providers/core.go
+-	auth.NewJWTService,
+-	auth.NewRBACService,
+```
+
+Regenerate Wire, build, done. That's the shape a default should have, and it's reassuring to see it come from the compiler rather than the marketing.
+
+Then there's config at five. Every command that boots reads it: migrate, seed, the schema tool, the container, the providers. By the definition above that's a dependency. The whitepaper now says five, next to the twos, and I think people will trust the twos more because I didn't round the five down.
+
+The table also moves. Every generated resource adds a model, a controller and a routes file, which import the models, HTTP helper and error packages. Ten resources in, those numbers sit well above the table. That's the deal with any cross-cutting library: the one- and two-file imports stay cheap to leave, and the ones every layer uses get dearer the more you build, exactly as a router or an ORM would.
 
 ## Three rules, if you build things other people import
 
-If you maintain a starter, a template, an internal scaffold or a shared library at work, the test applies to you twice: once for the imports you take, and once for the import you are.
+If you maintain a starter, a template or a shared library at work, the test applies to you twice: once for the imports you take, and once for the import you are.
 
-1. **Fix in the library, not in the calling code.** The moment a shim lands in generated or copied code, it belongs to the people who copied it. Anything you hide there is theirs to maintain and yours to be blamed for.
-2. **Put the interface at the boundary you would actually swap.** Not "can I import this on its own" but "can I replace the thing behind it". If your package hardwires a vendor, a driver or a prefix, that is the seam. Make it a parameter.
-3. **Measure. Don't claim.** Delete it, build it, count. Then write the number where users can see it.
+**Fix it in the library, not in the calling code.** Once a shim lands in generated or copied code, it belongs to the people who copied it. Anything you hide there is theirs to maintain and yours to be blamed for.
+
+**Put the interface where the swap would happen.** Not "can I import this on its own" but "can I replace the thing behind it". If your package hardwires a vendor, a driver or an environment prefix, that's the seam. Make it a parameter. The commit that did this for gofasta's feature-flag package, trimmed:
+
+```go
+// before: one vendor, chosen inside the package
+func NewFeatureFlagService(configPath string) (*FeatureFlagService, error) {
+	err := ffclient.Init(ffclient.Config{ /* … */ })
+
+// after: the vendor is an argument
+func newServiceWithProvider(
+	provider openfeature.FeatureProvider,
+) (*FeatureFlagService, error)
+```
+
+**Measure, then publish the number.** A README that says "optional" is a claim. A README that says "two files" is a measurement, and it's the one people will believe.
 
 ## Tonight
 
-Pick one import in a project you own. Not the biggest one, any one. Delete it. Build. Count the files. If it is two, you have a default, and you can say so in the README. If it is ten, you have a dependency, and that is fine. Call it what it is.
+Pick one import in a project you own, any one. Delete it, build, count the files. Two, you've got a default. Ten, you've got a dependency, and that's allowed. Just call it what it is.
 
-Then run the loop above and look at the top of the list. In my experience the surprises are rarely the third-party packages. They are the ones you wrote yourself, the `utils` and `common` and `internal/shared` that started as a helper and became load-bearing while nobody was counting.
+Then try a package you wrote yourself. The surprises are rarely the third-party imports. They're the `utils` and `common` and `internal/shared` that started as a helper and became load-bearing while nobody was counting.
 
-If you run it and the number surprises you, I would like to hear about it. The measured table for the gofasta scaffold, every package listed, is in the [whitepaper](https://gofasta.dev/docs/white-paper), and I am giving the longer version of this argument at GopherCon Africa 2026 in Nairobi.
+If the number surprises you, I'd like to hear about it. The full table for the gofasta scaffold is in the [whitepaper](https://gofasta.dev/docs/white-paper), and I'm talking about this at GopherCon Africa 2026 in Nairobi.
