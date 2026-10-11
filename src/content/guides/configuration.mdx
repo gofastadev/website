@@ -1,392 +1,444 @@
 ---
 title: Configuration
-description: Application configuration with config.yaml, environment variable overrides, database settings, JWT, Redis, and feature flags in Gofasta.
+description: How a scaffolded Gofasta project is configured. config.yaml sections and their defaults, the project-prefixed environment overrides, where secrets live, and the per-driver database blocks.
 keywords:
   - "configuration"
+  - "config.yaml"
   - "environment variables"
-  - "config files"
-  - "settings"
+  - "env overrides"
+  - "LoadConfigWithPrefix"
+  - "secrets"
+  - ".env"
 ---
 
 # Configuration
 
-Gofasta uses a `config.yaml` file at the project root as the central configuration source. Every setting can be overridden with environment variables, making it easy to configure different environments without changing files.
+A scaffolded project reads one file, `config.yaml` at the project root, and overlays environment variables on top of it. The file holds development defaults and is committed. Secrets and per-environment values come from the environment, in development through a gitignored `.env`.
 
-## Loading Configuration
+Everything on this page is taken from the `config.yaml` that `gofasta new` writes and from the `AppConfig` type in `pkg/config` that parses it. Where a value is not in the file, the default the loader applies is given.
 
-The `github.com/gofastadev/gofasta/pkg/config` package loads and parses configuration:
+## How loading works
+
+The scaffold's DI provider set calls the library like this, in `app/di/providers/core.go`:
 
 ```go
-import "github.com/gofastadev/gofasta/pkg/config"
-
-cfg := config.LoadConfig("config.yaml")
+func LoadConfig() (*config.AppConfig, error) {
+    return config.LoadConfigWithPrefix("MYAPP_")
+}
 ```
 
-`LoadConfig` reads the YAML file, then checks for environment variable overrides. The resulting config struct is passed to the DI container and used throughout the application.
+`MYAPP_` is the project name you gave `gofasta new`, uppercased, with anything that is not a letter, digit or underscore dropped. A project created as `my-app` gets the prefix `MYAPP_`.
 
-## Full config.yaml Reference
+The loader does three things, in order:
 
-Here is the complete configuration file with all available sections and their defaults:
+1. Reads `config.yaml` from the working directory. A missing file is not an error. The loader logs it and continues with the environment and defaults only, which is how a container with no file mounted still boots.
+2. Overlays every environment variable that starts with the prefix. The prefix is stripped, the rest is lowercased and matched against the known keys of `AppConfig`, so `MYAPP_AUTH_JWT_SECRET` resolves to `auth.jwt_secret` even though the key itself contains an underscore. Environment always wins over the file.
+3. Fills any value still empty with the library default listed in the tables below.
+
+The library's plain `config.LoadConfig()` is the same function with the prefix `GOFASTA_`. Scaffolded projects do not call it, and there is no second prefix or fallback: a variable named `GOFASTA_DATABASE_HOST` is ignored by a project whose prefix is `MYAPP_`.
+
+### Who reads `.env`
+
+The application binary does not read `.env`. It reads the process environment. Three things put `.env` into that environment for you:
+
+- `gofasta dev` loads `.env` (or the file given by `--env-file`) before starting Air, and reloads it when you restart from the menu.
+- Docker Compose reads `.env` from the project directory automatically, and the generated `compose.yaml` passes the secrets through to the app container.
+- The generated `Dockerfile` header shows the plain `docker run` form, `--env-file .env`.
+
+If you run `go run ./app/main serve` by hand, export the variables yourself or source the file first.
+
+## Secrets
+
+Two values must be real before the server will start: `auth.jwt_secret` and `session.secret`. They are deliberately empty in `config.yaml`, because that file is committed. `gofasta new` generated random values for both into `.env`, which is gitignored, and `.env.example` ships them blank:
+
+```bash
+MYAPP_AUTH_JWT_SECRET=
+MYAPP_SESSION_SECRET=
+```
+
+At startup `cmd/serve.go` calls `cfg.ValidateSecrets()`. If either value is empty or still a known placeholder, the process exits with a message naming the key instead of signing tokens with a public secret. The generated `compose.yaml` enforces the same thing at the Compose level and refuses to start without them.
+
+Rotate with:
+
+```bash
+openssl rand -base64 48
+```
+
+## Environment variable overrides
+
+Every key in `config.yaml` can be set as `MYAPP_{SECTION}_{KEY}`, nested sections joined with underscores:
+
+| Config path | Environment variable |
+|---|---|
+| `server.host` | `MYAPP_SERVER_HOST` |
+| `server.port` | `MYAPP_SERVER_PORT` |
+| `database.host` | `MYAPP_DATABASE_HOST` |
+| `database.password` | `MYAPP_DATABASE_PASSWORD` |
+| `database.dsn` | `MYAPP_DATABASE_DSN` |
+| `auth.jwt_secret` | `MYAPP_AUTH_JWT_SECRET` |
+| `auth.access_token_expiry` | `MYAPP_AUTH_ACCESS_TOKEN_EXPIRY` |
+| `cache.driver` | `MYAPP_CACHE_DRIVER` |
+| `cache.redis.host` | `MYAPP_CACHE_REDIS_HOST` |
+| `email.smtp.password` | `MYAPP_EMAIL_SMTP_PASSWORD` |
+| `log.level` | `MYAPP_LOG_LEVEL` |
+| `log.format` | `MYAPP_LOG_FORMAT` |
+| `session.cookie_secure` | `MYAPP_SESSION_COOKIE_SECURE` |
+
+Durations use Go syntax (`15m`, `168h`). Booleans are `true` or `false`.
+
+Two variables in `.env.example` are not config keys. `PORT` is read by `gofasta dev` and Compose for the host-side port mapping and mirrored into the container as `MYAPP_SERVER_PORT`. `REDIS_HOST_PORT` and `ASYNQMON_HOST_PORT` are Compose port mappings for the optional cache and queue-dashboard services.
+
+## The sections
+
+### `project`
 
 ```yaml
-# Application settings
-app:
-  name: myapp
-  port: 8080
-  env: development        # development, staging, production
-  debug: true
-  url: http://localhost:8080
+project:
+  layout: layered   # layered or feature
+```
 
-# Database configuration
-database:
-  driver: postgres        # postgres, mysql, sqlite, sqlserver, clickhouse
-  host: localhost
-  port: 5432
-  name: myapp_db
-  user: postgres
-  password: postgres
-  ssl_mode: disable
-  max_open_conns: 25
-  max_idle_conns: 5
-  conn_max_lifetime: 5m
+Read by the CLI, not by the application. `gofasta g` and `gofasta refactor` use it to know where generated files go. Change it with `gofasta refactor`, never by hand.
 
-# JWT authentication
-jwt:
-  secret: change-me-in-production
-  expiration: 24h
-  refresh_expiration: 168h
-  issuer: myapp
+### `server`
 
-# Redis (used for caching, sessions, and queue)
-redis:
-  host: localhost
-  port: 6379
-  password: ""
-  db: 0
-
-# Cache configuration
-cache:
-  driver: memory          # memory or redis
-  ttl: 5m
-
-# Session configuration
-session:
-  driver: cookie          # cookie or redis
-  secret: session-secret
-  max_age: 86400
-
-# Email configuration
-mail:
-  driver: smtp            # smtp, sendgrid, or brevo
-  from_name: MyApp
-  from_address: noreply@myapp.com
-  smtp:
-    host: smtp.mailtrap.io
-    port: 587
-    username: ""
-    password: ""
-    encryption: tls
-  sendgrid:
-    api_key: ""
-  brevo:
-    api_key: ""
-
-# Queue configuration
-queue:
-  driver: memory          # memory or redis
-  workers: 5
-  retry_attempts: 3
-  retry_delay: 30s
-
-# Storage configuration
-storage:
-  driver: local           # local, s3
-  local:
-    path: ./uploads
-  s3:
-    bucket: myapp-uploads
-    region: us-east-1
-    access_key: ""
-    secret_key: ""
-
-# Observability
-observability:
-  metrics:
-    enabled: true
-    path: /metrics
-  tracing:
-    enabled: false
-    exporter: jaeger
-    endpoint: http://localhost:14268/api/traces
-
-# Rate limiting
-rate_limit:
-  enabled: true
-  max: 100
-  window: 1m
-
-# CORS
-cors:
+```yaml
+server:
+  host: "127.0.0.1"
+  port: "8080"
+  shutdown_timeout: 15s
   allowed_origins:
-    - http://localhost:3000
-  allowed_methods:
-    - GET
-    - POST
-    - PUT
-    - DELETE
-    - OPTIONS
-  allowed_headers:
-    - Authorization
-    - Content-Type
-  max_age: 86400
-
-# Logging
-log:
-  level: info             # debug, info, warn, error
-  format: json            # json or text
-
-# Feature flags
-features:
-  graphql_playground: true
-  swagger: true
-  registration: true
+    - "http://localhost:3000"
+    - "http://localhost:8080"
 ```
 
-## Environment Variable Overrides
+| Key | Default if unset | Notes |
+|---|---|---|
+| `host` | `127.0.0.1` | Loopback keeps macOS from showing a firewall prompt on every rebuild. Containers and servers set `MYAPP_SERVER_HOST=0.0.0.0`; the generated Dockerfile and Compose files already do. |
+| `port` | `8080` | A string. |
+| `shutdown_timeout` | `15s` | Graceful shutdown deadline. |
+| `allowed_origins` | `*` | CORS origins. The scaffold writes localhost entries; the library default is `*` only when the list is empty. Do not ship `*`. |
 
-Every config value can be overridden with an environment variable. The prefix is always `GOFASTA_`, followed by the section and key in uppercase, joined with underscores:
+### `database`
 
-```
-GOFASTA_{SECTION}_{KEY}
-```
+The block depends on the `--driver` you chose at scaffold time. Ports are strings.
 
-| Config Path | Environment Variable |
-|------------|---------------------|
-| `app.port` | `GOFASTA_APP_PORT` |
-| `app.env` | `GOFASTA_APP_ENV` |
-| `database.host` | `GOFASTA_DATABASE_HOST` |
-| `database.password` | `GOFASTA_DATABASE_PASSWORD` |
-| `jwt.secret` | `GOFASTA_JWT_SECRET` |
-| `jwt.expiration` | `GOFASTA_JWT_EXPIRATION` |
-| `redis.host` | `GOFASTA_REDIS_HOST` |
-| `redis.port` | `GOFASTA_REDIS_PORT` |
-| `mail.driver` | `GOFASTA_MAIL_DRIVER` |
-| `mail.sendgrid.api_key` | `GOFASTA_MAIL_SENDGRID_API_KEY` |
-
-Environment variables always take precedence over `config.yaml` values.
-
-## Database Configuration
-
-### PostgreSQL (default)
+PostgreSQL, the default:
 
 ```yaml
 database:
   driver: postgres
   host: localhost
-  port: 5432
-  name: myapp_db
-  user: postgres
-  password: postgres
-  ssl_mode: disable
+  port: "5432"
+  name: myapp_dev
+  user: myapp
+  password: myapp
+  sslmode: disable
+  max_idle: 10
+  max_open: 100
+  max_life: 1h
+  degraded_fallback: false
 ```
 
-### MySQL
-
-```yaml
-database:
-  driver: mysql
-  host: localhost
-  port: 3306
-  name: myapp_db
-  user: root
-  password: root
-```
-
-### SQLite
+MySQL uses port `"3306"`, SQL Server `"1433"` with user `sa`, and ClickHouse `"9000"` with user `default`; the other keys are the same. SQLite has no host, port or credentials, and `name` is the file path:
 
 ```yaml
 database:
   driver: sqlite
-  name: ./data/myapp.db
+  name: myapp.db
 ```
 
-### SQL Server
+| Key | Default if unset | Notes |
+|---|---|---|
+| `driver` | `postgres` | `postgres`, `mysql`, `sqlite`, `sqlserver` or `clickhouse`. |
+| `dsn` | empty | When set, used verbatim and every key below except `driver` and the pool settings is ignored. The escape hatch for `search_path`, a non-UTC time zone, PgBouncer parameters or multi-host failover. Usually set from the environment as `MYAPP_DATABASE_DSN`. |
+| `host`, `port`, `user`, `password`, `name` | `localhost`, `5432` | Connection parameters when `dsn` is empty. |
+| `sslmode` | `disable` | PostgreSQL only. |
+| `max_idle`, `max_open`, `max_life` | `10`, `100`, `1h` | Connection pool. |
+| `degraded_fallback` | `false` | `false` refuses to start when the database is unreachable, so a dead database is a visible crash loop rather than a half-alive process. `true` boots on an in-memory SQLite stub with database endpoints returning 5xx. `gofasta dev` sets it through the environment when you pick "Run app without db". |
+
+Each driver's `.env.example` also carries the connection values, because `gofasta dev` runs the database in Docker and publishes it on a host port that differs from the in-container port. The comments in that file explain the three layouts: app on the host with the database in Docker, everything in Docker, or everything on the host.
+
+### `graphql`
+
+Present only when the project was scaffolded with `--graphql`.
 
 ```yaml
-database:
-  driver: sqlserver
-  host: localhost
-  port: 1433
-  name: myapp_db
-  user: sa
-  password: YourStrong!Passw0rd
+graphql:
+  playground_route: /graphql-playground
+  general_route: /graphql
+  playground_enabled: true
+  introspection_enabled: true
+  complexity_limit: 200
 ```
 
-### ClickHouse
+The two `_enabled` flags are `false` when unset. The scaffold turns them on for development, and `deployments/docker/compose.production.yaml` turns them off again through the environment. `complexity_limit` caps the cost of one query; `0` means the default of `200`, negative disables the limit.
+
+### `log`
 
 ```yaml
-database:
-  driver: clickhouse
-  host: localhost
-  port: 9000
-  name: myapp_db
-  user: default
-  password: ""
+log:
+  level: info    # debug, info, warn, error
+  format: text   # text or json
 ```
 
-### Connection Pool Settings
+Defaults are `info` and `text`. `.env.example` sets `MYAPP_LOG_LEVEL=debug` for local work. Production normally sets `MYAPP_LOG_FORMAT=json`.
 
-Tune connection pool settings for production:
+### `email`
 
 ```yaml
-database:
-  max_open_conns: 50      # Maximum number of open connections
-  max_idle_conns: 10      # Maximum number of idle connections
-  conn_max_lifetime: 10m  # Maximum time a connection can be reused
+email:
+  provider: smtp          # smtp, sendgrid, brevo or resend
+  from_name: Myapp App
+  from_address: noreply@example.com
+  smtp:
+    host: localhost
+    port: 587
+    use_tls: true
+  # sendgrid:
+  #   api_key: SG.your-api-key
+  # brevo:
+  #   api_key: xkeysib-your-api-key
 ```
 
-## JWT Configuration
+`smtp` also takes `username`, `password` and `insecure_skip_verify`. `resend` takes `api_key`. Provider API keys belong in the environment, for example `MYAPP_EMAIL_SENDGRID_API_KEY`.
+
+### `auth`
 
 ```yaml
-jwt:
-  secret: your-256-bit-secret
-  expiration: 24h          # Access token lifetime
-  refresh_expiration: 168h # Refresh token lifetime (7 days)
-  issuer: myapp            # Token issuer claim
+auth:
+  jwt_secret: ""              # set MYAPP_AUTH_JWT_SECRET in .env
+  access_token_expiry: 15m
+  refresh_token_expiry: 168h
+  rbac_model: configs/rbac_model.conf
+  rbac_policy: configs/rbac_policy.csv
 ```
 
-For production, always set the secret via environment variable:
+| Key | Default if unset | Notes |
+|---|---|---|
+| `jwt_secret` | placeholder, rejected at boot | See Secrets above. |
+| `access_token_expiry` | `15m` | |
+| `refresh_token_expiry` | `168h` | Seven days. |
+| `rbac_model`, `rbac_policy` | `configs/rbac_model.conf`, `configs/rbac_policy.csv` | Casbin model and policy files. |
+| `issuer` | empty | When set, stamped into minted tokens and required of accepted ones. Set it when several services share one signing secret, otherwise a token minted for one service unlocks the others. |
 
-```bash
-GOFASTA_JWT_SECRET=$(openssl rand -hex 32)
-```
-
-## Redis Configuration
-
-Redis is used by the cache, session, and queue packages when configured with the `redis` driver:
+### `rate_limit`
 
 ```yaml
-redis:
-  host: localhost
-  port: 6379
-  password: ""
-  db: 0
+rate_limit:
+  enabled: true
+  rate: "100-S"     # 100 requests per second
+  store: memory     # memory or redis
 ```
 
-Multiple components can use the same Redis instance on different databases:
+On by default. With `store: redis`, add a `redis` block (`host`, `port`, `password`, `db`) under `rate_limit`; a memory store counts per replica, so the effective limit is multiplied by the number of replicas.
+
+### `cache`
 
 ```yaml
-redis:
-  host: localhost
-  port: 6379
-
 cache:
-  driver: redis
-
-queue:
-  driver: redis
-
-session:
-  driver: redis
+  driver: memory    # memory or redis
+  # redis:
+  #   host: localhost
+  #   port: "6379"
+  #   password: ""
+  #   db: 0
 ```
 
-## Feature Flags
+Redis defaults to `localhost:6379`, database `0`. There is no shared top-level `redis` section: cache, queue and rate limiting each carry their own connection block, so they can point at different instances or databases.
 
-Feature flags in `config.yaml` control optional functionality:
+### `security`
 
 ```yaml
-features:
-  graphql_playground: true   # Enable GraphQL Playground UI
-  swagger: true              # Enable Swagger documentation endpoint
-  registration: true         # Enable user registration endpoint
+security:
+  hsts: true
+  hsts_max_age: 31536000
+  frame_deny: true
+  content_type_nosniff: true
+  browser_xss_filter: true
+  referrer_policy: "strict-origin-when-cross-origin"
 ```
 
-For more complex scenarios — user-targeted rollouts, percentage-based releases, A/B tests — the `github.com/gofastadev/gofasta/pkg/featureflag` package wraps the [OpenFeature Go SDK](https://github.com/open-feature/go-sdk) so you can plug in whichever flag backend you prefer (in-memory, [Flagd](https://flagd.dev), [LaunchDarkly](https://launchdarkly.com), [go-feature-flag](https://gofeatureflag.org), or a custom provider). The simplest production-ready setup is the in-memory provider:
+Also accepts `content_security_policy` and `allowed_hosts`. These feed the security-headers middleware.
+
+### `storage`
+
+```yaml
+storage:
+  driver: local     # local or s3
+  local:
+    path: ./uploads
+  # s3:
+  #   endpoint: s3.amazonaws.com
+  #   bucket: my-bucket
+  #   access_key: ""
+  #   secret_key: ""
+  #   region: us-east-1
+  #   use_ssl: true
+```
+
+### `queue`
+
+```yaml
+queue:
+  enabled: false
+  concurrency: 10
+  queues:
+    default: 1
+  # redis:
+  #   host: localhost
+  #   port: "6379"
+  #   password: ""
+  #   db: 1
+```
+
+Off by default. The queue's Redis defaults to database `1` so it does not share keys with the cache on the same instance. `queues` maps queue names to priorities.
+
+### `websocket`, `i18n`, `encryption`
+
+```yaml
+websocket:
+  enabled: true
+
+i18n:
+  default_language: en
+  locales_dir: locales
+
+encryption:
+  key: ""   # 32 bytes to enable pkg/encryption
+```
+
+### `feature_flag`
+
+```yaml
+feature_flag:
+  enabled: false
+  config_path: configs/features.yaml
+```
+
+A master switch for `pkg/featureflag`. When `false` every flag resolves to the default the caller passed. When `true` the service evaluates through whichever OpenFeature provider the application registered at startup. There is no `features:` section of on/off toggles in `config.yaml`; the GraphQL playground is controlled under `graphql`, and application-level flags live in `configs/features.yaml` or the provider you plug in. See the [Feature Flags API reference](/docs/api-reference/feature-flags).
+
+### `session`
+
+```yaml
+session:
+  driver: cookie            # cookie or filesystem
+  secret: ""                # set MYAPP_SESSION_SECRET in .env
+  session_name: myapp_session
+  # filesystem_path: ./sessions
+  cookie_secure: false
+  cookie_http_only: true
+  cookie_same_site: lax     # lax, strict or none
+  cookie_max_age: 2592000   # seconds, 30 days
+```
+
+`cookie_secure` is `false` so plain-HTTP local development works. The production Compose manifest sets `MYAPP_SESSION_COOKIE_SECURE=true`. `none` for `cookie_same_site` requires `cookie_secure: true`.
+
+### `observability`
+
+```yaml
+observability:
+  metrics_enabled: true
+  tracing_enabled: false
+  metrics_path: /metrics
+  service_name: myapp
+```
+
+### `jobs`
+
+```yaml
+jobs:
+  - name: example
+    schedule: "0 0 */6 * * *"   # six-field cron, seconds first
+    enabled: false
+```
+
+One entry per scheduled job registered in `app/jobs/`. `gofasta g job <name> [cron]` adds both the Go file and the entry.
+
+### `slack`, `whatsapp`, `push`
+
+Not written by the scaffold, but understood by the loader. Each has a `provider` key that is empty, meaning disabled, until you set it: `slack.provider` is `webhook` or `api`, `whatsapp.provider` is `ultramsg`, `twilio` or `meta`, `push.provider` is `fcm`. The provider-specific keys are documented on the [Slack](/docs/api-reference/slack), [WhatsApp](/docs/api-reference/whatsapp) and [Push](/docs/api-reference/push) reference pages.
+
+### `deploy`
+
+```yaml
+deploy:
+  host: ""                  # user@server.com
+  method: docker            # docker or binary
+  port: 22
+  path: ""                  # default /opt/myapp
+  arch: amd64               # amd64 or arm64
+  health_path: /health/ready
+  health_timeout: 30
+  keep_releases: 3
+  strict_host_key: accept-new
+  domain: ""
+```
+
+Read by `gofasta deploy`, not by the application. `health_path` points at `/health/ready` on purpose: it checks database and cache connectivity, where plain `/health` answers as soon as the process is up. See the [deployment guide](/docs/guides/deployment).
+
+## Validating the file
+
+`gofasta config schema` emits a JSON Schema for `config.yaml`, generated from the `AppConfig` type of the library version your project pins. Point your editor at it for completion and inline validation. The [command reference](/docs/cli-reference/config) shows how.
+
+## Accessing configuration in code
+
+Wire provides the whole `*config.AppConfig` and, through the extractor providers in `app/di/providers/core.go`, the sub-sections that infrastructure constructors need (`*config.DatabaseConfig`, `*config.AuthConfig`, `*config.CacheConfig` and so on). A service that needs a value asks for the struct it needs:
 
 ```go
-import (
-    "github.com/gofastadev/gofasta/pkg/featureflag"
-    "github.com/open-feature/go-sdk/openfeature/memprovider"
-)
-
-flags := map[string]memprovider.InMemoryFlag{
-    "registration": {
-        Key:            "registration",
-        State:          memprovider.Enabled,
-        DefaultVariant: "on",
-        Variants:       map[string]any{"on": true, "off": false},
-    },
+type ReportService struct {
+    repo interfaces.ReportRepository
+    cfg  *config.AppConfig
 }
-ff, err := featureflag.NewInMemoryService(flags, logger)
-if err != nil {
-    return err
-}
-defer ff.Close()
 
-if ff.IsEnabled(ctx, "registration", user.ID.String(), map[string]any{"plan": user.Plan}) {
-    RegisterAuthRoutes(router, deps.AuthController)
+func NewReportService(repo interfaces.ReportRepository, cfg *config.AppConfig) *ReportService {
+    return &ReportService{repo: repo, cfg: cfg}
+}
+
+func (s *ReportService) publicBase() string {
+    return "http://" + s.cfg.Server.Host + ":" + s.cfg.Server.Port
 }
 ```
 
-To swap to a real rule engine, call `openfeature.SetProvider(...)` at startup with any [OpenFeature-compatible provider](https://openfeature.dev/ecosystem). Application code stays unchanged.
+Add the service to the provider set and run `gofasta wire`.
 
-See the [Feature Flags API reference](/docs/api-reference/feature-flags) for the flag file format and the full `FeatureFlagService` API.
+## Environment-specific configuration
 
-## Accessing Configuration in Code
+Keep `config.yaml` as the development baseline and change the rest through the environment of each deployment.
 
-The config struct is available throughout your application via dependency injection:
-
-```go
-// In a service
-type OrderService struct {
-    repo   interfaces.OrderRepository
-    config *config.AppConfig
-}
-
-func NewOrderService(repo interfaces.OrderRepository, config *config.AppConfig) *OrderService {
-    return &OrderService{repo: repo, config: config}
-}
-
-func (s *OrderService) GetAppURL() string {
-    return s.config.App.URL
-}
-```
-
-## Environment-Specific Configuration
-
-A common pattern is to have a base `config.yaml` for development and override values in other environments:
-
-**Development** -- use `config.yaml` as-is with local defaults.
-
-**Staging** -- override with environment variables in your deployment:
+Staging:
 
 ```bash
-GOFASTA_APP_ENV=staging
-GOFASTA_DATABASE_HOST=staging-db.internal
-GOFASTA_JWT_SECRET=staging-secret
+MYAPP_SERVER_HOST=0.0.0.0
+MYAPP_DATABASE_HOST=staging-db.internal
+MYAPP_DATABASE_PASSWORD=...
+MYAPP_AUTH_JWT_SECRET=...
+MYAPP_SESSION_SECRET=...
 ```
 
-**Production** -- override all sensitive values:
+Production:
 
 ```bash
-GOFASTA_APP_ENV=production
-GOFASTA_APP_DEBUG=false
-GOFASTA_DATABASE_HOST=prod-db.internal
-GOFASTA_DATABASE_PASSWORD=prod-password
-GOFASTA_JWT_SECRET=prod-secret
-GOFASTA_REDIS_HOST=prod-redis.internal
-GOFASTA_MAIL_DRIVER=sendgrid
-GOFASTA_MAIL_SENDGRID_API_KEY=SG.prod-key
+MYAPP_SERVER_HOST=0.0.0.0
+MYAPP_LOG_FORMAT=json
+MYAPP_DATABASE_HOST=prod-db.internal
+MYAPP_DATABASE_PASSWORD=...
+MYAPP_AUTH_JWT_SECRET=...
+MYAPP_SESSION_SECRET=...
+MYAPP_SESSION_COOKIE_SECURE=true
+MYAPP_CACHE_DRIVER=redis
+MYAPP_CACHE_REDIS_HOST=prod-redis.internal
+MYAPP_EMAIL_PROVIDER=sendgrid
+MYAPP_EMAIL_SENDGRID_API_KEY=...
 ```
 
-This approach keeps your `config.yaml` safe to commit to version control (it only contains development defaults) while production secrets are managed through environment variables or secret managers.
+With the `docker` deploy method, `gofasta deploy` copies the project's `.env` to the server's shared directory; with the `binary` method you manage the environment on the server yourself. See the deployment guide.
 
-## Next Steps
+## Next steps
 
 - [Set up your database](/docs/guides/database-and-migrations)
 - [Configure authentication](/docs/guides/authentication)
 - [Deploy your application](/docs/guides/deployment)
 - [Config API reference](/docs/api-reference/config)
-- [Feature Flags API reference](/docs/api-reference/feature-flags)
+- [`gofasta config schema`](/docs/cli-reference/config)
 
 <RelatedPages path="guides/configuration" />

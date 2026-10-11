@@ -270,7 +270,7 @@ The `project.layout` field is **load-bearing** for the CLI:
 
 Hand-editing this field puts the project into an inconsistent state where the CLI thinks the layout is X but the filesystem is Y. Always use `gofasta refactor` to switch.
 
-Settings can also be overridden with environment variables using the project-specific prefix derived from your `go.mod` module name (e.g., a module `github.com/acme/myapp` produces the prefix `MYAPP_` so `MYAPP_DATABASE_HOST=db` overrides `database.host`). The generic `GOFASTA_` prefix also works as a fallback. See [Configuration](/docs/guides/configuration) for the full precedence rules.
+Settings can also be overridden with environment variables using the project-specific prefix: the name you gave `gofasta new`, uppercased, with anything that is not a letter, digit or underscore dropped (a project created as `my-app` reads `MYAPP_DATABASE_HOST=db` to override `database.host`). The prefix is passed to `config.LoadConfigWithPrefix` in `app/di/providers/core.go`; there is no second prefix or fallback. See [Configuration](/docs/guides/configuration) for the full precedence rules.
 
 ## What you write vs. what the library provides
 

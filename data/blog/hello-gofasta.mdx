@@ -41,7 +41,7 @@ Every package imports on its own. There is no umbrella that drags the rest in be
 
 That is also the honest answer to whether this is a framework. It is not. Nothing owns your code. There is no application object to register handlers into, no lifecycle wrapped around your program, no runtime that has to be present for the rest to make sense. `go build`, `go test`, `golangci-lint`, Delve and your IDE all behave exactly as they do in any other Go repo, because nothing here is custom.
 
-It is not lock-in either. The scaffold imports `pkg/*` packages as opt-out defaults, the same way any Go service imports chi or gorm. Want a different JWT library? Delete the `pkg/auth` import and `go get` the one you prefer. Nothing else in the project has an opinion about it.
+It is not lock-in either. The scaffold imports `pkg/*` packages as opt-out defaults, the same way any Go service imports chi or gorm. Want a different JWT library? Delete the `pkg/auth` import from the two DI files that wire it, `go get` the one you prefer, and regenerate the Wire container. Nothing else in the project has an opinion about it.
 
 ## A day with it
 
