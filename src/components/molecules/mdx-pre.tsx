@@ -6,12 +6,14 @@ import { trackEvent } from "@/lib/analytics";
 
 // `pre` override for blog post MDX. rehype-pretty-code emits
 // <figure><pre data-language data-theme><code>…</code></pre></figure>;
-// this component wraps the pre in a relative group and floats a
-// hover-revealed copy button in its top-right corner. The copied text
+// this component wraps the pre in a frame with a header bar holding the
+// language label and a copy button, so the button never covers code. The copied text
 // is read from the DOM at click time (ref → querySelector("code")
 // → textContent) rather than from React children — the children are
 // Shiki's token spans, and textContent is the only faithful
 // flattening of them.
+
+const PLAIN_LANGUAGES = new Set(["plaintext", "text", "txt"]);
 
 export type MdxPreProps = React.ComponentPropsWithoutRef<"pre">;
 
@@ -59,23 +61,28 @@ export function MdxPre({ children, className, ...props }: MdxPreProps) {
     }
   };
 
+  const language = (props as Record<string, unknown>)["data-language"];
+  const label =
+    typeof language === "string" && !PLAIN_LANGUAGES.has(language)
+      ? language
+      : "";
+
   return (
-    <div className="group relative">
-      <pre ref={preRef} className={className} {...props}>
-        {children}
-      </pre>
-      <button
-        type="button"
-        aria-label={copied ? "Copied" : "Copy code"}
-        title={copied ? "Copied" : "Copy code"}
-        onClick={() => {
-          void handleCopy();
-        }}
-        className={cn(
-          "absolute top-3 right-3 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-white/10 bg-white/5 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:text-gray-100",
-          copied && "text-primary hover:text-primary",
-        )}
-      >
+    <div className="overflow-hidden rounded-xl border border-black/10 bg-code-bg max-sm:rounded-none max-sm:border-x-0 dark:border-white/10">
+      <div className="flex h-10 items-center justify-between gap-3 border-b border-black/10 bg-black/3 px-4 font-mono text-xs text-gray-600 max-sm:px-6 dark:border-white/10 dark:bg-white/3 dark:text-gray-400">
+        <span>{label}</span>
+        <button
+          type="button"
+          aria-label={copied ? "Copied" : "Copy code"}
+          title={copied ? "Copied" : "Copy code"}
+          onClick={() => {
+            void handleCopy();
+          }}
+          className={cn(
+            "-mr-2 inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 font-sans transition-colors hover:bg-black/5 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-white/10 dark:hover:text-gray-100",
+            copied && "text-primary hover:text-primary dark:hover:text-primary",
+          )}
+        >
         {copied ? (
           <svg
             viewBox="0 0 24 24"
@@ -104,7 +111,12 @@ export function MdxPre({ children, className, ...props }: MdxPreProps) {
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
         )}
-      </button>
+          <span aria-hidden="true">{copied ? "Copied" : "Copy"}</span>
+        </button>
+      </div>
+      <pre ref={preRef} className={className} {...props}>
+        {children}
+      </pre>
     </div>
   );
 }
