@@ -1,0 +1,129 @@
+---
+draft: false
+title: 'Flat, layered, onion, hexagonal, feature: five ways to lay out a Go backend'
+description: >-
+  A week reading the original sources on Go project architecture: why flat,
+  layered, onion, hexagonal and feature aren't five options, and what moving a
+  real project between them costs.
+publishedAt: 2026-10-24T17:59:00.000Z
+author: Mugirase Emmanuel
+authorUrl: https://www.linkedin.com/in/mugirase-emmanuel/
+tags:
+  - golang
+  - architecture
+  - project-structure
+series: Untangling Go Project Architecture
+seriesPart: 1
+cover: >-
+  /blog/covers/go-project-architecture-flat-layered-onion-hexagonal-feature/cover.png
+---
+## The question I only half answered
+
+After my talk at GopherCon Africa 2026 in Nairobi, someone in the Q\&A asked how a [gofasta](https://gofasta.dev/) project is architected, and what happens if that isn't the architecture you want.
+
+My answer was short: gofasta scaffolds two layouts, layered and feature, and `gofasta refactor` converts a project between them. True, but only half an answer. Two days before my talk, I'd spent six hours in a workshop with [Ainsley Clark](https://ainsleyclark.com/), Go Developer Advocate at JetBrains, that rebuilt one Go application in five shapes: flat, layered, onion, hexagonal and feature. I came home with questions: *Are those an industry standard? Are they five options to pick from? And how do the choices I made for [gofasta](https://gofasta.dev/) hold up against the people who named these patterns?*
+
+So I spent the week after the conference reading the original sources and moving a fresh [gofasta](https://gofasta.dev/) project between shapes. This is what I found. Part 2 goes deep on the two layouts [gofasta](https://gofasta.dev/) generates.
+
+## There is no standard
+
+No standards body defines software architectures, and the Go team deliberately doesn't bless one. Its guide, [Organizing a Go module](https://go.dev/doc/modules/layout), starts from "a basic Go package has all its code in the project's root directory" and grows from there.
+
+The repository many people treat as the standard, golang-standards/project-layout, isn't one. Russ Cox, then Go's tech lead, opened [an issue on it](https://github.com/golang-standards/project-layout/issues/117) in 2021 titled ***"this is not a standard Go project layout"***. Even Kat Zien, whose GopherCon 2018 talk [How Do You Structure Your Go Apps?](https://www.youtube.com/watch?v=oL6JBUk6tj0) walked one app through [five structures](https://github.com/katzien/go-structure-examples), now writes in its README: ***"don't treat them as gospel."***
+
+The five names are a vocabulary, not a standard. And that vocabulary hides two different questions.
+
+## Two questions hiding in one word
+
+**How do you group files into packages?** By nothing (flat), by technical role (layered: all the controllers together), or by what the code is about (feature: everything about articles together).
+
+**Which way do the dependencies point?** Down, with the database at the bottom (traditional layered), or inward, toward business rules that depend on nothing (onion, hexagonal, and their famous sibling, clean).
+
+Put them on two axes and the five names stop competing:
+
+|                               | Dependencies point down (to the database) | Dependencies point inward (to the domain) |
+| ----------------------------- | ----------------------------------------- | ----------------------------------------- |
+| **Grouped by nothing**        | flat                                      |                                           |
+| **Grouped by technical role** | traditional layered                       | onion, hexagonal, clean                   |
+| **Grouped by feature**        | package by feature                        | feature folders on a hexagonal core       |
+
+The workshop's final version is hexagonal underneath with feature folders on top: "feature" for the first question, "inward" for the second. Most arguments about "which architecture" are two people answering different questions.
+
+## One app, five shapes
+
+Ainsley's workshop [repo](https://github.com/ainsleyclark/workshop-gophercon-africa-2026/tree/main/architectures) writes the same small app, a site of animal sightings fed by the GBIF biodiversity API, five times. Only the structure changes. The thread through all five, in Ainsley's words: a package is a wall, and "the compiler checks it."
+
+**1. Flat: no walls.** One package, a file per kind of code. The workshop's advice: "Most projects should start like this." The cost: everything can call everything, and when GBIF renames a field, the change runs all the way to the HTML.
+
+**2. Layered: walls by technical role.** `models/ store/ services/ handlers/`. These are Martin Fowler's [three layers](https://martinfowler.com/bliki/PresentationDomainDataLayering.html): presentation, domain logic and data access. Code can finally be private. The trap: every layer imports `models`, so `models` can import nothing, and the package meant to hold your domain has to stay empty of behaviour.
+
+**3. Onion: the arrow turns inward.** Jeffrey Palermo's [rule](https://jeffreypalermo.com/2008/07/the-onion-architecture-part-1/) from 2008: "all code can depend on layers more central, but code cannot depend on layers further out from the core." The domain declares the interfaces it needs, and storage implements them:
+
+```go
+// package domain: imports nothing from this module
+type SightingStore interface {
+    Save(ctx context.Context, s Sighting) error
+    List(ctx context.Context) ([]Sighting, error)
+}
+```
+
+As Palermo puts it, "The database is not the center. It is external."
+
+**4. Hexagonal: a package per noun.** Alistair Cockburn's [ports and adapters](https://alistair.cockburn.us/hexagonal-architecture/) (2005), the idea the onion credits: "a port identifies a purposeful conversation," and adapters plug real technology into it. Each noun gets its own package and declares its own ports, so `domain.SightingStore` becomes `sighting.Store`. Ben Johnson's [Standard Package Layout](https://www.gobeyond.dev/standard-package-layout/) (2016) is the Go community's version of the same idea.
+
+**5. Feature: everything about a noun in one folder.** The arrow stays inward; only the grouping changes. A store serves one domain, so it moves into `domain/sighting/`. A page shows several nouns, so it moves out to `web/`. This is Jimmy Bogard's [Vertical Slice](https://www.jimmybogard.com/vertical-slice-architecture/) rule: "Minimize coupling between slices, and maximize coupling in a slice." You can delete a feature by deleting a directory.
+
+Each step answers a question the previous one couldn't. If none of those questions hurts yet, you don't need the next step.
+
+## Onion, hexagonal and clean are one idea
+
+Robert C. Martin's [The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) (2012), the name you've most likely heard, doesn't claim to be new. It lists hexagonal, onion and others, and says: "They all have the same objective, which is the separation of concerns." What it adds is a name for the rule they share, the Dependency Rule: "source code dependencies can only point inwards."
+
+> ***Hexagonal, onion and clean aren't three rival architectures. They're three drawings of one idea.***
+
+Not everyone is convinced the idea is worth its cost. Bogard again: "I tend to see these architectures mock-heavy, with rigid rules around dependency management." Serious engineers disagree here.
+
+## Where a [gofasta](https://gofasta.dev/) project sits
+
+I know what gofasta generates; I wrote the templates. What I hadn't done was check those decisions against this vocabulary, using the compiler instead of my memory. So I took a fresh `gofasta new` project (CLI v0.1.12) with one generated resource, `Article`.
+
+**Grouping: layered by default, feature on request.** The default tree is `app/models/ app/repositories/ app/services/ app/rest/ app/dtos/`. `gofasta refactor feature --all` regroups it into `app/article/`, `app/user/` and so on, each internally layered. That's what Fowler recommended in 2015 for layered systems that outgrow their layers: "split your top level into domain oriented modules which are internally layered."
+
+**Direction: inward, with one deliberate exception.** Every generated service depends on a repository *interface*, never on the GORM-backed repository itself, and the project's import graph confirms it. In Palermo's words, "only the interface is in the application core." The exception is persistence: GORM's "record not found" error flows through to the services, and every model embeds a GORM-aware base struct. That's a trade-off I chose to keep the generated code short, and it's exactly where a team moving to onion or clean would draw the line differently.
+
+**Not generated: flat, onion and hexagonal.** Two layouts the generators can keep consistent beat five they'd half-support. But gofasta promises plain Go that you own, so a project should be able to leave both layouts behind. I tried it.
+
+## The experiment: leaving the layout
+
+**Step 1: layered to onion.** Seven directory moves (`app/models` to `app/core/domain`, `app/repositories` to `app/adapters/persistence`, and so on), one `sed` over the import paths and one `gofmt`. That changed 36 files, and every change was an import line. Build, vet and tests all passed.
+
+**Step 2: GORM out of the core.** I gave the repository port its own `ErrArticleNotFound` and made the GORM repository translate the database error into it. That was 4 source files and about 18 lines, plus 2 test files. Tests passed. Splitting the domain entity from the persistence model is a further step, and I didn't measure it.
+
+**Step 3: a package per noun.** Moving `models.Article` to `article.Article` took 1 file move and edits to 5 source and 4 test files, all renamed references. Tests passed.
+
+**Step 4: the generators on the new tree.**
+
+| Command                             | Result                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| `g field`, `g method`, `g endpoint` | Each refuses ("file not found"), nothing written                                           |
+| `g job`                             | Works                                                                                      |
+| `g scaffold Tag`                    | Recreates the layered folders, writes 18 files, fails halfway through wiring, build broken |
+| `refactor status`                   | Reports "layered, 0 resources"                                                             |
+
+## So does [gofasta](https://gofasta.dev/) lock you in?
+
+Your code: no. Your generators: yes, to two shapes.
+
+The generated project is plain Go. Dependency injection is resolved at compile time and nothing wraps your code at runtime, so the compiler is the only judge of where files live, and it accepted every move above. What you give up when you leave layered and feature is the generators. On a tree they don't know, they either refuse or, in `g scaffold`'s case, fail badly. That's a bug in how it fails: it should recognise an unknown tree and stop before writing anything.
+
+It's the same distinction I made in my talk and in [the post that went with it](/blog/default-or-dependency-a-five-minute-test-for-every-import-in-your-go-project). A default is something you can leave cheaply. Here, leaving costs a set of mechanical edits and the code generators. It doesn't cost a rewrite.
+
+## What I'd tell myself a week ago
+
+* **There's no standard**, only a vocabulary. Learn it from the original sources rather than from diagrams of diagrams.
+* **Ask two questions, not one:** how do I group files, and which way do dependencies point?
+* **Take the next step when a question hurts.** Flat until you need privacy, layers until the domain needs to own its interfaces, a package per noun when one domain package fills up, feature folders when people need to work on one thing without touching four folders.
+
+For a [gofasta](https://gofasta.dev/) project, stay in the two layouts the generators know while you're adding resources every week, and move further when the domain's rules start to matter more than the scaffolding. Part 2 covers those two layouts: what `gofasta refactor` moves, what it leaves alone, and what didn't survive the round trip.
+
+Thanks to [Ainsley Clark](https://ainsleyclark.com/) for the workshop that started all this, and for letting me build on it here. To repeat the experiment yourself, the [quick start](/docs/getting-started/quick-start) gets you a project in a minute, and the [`gofasta refactor` reference](/docs/cli-reference/refactor) documents what moves and what stays.
