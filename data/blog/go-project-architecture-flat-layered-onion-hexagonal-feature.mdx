@@ -6,7 +6,7 @@ description: >-
   layered, onion, hexagonal and feature aren't five options, and what moving a
   real project between them costs.
 publishedAt: 2026-10-24T17:59:00.000Z
-author: Gofasta Team
+author: Mugirase Emmanuel
 tags:
   - golang
   - architecture
@@ -18,27 +18,27 @@ cover: >-
 ---
 ## The question I only half answered
 
-After my talk at GopherCon Africa in Nairobi, someone in the Q\&A asked how a gofasta project is architected, and what happens if that isn't the architecture you want.
+After my talk at GopherCon Africa 2026 in Nairobi, someone in the Q\&A asked how a [gofasta](https://gofasta.dev/) project is architected, and what happens if that isn't the architecture you want.
 
-My answer on stage was short. gofasta scaffolds two layouts, layered and feature, and `gofasta refactor` converts a project between them. All true, and it answered half the question. Earlier that week I'd sat through a six-hour workshop with Ainsley Clark, Go Developer Advocate at JetBrains, which rebuilt one Go application in five different shapes: flat, layered, onion, hexagonal and feature. I came home with more questions than answers. Where do those names come from? Are they an industry standard? Are they five options to pick from? And how do the design choices I made for gofasta hold up when measured against the people who named these patterns?
+My answer on stage was short. [gofasta](https://gofasta.dev/) scaffolds two layouts, layered and feature, and `gofasta refactor` converts a project between them. All true, and it answered half the question. Earlier that week I'd sat through a six-hour workshop with [Ainsley Clark](https://ainsleyclark.com/), Go Developer Advocate at JetBrains, which rebuilt one Go application in five different shapes: flat, layered, onion, hexagonal and feature. I came home with more questions than answers: *Where do those names come from?* *Are they an industry standard? Are they five options to pick from? And how do the design choices I made for [gofasta](https://gofasta.dev/) hold up when measured against the people who named these patterns?*
 
-So I spent the week after the conference reading the original sources and running experiments on a fresh gofasta project. This post is what I found. [Part 2](/blog/go-project-structure-layered-vs-feature) goes deep on the two layouts gofasta generates and what switching between them really costs.
+So I spent a week after the conference reading the original sources and running experiments on a fresh [gofasta](https://gofasta.dev/) project. This post is what I found. Part 2 will go deep on the two layouts [gofasta](https://gofasta.dev/) generates and what switching between them really costs.
 
 ## There is no standard
 
 The first thing I had to unlearn is that there's an official list somewhere.
 
-There isn't. No standards body defines software architectures, and the Go team deliberately doesn't bless one. Its own guide, [Organizing a Go module](https://go.dev/doc/modules/layout), starts from "a basic Go package \[that] has all its code in the project's root directory", recommends `internal/` for packages you don't want others to depend on, and grows from there. That's all it says.
+There isn't. No standards body defines software architectures, and the Go team deliberately doesn't bless one. Its own guide, [Organizing a Go module](https://go.dev/doc/modules/layout), starts from "a basic Go package has all its code in the project's root directory", recommends `internal/` for packages you don't want others to depend on, and grows from there. That's all it says.
 
-The repository many people take for the standard, [golang-standards/project-layout](https://github.com/golang-standards/project-layout), isn't one either. Russ Cox, then Go's tech lead, opened [an issue on it](https://github.com/golang-standards/project-layout/issues/117) in 2021 titled "this is not a standard Go project layout", and wrote that "it is unfortunate that this is being put forth as 'golang-standards' when it really is not."
+The repository many people take for the standard, [golang-standards/project-layout](https://github.com/golang-standards/project-layout), isn't one either. Russ Cox, then Go's tech lead, opened [an issue on it](https://github.com/golang-standards/project-layout/issues/117) in 2021 titled ***"this is not a standard Go project layout"***, and wrote that "it is unfortunate that this is being put forth as 'golang-standards' when it really is not."
 
-Even the people who taught the community these patterns hold them loosely. Kat Zien's GopherCon 2018 talk, [How Do You Structure Your Go Apps?](https://www.youtube.com/watch?v=oL6JBUk6tj0), walked one beer-review app through [flat, layered, modular, domain and hexagonal versions](https://github.com/katzien/go-structure-examples), and its README now carries this note: "I've changed my opinion on some of this stuff since then, so don't treat them as gospel."
+Even the people who taught the community these patterns hold them loosely. Kat Zien's GopherCon 2018 talk, [How Do You Structure Your Go Apps?](https://www.youtube.com/watch?v=oL6JBUk6tj0), walked one beer-review app through [flat, layered, modular, domain and hexagonal versions](https://github.com/katzien/go-structure-examples), and its README now carries this note: ***"I've changed my opinion on some of this stuff since then, so don't treat them as gospel."***
 
 So the five names are not a standard. They're a vocabulary: patterns that different people named at different times to solve different problems. To use that vocabulary well, you have to know what each word was invented to say.
 
 ## Two questions hiding in one word
 
-Here's the thing that took me longest to see. "Architecture" in these conversations answers two different questions, and the five names don't all answer the same one.
+Here's the thing that took me longest to see. **"Architecture"** in these conversations answers two different questions, and the five names don't all answer the same one.
 
 **Question 1: how do you group files into packages?** By nothing (flat), by technical role (layered: all the controllers together, all the repositories together), or by what the code is about (feature: everything about articles together).
 
@@ -62,7 +62,7 @@ Once I saw the two axes, the history made sense too.
 
 Layering is older than any of the other names here, and Martin Fowler's [Presentation Domain Data Layering](https://martinfowler.com/bliki/PresentationDomainDataLayering.html) (2015) is the clearest short statement of it: separate a program "into three broad layers: presentation (UI), domain logic (aka business logic), and data access." He adds a detail people forget: "These layers are logical layers not physical tiers."
 
-The same note contains the line I found most useful all week. Layer-based top-level packages are "OK for smaller systems", but once the layers grow too big you should "split your top level into domain oriented modules which are internally layered." Keep that sentence in mind. It describes gofasta's feature layout almost exactly, and it comes back below.
+The same note contains the line I found most useful all week. Layer-based top-level packages are "OK for smaller systems", but once the layers grow too big you should "split your top level into domain oriented modules which are internally layered." Keep that sentence in mind. It describes [gofasta](https://gofasta.dev/)'s feature layout almost exactly, and it comes back below.
 
 ### Package by feature: grouping by what the code is for
 
@@ -88,7 +88,7 @@ The member of this family the workshop didn't cover is the one you've most likel
 
 Martin's contribution is a single sentence that names what they share, the Dependency Rule: "source code dependencies can only point inwards." He draws four circles, from the inside out "Entities", "Use Cases", "Interface Adapters" and "Frameworks and Drivers", and is blunt about the outer ring: "The Web is a detail. The database is a detail."
 
-So hexagonal, onion and clean aren't three rival architectures. They're three drawings of one idea, made over seven years: the business rules depend on nothing, and everything else points at them.
+> ***So hexagonal, onion and clean aren't three rival architectures. They're three drawings of one idea, made over seven years: the business rules depend on nothing, and everything else points at them.***
 
 ### The Go community's own answers
 
@@ -98,13 +98,13 @@ Kat Zien's 2018 talk, mentioned above, is the other landmark. Its example repo h
 
 ## Watching it happen: one app, five shapes
 
-Ainsley's workshop repo has a folder called [`architectures`](https://github.com/ainsleyclark/workshop-gophercon-africa-2026/tree/main/architectures): the same small app, a site of animal sightings fed by the GBIF biodiversity API, written five times. Same feature, same storage, same page. Only the structure changes. Reading the theory first and then this code was the most useful part of my week, because you can see each idea from the section above as a single commit-sized change.
+Ainsley's workshop [repo](https://github.com/ainsleyclark/workshop-gophercon-africa-2026) has a folder called [`architectures`](https://github.com/ainsleyclark/workshop-gophercon-africa-2026/tree/main/architectures): the same small app, a site of animal sightings fed by the GBIF biodiversity API, written five times. Same feature, same storage, same page. Only the structure changes. Reading the theory first and then this code was the most useful part of my week, because you can see each idea from the section above as a single commit-sized change.
 
 The thread through all five is a Go idea. A package is a wall between parts of a program, and in Ainsley's words "the compiler checks it. Every folder from here on is a boundary somebody has to ask permission to cross." The trees below are simplified; the workshop has the real code and a page of trade-offs for each step.
 
 ### 1. Flat: no walls
 
-```
+```shell
 main.go  models.go  gbif.go  store.go  ingest.go  handlers.go
 ```
 
