@@ -182,7 +182,7 @@ The second axis arrives. The inward arrow stays exactly as it was, and the group
 
 Each step answers one question the previous step couldn't. How do I make things private? How do I stop GBIF reaching the page? How do I stop one package holding every noun? How do I hand someone a whole feature? The workshop ends each step with questions like that, for example "If we added weather to each sighting, where would it go?" If none of them hurts yet, you don't need the next step. Bogard would add that for many requests you may never need it.
 
-## Where a gofasta project sits on the two axes
+## Where a [gofasta](https://gofasta.dev/) project sits on the two axes
 
 Back to the question from the Q\&A. I know what gofasta generates; I wrote the templates. What I hadn't done was hold those decisions up against the vocabulary above and check them with the compiler instead of from memory. So I took a fresh `gofasta new` project (CLI v0.1.12) with one generated resource, `Article`, and placed it on both axes.
 
@@ -271,7 +271,7 @@ That was 1 file moved and 5 source files plus 4 test files edited, every edit a 
 | `g scaffold Tag`                    | Recreates the layered folders, writes 18 files, fails halfway through wiring, build broken |
 | `refactor status`                   | Reports "layered, 0 resources"                                                             |
 
-## So does gofasta lock you into an architecture?
+## So does [gofasta](https://gofasta.dev/) lock you into an architecture?
 
 Your code: no. Your generators: yes, to two shapes.
 
@@ -289,6 +289,6 @@ It's the same distinction I made in my talk and in [the post that went with it](
 
 **Take the next step when a question hurts.** Flat until you need privacy. Layers until the domain needs to own its interfaces. A package per noun when one domain package starts needing prefixes. Feature folders when people need to work on one thing without touching four folders. And keep Bogard's warning in mind: the walls cost something every time you cross them.
 
-**For a gofasta project specifically:** stay in the two layouts the generators know while you're adding resources every week, and move along the line when the domain's rules start to matter more than the scaffolding. [Part 2](/blog/go-project-structure-layered-vs-feature) covers those two layouts in depth, including what `gofasta refactor` moves, what it leaves alone, and what didn't survive the round trip.
+**For a gofasta project specifically:** stay in the two layouts the generators know while you're adding resources every week, and move along the line when the domain's rules start to matter more than the scaffolding. Part 2 will cover those two layouts in depth, including what `gofasta refactor` moves, what it leaves alone, and what didn't survive the round trip.
 
 Thanks to Ainsley Clark for the workshop that started all this, and for letting me build on it here. If you want to repeat the experiment, the [quick start](/docs/getting-started/quick-start) gets you a project in a minute, and the [`gofasta refactor` reference](/docs/cli-reference/refactor) documents what moves and what stays.
