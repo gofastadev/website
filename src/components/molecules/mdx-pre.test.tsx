@@ -39,6 +39,22 @@ describe("MdxPre", () => {
     expect(pre?.textContent).toBe('fmt.Println("hi")');
   });
 
+  it("labels the block with its language and leaves plain text unlabelled", () => {
+    const { rerender } = render(
+      <MdxPre data-language="go">
+        <code>x</code>
+      </MdxPre>,
+    );
+    expect(screen.getByText("go")).toBeInTheDocument();
+
+    rerender(
+      <MdxPre data-language="plaintext">
+        <code>x</code>
+      </MdxPre>,
+    );
+    expect(screen.queryByText("plaintext")).toBeNull();
+  });
+
   it("copies the code textContent, shows Copied, fires copy_code, and reverts", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     stubClipboard(writeText);

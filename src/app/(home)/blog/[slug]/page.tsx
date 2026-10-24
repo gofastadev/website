@@ -249,7 +249,7 @@ export default async function BlogPostPage({
             />
           ) : null}
           <TableOfContents items={toc} variant="inline" />
-          <div className="prose max-w-none prose-headings:font-display prose-headings:scroll-mt-24 prose-headings:tracking-tight prose-a:text-primary prose-a:underline prose-pre:rounded-xl prose-pre:border prose-pre:border-gray-200 prose-pre:bg-code-bg prose-code:rounded prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none dark:prose-invert dark:prose-pre:border-gray-800 dark:prose-code:bg-white/[0.08]">
+          <div className="prose max-w-none prose-headings:font-display prose-headings:scroll-mt-24 prose-headings:tracking-tight prose-a:text-primary prose-a:underline prose-pre:my-0 prose-pre:rounded-none prose-pre:bg-transparent prose-pre:px-0 max-sm:prose-pre:text-[0.8125rem] [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-gray-100 [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none dark:prose-invert dark:[&_:not(pre)>code]:bg-white/8">
             <MDXRemote
               source={stripTitleH1(post.body, post.title)}
               components={blogMdxComponents}
