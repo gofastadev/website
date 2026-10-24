@@ -68,8 +68,8 @@ export function MdxPre({ children, className, ...props }: MdxPreProps) {
       : "";
 
   return (
-    <div className="overflow-hidden rounded-xl border border-black/10 bg-code-bg max-sm:rounded-none max-sm:border-x-0 dark:border-white/10">
-      <div className="flex h-10 items-center justify-between gap-3 border-b border-black/10 bg-black/3 px-4 font-mono text-xs text-gray-600 max-sm:px-6 dark:border-white/10 dark:bg-white/3 dark:text-gray-400">
+    <div className="overflow-hidden rounded-xl border border-black/10 bg-code-bg dark:border-white/10">
+      <div className="flex h-10 items-center justify-between gap-3 border-b border-black/10 bg-black/3 px-4 font-mono text-xs text-gray-600 dark:border-white/10 dark:bg-white/3 dark:text-gray-400">
         <span>{label}</span>
         <button
           type="button"

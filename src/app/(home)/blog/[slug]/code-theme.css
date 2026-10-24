@@ -68,14 +68,3 @@ pre > code {
   min-width: 100%;
   width: max-content;
 }
-
-/* Edge-to-edge blocks on phones: 1.5rem lines up the code with the page's px-6 text column. */
-@media (width < 40rem) {
-  figure[data-rehype-pretty-code-figure] {
-    margin-inline: -1.5rem;
-  }
-
-  pre [data-line] {
-    padding: 0 1.5rem;
-  }
-}
