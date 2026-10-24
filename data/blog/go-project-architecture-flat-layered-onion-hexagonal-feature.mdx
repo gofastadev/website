@@ -1,5 +1,5 @@
 ---
-draft: true
+draft: false
 title: 'Flat, layered, onion, hexagonal, feature: five ways to lay out a Go backend'
 description: >-
   A week reading the original sources on Go project architecture: why flat,
@@ -21,9 +21,9 @@ cover: >-
 
 After my talk at GopherCon Africa 2026 in Nairobi, someone in the Q\&A asked how a [gofasta](https://gofasta.dev/) project is architected, and what happens if that isn't the architecture you want.
 
-My answer was short: gofasta scaffolds two layouts, layered and feature, and `gofasta refactor` converts a project between them. True, but only half an answer. Earlier that week I'd sat through a six-hour workshop with [Ainsley Clark](https://ainsleyclark.com/), Go Developer Advocate at JetBrains, that rebuilt one Go application in five shapes: flat, layered, onion, hexagonal and feature. I came home with questions: *Are those an industry standard? Are they five options to pick from? And how do the choices I made for gofasta hold up against the people who named these patterns?*
+My answer was short: gofasta scaffolds two layouts, layered and feature, and `gofasta refactor` converts a project between them. True, but only half an answer. Two days before my talk, I'd spent six hours in a workshop with [Ainsley Clark](https://ainsleyclark.com/), Go Developer Advocate at JetBrains, that rebuilt one Go application in five shapes: flat, layered, onion, hexagonal and feature. I came home with questions: *Are those an industry standard? Are they five options to pick from? And how do the choices I made for [gofasta](https://gofasta.dev/) hold up against the people who named these patterns?*
 
-So I spent the week after the conference reading the original sources and moving a fresh gofasta project between shapes. This is what I found. Part 2 goes deep on the two layouts gofasta generates.
+So I spent the week after the conference reading the original sources and moving a fresh [gofasta](https://gofasta.dev/) project between shapes. This is what I found. Part 2 goes deep on the two layouts [gofasta](https://gofasta.dev/) generates.
 
 ## There is no standard
 
