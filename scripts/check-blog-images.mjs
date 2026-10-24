@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = resolve(__dirname, "..", "public", "blog");
-const MAX_BYTES = 250_000;
+const MAX_BYTES = 1_500_000;
 const RASTER_EXTENSIONS = new Set([
   ".jpg",
   ".jpeg",

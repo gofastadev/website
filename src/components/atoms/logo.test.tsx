@@ -38,9 +38,12 @@ describe("Logo", () => {
     expect(link).toHaveClass("my-custom-class");
   });
 
-  it("applies rounded corners to the image", () => {
+  it("shows the light logo outside dark mode and the dark logo inside it", () => {
     const { container } = render(<Logo />);
-    const img = container.querySelector('img[src="/logo.png"]');
-    expect(img).toHaveClass("rounded-lg");
+    const light = container.querySelector('img[src="/logo.png"]');
+    const dark = container.querySelector('img[src="/logo-dark.png"]');
+    expect(light).toHaveClass("dark:hidden");
+    expect(dark).toHaveClass("hidden", "dark:block");
+    expect(dark).toHaveAttribute("alt", "");
   });
 });

@@ -80,7 +80,7 @@ function loadFonts() {
   return fontsPromise;
 }
 
-// The gopher logo mark (public/logo.png) is embedded as a base64 data
+// The gopher logo mark (public/logo-dark.png, made for dark backgrounds) is embedded as a base64 data
 // URI. `public/` is served statically and isn't reachable via a
 // `fetch(new URL(..., import.meta.url))` relative import like the
 // fonts above (it sits outside the module graph route.tsx belongs
@@ -91,7 +91,7 @@ let logoDataUriPromise: Promise<string> | null = null;
 
 function loadLogoDataUri() {
   if (!logoDataUriPromise) {
-    logoDataUriPromise = readFile(join(process.cwd(), "public/logo.png")).then(
+    logoDataUriPromise = readFile(join(process.cwd(), "public/logo-dark.png")).then(
       (buffer) => `data:image/png;base64,${buffer.toString("base64")}`,
     );
   }
