@@ -29,7 +29,8 @@ export default async function DocsLayout({
           logo={
             <span className="flex items-center gap-2">
               {/* Decorative — text label "Gofasta" follows; alt="" prevents redundant SR readout. */}
-              <Image src="/logo.png" alt="" width={28} height={28} className="rounded-lg" />
+              <Image src="/logo.png" alt="" width={28} height={28} className="dark:hidden" />
+              <Image src="/logo-dark.png" alt="" width={28} height={28} className="hidden dark:block" />
               <span className="text-lg font-bold">Gofasta</span>
             </span>
           }

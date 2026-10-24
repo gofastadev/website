@@ -119,13 +119,12 @@ async function ogJpeg(source, output) {
   return true;
 }
 
-async function resizePng(source, output, size) {
+async function resizePng(source, output, size, { background } = {}) {
   if (!(await isStale(output, source))) return false;
   const sharp = await loadSharp();
-  await (sharp(source))
-    .resize(size, size, { fit: "cover" })
-    .png()
-    .toFile(output);
+  let image = sharp(source).resize(size, size, { fit: "cover" });
+  if (background) image = image.flatten({ background });
+  await image.png().toFile(output);
   return true;
 }
 
@@ -147,6 +146,7 @@ for (const file of await walk(COVERS_DIR)) {
 
 // 2. Favicons from the logo.
 if (await resizePng(LOGO, join(PUBLIC, "icon-48.png"), 48)) generated++;
-if (await resizePng(LOGO, join(PUBLIC, "apple-touch-icon.png"), 180)) generated++;
+// iOS fills transparent touch-icon pixels with black, which hides the navy brace.
+if (await resizePng(LOGO, join(PUBLIC, "apple-touch-icon.png"), 180, { background: "#ffffff" })) generated++;
 
 console.log(`seo-assets: ${generated} file(s) generated`);

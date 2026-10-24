@@ -20,7 +20,8 @@ export function Logo({ className }: LogoProps) {
           link's only accessible name would otherwise come from the
           empty alt text — `aria-label` on the Link covers every
           viewport instead of relying on the hidden span. */}
-      <Image src="/logo.png" alt="" width={32} height={32} className="rounded-lg" />
+      <Image src="/logo.png" alt="" width={32} height={32} className="dark:hidden" />
+      <Image src="/logo-dark.png" alt="" width={32} height={32} className="hidden dark:block" />
       <span className="hidden text-xl font-bold text-gray-900 sm:inline dark:text-white">
         Gofasta
       </span>
