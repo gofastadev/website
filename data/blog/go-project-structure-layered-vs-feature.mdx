@@ -38,7 +38,7 @@ So the honest starting point is that you are going to choose. In practice, backe
 
 The layered layout groups files by technical role. All the controllers together, all the services together, all the repositories together:
 
-```
+```bash
 app/
   controllers/
     article.controller.go
@@ -64,7 +64,7 @@ The cost arrives as the project grows. Working on one feature means touching fou
 
 The feature layout, which you will also hear called vertical slice or package by feature, flips the axis. Everything about a resource lives in one place:
 
-```
+```bash
 app/
   article/
     controller.go
