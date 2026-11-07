@@ -1,11 +1,11 @@
 ---
-draft: true
+draft: false
 title: How to build a production-ready REST API in Go (2026 edition)
 description: >-
   A start-to-finish walkthrough of building a Go REST API with the Gofasta
   toolkit. Scaffold the project, generate a resource, and make it genuinely
   production-ready.
-publishedAt: 2026-06-05T10:00:00.000Z
+publishedAt: 2026-11-02T10:00:00.000Z
 author: Gofasta Team
 authorUrl: https://gofasta.dev
 tags:
@@ -40,10 +40,10 @@ The scaffold imports packages from the Gofasta library, `pkg/config` and `pkg/au
 
 Spend five minutes reading the tree before you generate anything. It pays off. The short version:
 
-- `app/` holds your domain code: models, repositories, services, controllers, DTOs.
-- `db/migrations/` holds SQL migrations, already seeded with a users table and some database-level guardrails.
-- `config.yaml` plus environment variables configure everything through `pkg/config`.
-- Docker files and CI workflows are there from the first commit rather than bolted on the week before launch.
+* `app/` holds your domain code: models, repositories, services, controllers, DTOs.
+* `db/migrations/` holds SQL migrations, already seeded with a users table and some database-level guardrails.
+* `config.yaml` plus environment variables configure everything through `pkg/config`.
+* Docker files and CI workflows are there from the first commit rather than bolted on the week before launch.
 
 One detail deserves calling out. Every model embeds `BaseModelImpl` from `pkg/models`, which supplies a UUID primary key, `CreatedAt`, `UpdatedAt`, soft deletes, and a `RecordVersion` field for optimistic locking. Two writers updating the same row will not silently clobber each other, because the stale write gets rejected. Most hand-rolled projects add that right after their first data-corruption incident. We would rather you have it before.
 
@@ -59,13 +59,13 @@ gofasta g scaffold Book title:string author:string blurb:text pages:int
 
 One command produces the entire vertical slice:
 
-- a GORM model with the fields typed correctly (`string` becomes `VARCHAR(255)`, `text` becomes `TEXT`, `int` becomes `INTEGER`)
-- a SQL migration pair to create the table
-- a repository with the query methods
-- a service holding business logic
-- request and response DTOs with validation tags
-- a controller exposing the CRUD endpoints
-- route registration, a Wire provider, and tests for each layer
+* a GORM model with the fields typed correctly (`string` becomes `VARCHAR(255)`, `text` becomes `TEXT`, `int` becomes `INTEGER`)
+* a SQL migration pair to create the table
+* a repository with the query methods
+* a service holding business logic
+* request and response DTOs with validation tags
+* a controller exposing the CRUD endpoints
+* route registration, a Wire provider, and tests for each layer
 
 Run `gofasta migrate up` and the table exists. Run `gofasta routes` and the new endpoints are listed. That is a working CRUD API for `Book` in about a minute.
 
