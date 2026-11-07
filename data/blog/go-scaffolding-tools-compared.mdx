@@ -1,6 +1,8 @@
 ---
 draft: false
-title: 'Go scaffolding tools compared: gonew, go-blueprint, Autostrada, Grit, and gofasta'
+title: >-
+  Go scaffolding tools compared: gonew, go-blueprint, Autostrada, Grit, and
+  gofasta
 description: >-
   A fair look at five ways to start a Go backend, covering gonew, go-blueprint,
   Autostrada, Grit and gofasta, and what each one does for you after day zero.
@@ -87,18 +89,18 @@ What sets it apart is that the CLI stays useful afterward.
 
 ## Side by side
 
-|                          | gonew                  | go-blueprint             | Autostrada            | Grit                                  | gofasta                                    |
-| ------------------------ | ---------------------- | ------------------------ | --------------------- | ------------------------------------- | ------------------------------------------ |
-| Interface                | CLI (template copy)    | CLI + web preview        | Website, ZIP download | CLI                                   | CLI                                        |
-| Router choice            | template-defined       | 6 options                | 5 options             | Gin                                   | chi (opt-out default)                      |
-| Databases                | template-defined       | 6 options                | 4 options             | PostgreSQL                            | 5 drivers via `--driver`                   |
-| Frontend                 | none                   | optional (HTMX or React) | server-rendered HTML  | React web app + admin panel           | none                                       |
-| Post-scaffold generation | none                   | none                     | none                  | resource generator (Go, TS, admin)    | CRUD scaffold + modify-aware generators    |
-| Dev workflow tooling     | none                   | none                     | none                  | `grit start`, `migrate`, `seed`       | `gofasta dev`, `migrate`, `test`, `routes` |
-| Deployment tooling       | none                   | Docker files             | none                  | `grit deploy` (SSH, systemd, Caddy)   | Docker + `gofasta deploy` (VPS, rollback)  |
-| Agent/machine output     | none                   | none                     | none                  | MCP server, llms.txt                  | `--json` everywhere, `inspect`, llms.txt   |
-| Cost                     | free                   | free                     | free core, paid tier  | free, MIT                             | free, MIT                                  |
-| Maintainer               | Go team (experimental) | community (\~8.9k stars) | Alex Edwards          | Muke Johnbaptist (\~160 stars)        | us                                         |
+|                          | gonew                  | go-blueprint             | Autostrada            | Grit                                | gofasta                                    |
+| ------------------------ | ---------------------- | ------------------------ | --------------------- | ----------------------------------- | ------------------------------------------ |
+| Interface                | CLI (template copy)    | CLI + web preview        | Website, ZIP download | CLI                                 | CLI                                        |
+| Router choice            | template-defined       | 6 options                | 5 options             | Gin                                 | chi (opt-out default)                      |
+| Databases                | template-defined       | 6 options                | 4 options             | PostgreSQL                          | 5 drivers via `--driver`                   |
+| Frontend                 | none                   | optional (HTMX or React) | server-rendered HTML  | React web app + admin panel         | none                                       |
+| Post-scaffold generation | none                   | none                     | none                  | resource generator (Go, TS, admin)  | CRUD scaffold + modify-aware generators    |
+| Dev workflow tooling     | none                   | none                     | none                  | `grit start`, `migrate`, `seed`     | `gofasta dev`, `migrate`, `test`, `routes` |
+| Deployment tooling       | none                   | Docker files             | none                  | `grit deploy` (SSH, systemd, Caddy) | Docker + `gofasta deploy` (VPS, rollback)  |
+| Agent/machine output     | none                   | none                     | none                  | MCP server, llms.txt                | `--json` everywhere, `inspect`, llms.txt   |
+| Cost                     | free                   | free                     | free core, paid tier  | free, MIT                           | free, MIT                                  |
+| Maintainer               | Go team (experimental) | community (\~8.9k stars) | Alex Edwards          | Muke Johnbaptist (\~160 stars)      | us                                         |
 
 ## Day two is the real test
 
