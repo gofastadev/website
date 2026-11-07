@@ -1,12 +1,12 @@
 ---
-draft: true
+draft: false
 title: 'Go scaffolding tools compared: gonew, go-blueprint, Autostrada, and gofasta'
 description: >-
   A fair look at four ways to start a Go backend, covering gonew, go-blueprint,
   Autostrada and gofasta, and what each one does for you after day zero.
-publishedAt: 2026-07-10T10:00:00.000Z
-author: Gofasta Team
-authorUrl: https://gofasta.dev
+publishedAt: 2026-10-28T12:45:00.000Z
+author: Mugirase Emmanuel
+authorUrl: https://www.linkedin.com/in/mugirase-emmanuel/
 tags:
   - golang
   - tooling
@@ -78,17 +78,17 @@ The honest difference from the other three is not the scaffold. It is that the C
 
 ## Side by side
 
-| | gonew | go-blueprint | Autostrada | gofasta |
-|---|---|---|---|---|
-| Interface | CLI (template copy) | CLI + web preview | Website, ZIP download | CLI |
-| Router choice | whatever your template uses | 6 options | 5 options | chi (opt-out default) |
-| Databases | template-defined | 6 options | 4 options | 5 drivers via `--driver` |
-| Post-scaffold generation | none | none | none | CRUD scaffold + modify-aware generators |
-| Dev workflow tooling | none | none | none | `gofasta dev`, `migrate`, `test`, `routes` |
-| Deployment tooling | none | Docker files | none | Docker + `gofasta deploy` (VPS, rollback) |
-| Agent/machine output | none | none | none | `--json` everywhere, `inspect`, llms.txt |
-| Cost | free | free | free core, paid tier | free, MIT |
-| Maintainer | Go team (experimental) | community (~8.9k stars) | Alex Edwards | us |
+|                          | gonew                       | go-blueprint             | Autostrada            | gofasta                                    |
+| ------------------------ | --------------------------- | ------------------------ | --------------------- | ------------------------------------------ |
+| Interface                | CLI (template copy)         | CLI + web preview        | Website, ZIP download | CLI                                        |
+| Router choice            | whatever your template uses | 6 options                | 5 options             | chi (opt-out default)                      |
+| Databases                | template-defined            | 6 options                | 4 options             | 5 drivers via `--driver`                   |
+| Post-scaffold generation | none                        | none                     | none                  | CRUD scaffold + modify-aware generators    |
+| Dev workflow tooling     | none                        | none                     | none                  | `gofasta dev`, `migrate`, `test`, `routes` |
+| Deployment tooling       | none                        | Docker files             | none                  | Docker + `gofasta deploy` (VPS, rollback)  |
+| Agent/machine output     | none                        | none                     | none                  | `--json` everywhere, `inspect`, llms.txt   |
+| Cost                     | free                        | free                     | free core, paid tier  | free, MIT                                  |
+| Maintainer               | Go team (experimental)      | community (\~8.9k stars) | Alex Edwards          | us                                         |
 
 ## Day two is the real test
 
