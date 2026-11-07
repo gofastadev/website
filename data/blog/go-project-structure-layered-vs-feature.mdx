@@ -1,17 +1,19 @@
 ---
-draft: true
+draft: false
 title: 'Go project structure: layered vs feature-based, and how to switch later'
 description: >-
   Layered or feature-based? What each layout actually costs, how to pick one for
   a Go backend, and how to convert an existing project between the two without a
   rewrite.
-publishedAt: 2026-06-12T10:00:00.000Z
-author: Gofasta Team
-authorUrl: https://gofasta.dev
+publishedAt: 2026-11-05T12:00:00.000Z
+author: Mugirase Emmanuel
+authorUrl: https://www.linkedin.com/in/mugirase-emmanuel/
 tags:
   - golang
   - project-structure
   - architecture
+series: Untangling Go Project Architecture
+seriesPart: 2
 cover: /blog/covers/go-project-structure-layered-vs-feature/cover.png
 ---
 ## The question every Go repo answers differently
@@ -36,7 +38,7 @@ So the honest starting point is that you are going to choose. In practice, backe
 
 The layered layout groups files by technical role. All the controllers together, all the services together, all the repositories together:
 
-```
+```bash
 app/
   controllers/
     article.controller.go
@@ -62,7 +64,7 @@ The cost arrives as the project grows. Working on one feature means touching fou
 
 The feature layout, which you will also hear called vertical slice or package by feature, flips the axis. Everything about a resource lives in one place:
 
-```
+```bash
 app/
   article/
     controller.go

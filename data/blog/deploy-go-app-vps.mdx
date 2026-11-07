@@ -2,11 +2,12 @@
 draft: true
 title: Deploying a Go app to a plain VPS with health checks and automatic rollback
 description: >-
-  The case for shipping your Go app to a plain VPS: one command over SSH, health
-  checks that gate every release, and automatic rollback when a deploy goes bad.
+  Shipping a Go API to a single VPS over SSH: configuring the deploy, preparing
+  the server, gating each release on a readiness probe, rolling back, and the
+  three traps worth fixing before real traffic arrives.
 publishedAt: 2026-08-07T08:00:00.000Z
-author: Gofasta Team
-authorUrl: https://gofasta.dev
+author: Mugirase Emmanuel
+authorUrl: https://www.linkedin.com/in/mugirase-emmanuel/
 tags:
   - golang
   - deployment
@@ -15,101 +16,180 @@ series: Production Go, step by step
 seriesPart: 4
 cover: /blog/covers/deploy-go-app-vps/cover.jpg
 ---
-## The unfashionable case for one server
+## Why one server is enough for a while
 
-Somewhere along the way "deploy" started to imply a control plane. A cluster, a service mesh, a YAML directory that outweighs the application. For plenty of teams that is the right call. For a lot of Go backends it is a mortgage on complexity nobody needed to take out.
+`go build` gives you one static binary. No runtime to install, no interpreter to match, no dependency folder to sync. A small VPS will push thousands of requests per second through that binary, and plenty of products never outgrow one box. Managed platforms buy real things, like nobody paging you about disks. But a few dollars a month against a bill that scales with your traffic deserves a fair hearing first.
 
-Here is the thing about Go that deployment conversations keep forgetting. `go build` hands you one static binary. No runtime to install, no dependency directory to sync, no interpreter version to reconcile with the OS. The deliverable is a file. And a modest VPS, the kind that costs less per month than a team lunch, will push thousands of requests per second through that file while barely waking the CPU.
+This is part 4 of *Production Go, step by step*. We [built the API](/blog/build-production-rest-api-go), [added auth](/blog/jwt-authentication-rbac-go), and [versioned the schema](/blog/database-migrations-go). Now we ship it, using the deploy command that comes with the Gofasta CLI.
 
-We are not going to pretend the managed platforms buy you nothing. They buy real things. Nobody pages you about disks, scaling is a slider, and the ops surface is someone else's roadmap. If your traffic profile or team shape needs that, take it. But an awful lot of products spend their entire lives comfortably inside one box, and the arithmetic of a few dollars a month against a platform bill that scales with your success deserves a fair hearing before the cluster does.
+A deploy process has to answer four questions, and a three-line `scp` script answers none of them:
 
-This is part 4 of *Production Go, step by step*. We [built the API](/blog/build-production-rest-api-go), [locked it down](/blog/jwt-authentication-rbac-go), and [put the schema under version control](/blog/database-migrations-go). Now we ship it.
+* Did the new version actually come up?
+* What is running right now?
+* How do I get back to the last good release, quickly?
+* What did the app log before it fell over?
 
-## "Deploy" is more than getting bytes onto the box
+## Configuring the deploy
 
-The reason VPS deployment has a bad reputation is not the VPS. It is that most homegrown deploy scripts are three lines of `scp` and a restart, and those three lines answer none of the questions that matter at 6pm on a Friday.
+Everything lives in the `deploy:` section of `config.yaml`:
 
-* Did the new version actually come up, or did it die on a missing config key while the script printed "done"?
-* What exactly is running right now, which build, deployed when, by whom?
-* The release is bad. What is the path back, and how long does it take under pressure?
-* What did the app log in the thirty seconds before it fell over?
+```yaml
+deploy:
+  host: ""              # user@server.com (required for gofasta deploy)
+  method: docker        # docker or binary
+  port: 22              # SSH port
+  path: ""              # remote directory (default: /opt/bookshelf)
+  arch: amd64           # target architecture: amd64 or arm64
+  health_path: /health/ready
+  health_timeout: 30    # seconds to wait for health check
+  keep_releases: 3      # number of old releases to keep for rollback
+  strict_host_key: accept-new
+  domain: ""
+```
 
-Answer those badly and you do not have a deployment process, you have a ritual that works until it does not. Kubernetes answers them with a control plane. Our position is that you can answer all four on a single server with a disciplined CLI, which is what `gofasta deploy` is.
+I set `host: deploy@203.0.113.10` and `domain: api.bookshelf.dev` and left the rest alone. Every value can be overridden with a flag (`--host`, `--method`, `--port`, `--path`, `--arch`), and `--dry-run` works on every subcommand. It prints the SSH commands without running them, which is the best way to learn what the tool actually does.
 
-## Setting the server up once
+## Preparing the server once
 
-`gofasta deploy setup` connects to your VPS over plain SSH, with no agent to install on the box and no daemon phoning home, and prepares the host to run your app. It sets up the Docker runtime for your services and the pieces the deploy flow expects, once, and records that it did. The scaffold already carries a production compose file alongside the development one, so the shape of what runs in production lives in your repository, versioned and reviewable like everything else.
-
-That is the philosophy across the whole flow, and it is the one we described back in [Hello, Gofasta](/blog/hello-gofasta). The CLI runs, does its work over SSH, and gets out of the way. No hidden state on your laptop, no control plane between you and your server. If you ever walk away from the toolkit you still have a normal Linux box running normal containers, fully yours.
-
-It also means the release path is the same from every seat. A teammate's first deploy looks identical to your hundredth: same command, same health gate, same rollback behavior. The scaffold ships CI workflow files ready to copy into `.github/workflows/`, so "deploys only happen from CI after tests pass" becomes a ten-minute policy decision rather than an infrastructure project. Your migrations ride along too. The schema changes we versioned in [part 3](/blog/database-migrations-go) travel with the release that needs them, which is the only ordering that never surprises anyone.
-
-## The deploy, and the Friday-evening scenario
-
-A release is one command:
+You need key-based SSH access to a fresh Debian or Ubuntu box. Setup runs `apt-get`, so other distros are out for now. Then:
 
 ```bash
+gofasta deploy setup
+```
+
+It runs five steps over plain SSH, with no agent left on the server:
+
+1. Tests SSH connectivity.
+2. Installs `curl` and `nginx`.
+3. Installs Docker via `get.docker.com` and adds your user to the `docker` group. For `--method binary`, it creates a service user and installs the `migrate` CLI instead.
+4. Creates `/opt/bookshelf/releases` and `/opt/bookshelf/shared`.
+5. If `deploy.domain` is set, uploads `deployments/nginx/app.conf` with your domain filled in and reloads nginx.
+
+Two things to do by hand afterwards. Log out and back in so the Docker group membership applies, as setup warns you. Then put your production secrets on the server:
+
+```bash
+ssh deploy@203.0.113.10 'cat > /opt/bookshelf/shared/.env' < .env.production
+```
+
+The production compose file refuses to start without them. It uses compose's `:?` syntax so a missing secret fails loudly instead of booting a broken app:
+
+```yaml
+- BOOKSHELF_AUTH_JWT_SECRET=${BOOKSHELF_AUTH_JWT_SECRET:?missing — set in the deploy host's .env}
+```
+
+## The deploy itself
+
+```bash
+gofasta deploy --dry-run   # read the plan first
 gofasta deploy
 ```
 
-The part that matters is what happens *after* the new version starts. A scaffolded project exposes health endpoints from day one, with `/health/live` meaning the process is up and `/health/ready` meaning up and the database and cache both answer. The deploy flow uses them as a gate rather than decoration. The new version has to prove it is serving before the release counts as done.
+With the default Docker method, this runs eleven steps:
 
-And when it cannot prove it, the release rolls back on its own. The broken build comes down, the previous version returns, and your Friday evening continues with an error to read on Monday instead of an outage to fight tonight. Deploy as a transaction instead of deploy as hope is the single biggest thing separating a real deployment process from the `scp` script.
+1. Checks `ssh`, `scp` and local Docker, then remote `docker` and `docker compose`.
+2. Builds the image locally, tagged with a UTC timestamp such as `bookshelf:20261107-143022`.
+3. Creates the release directory.
+4. Streams the image with `docker save | ssh docker load`. Nothing is built on the server.
+5. Uploads `.env` and `config.yaml` to `shared/` and links them into the release.
+6. Copies `deployments/docker/compose.production.yaml` in as `compose.yaml` and writes the image tag to a `RELEASE_IMAGE` file.
+7. Records the current release so it has somewhere to roll back to.
+8. Cuts over: `docker compose up -d` on a fixed project name with the new image pinned, then moves the `current` symlink.
+9. Runs `/app migrate up` inside the new container.
+10. Polls the health endpoint.
+11. Prunes releases beyond `keep_releases`, along with their images.
 
-The rest of the answers come from the same place:
+The server ends up looking like this:
 
-```bash
-gofasta deploy status     # what's running, which release, in what state
-gofasta deploy logs       # the app's logs, from your terminal, no ssh-and-grep
-gofasta deploy rollback   # the manual lever, for the failures a health check can't see
+```text
+/opt/bookshelf/
+├── current -> releases/20261107-143022
+├── releases/
+│   ├── 20261105-091500/   compose.yaml, RELEASE_IMAGE, .env -> ../../shared/.env
+│   └── 20261107-143022/
+└── shared/
+    ├── .env
+    └── config.yaml
 ```
 
-That last one matters more than it looks. Automatic rollback catches the version that will not boot or cannot reach its database. It cannot catch the version that boots beautifully and calculates every invoice wrong. Some failures are only visible to a human, so the human gets a one-command path back too.
+Know what you are getting: this is a **restart, not a zero-downtime deploy**. The app container is replaced in place, so expect a blip of a few seconds. The fixed compose project name keeps the database container and its volume untouched across releases.
 
-Deployment tooling is exactly the kind of software where "it should work" is not good enough, so this flow is tested end to end in our CI against a disposable VPS container running systemd, sshd, Docker and PostgreSQL. Real setup, real deploys, repeat deploys, and a deliberately broken release to prove the automatic rollback actually fires rather than merely existing in the README. That test adds real minutes to every CI run. We keep it because a deploy tool whose rollback path is untested is a rumor, not a feature.
+## The health gate and automatic rollback
 
-The [deploy reference](/docs/cli-reference/deploy) documents every command and flag.
+Step 10 runs a probe from inside the app container:
 
-## What you are actually running once it is up
+```bash
+docker compose -p bookshelf -f compose.yaml exec -T app wget -qO /dev/null http://127.0.0.1:8080/health/ready
+```
 
-A deploy tool can only gate on what the application exposes, so it is worth saying what a scaffolded project brings. Most of the day-two work on a VPS is really observability work.
+It retries every two seconds for `health_timeout` seconds. `/health/ready` is the right target because it checks the database and cache. Plain `/health` answers 200 as soon as the process is up, even when Postgres is unreachable.
 
-Logs are structured from the first request, going through Go's `slog`, and in production you would run JSON mode, which turns `gofasta deploy logs` from a wall of text into something you can filter. Metrics are already there, with Prometheus counters and latency histograms behind a `/metrics` endpoint, so pointing any Prometheus instance or hosted scraper at your box is configuration rather than code. Distributed tracing via OpenTelemetry ships in the same package, ready for the day one server becomes two services.
+If the cutover, the migration or the probe fails, the CLI restarts the previous release's pinned image, moves `current` back, health-checks that too, and deletes the failed release so a later rollback cannot land on it. Two caveats from reading the source:
 
-The health endpoints doing the gating are not deploy-specific machinery. They are the same probes you would hand an uptime monitor. Readiness checks the database and cache because that is what ready means: a process that is up but cannot reach Postgres should not be receiving traffic, during a deploy or at any other time.
+* **The first deploy has nothing to roll back to.** A broken first release is left running so you can inspect it.
+* **Migrations are not reverted.** With the Docker method, migrations run after the cutover, and a rollback restores the old code, not the old schema. Every migration therefore has to work with the previous release too: add columns before using them, drop them a release later. [Part 3](/blog/database-migrations-go) covers this expand-then-contract pattern. The binary method runs migrations before the cutover and leaves the running service untouched if they fail.
 
-Configuration follows the same no-mystery rule as everything else. `config.yaml` for the shape, environment variables for the secrets, loaded by one package you can read in a sitting. Nothing on the server is special, and a teammate with SSH access and no gofasta knowledge could reconstruct what is running and why.
+## Day two
 
-The debug dashboard deserves a footnote here, mostly for what it does not cost. It is gated behind a build tag, so the production binary you just deployed carries none of it. Development gets the introspection and the release stays lean. You never have to remember to turn anything off, which, given that this post is about Friday evenings, is the correct default.
+```bash
+gofasta deploy status     # readlink current + docker compose ps
+gofasta deploy logs       # docker compose logs -f --tail 100
+gofasta deploy rollback   # back to the newest release older than current
+```
 
-## What a single VPS honestly does not solve
+`rollback` exists for failures a probe cannot see, like a release that boots fine and calculates every invoice wrong. It picks the target by timestamp, starts it, health-checks it, and puts the current release back if the target turns out unhealthy too. Every command except `logs` also accepts `--json`, which is handy in scripts.
 
-We would rather draw this line ourselves than have you find it in an incident review.
+## Three things I changed before going live
 
-One server is one failure domain. When the box dies, whether from hardware, the kernel, or the provider's bad day, you are down until it comes back. There is no second node to absorb the hit. Automatic rollback protects you from bad releases, not bad hosts.
+Reading the CLI source turned up three traps.
 
-Backups are on you, and the database deserves particular respect. A copy of the binary is trivially replaceable and your data is not.
+**1. Deploying from a laptop can overwrite production secrets.** Step 5 uploads the `.env` in your working directory to `shared/.env` whenever one exists. Your local `.env` holds development values, so a deploy from your machine replaces the production file. CI checkouts have no `.env` (it is gitignored), so the server copy survives there. My rule: production deploys only run from CI.
 
-And if traffic genuinely spikes past what one machine handles, no deploy tool fixes that. You have reached the point where a load balancer, a managed database, or a platform stops being complexity and starts being the job.
+**2. The app port is public.** The production compose file publishes `"${PORT:-8080}:8080"`, which binds every interface. Docker writes its own iptables rules, so `ufw` will not block it. Anyone can skip nginx and hit `:8080` directly. I bind it to loopback in `deployments/docker/compose.production.yaml`:
 
-None of that argues against starting on a VPS. It argues for knowing which problems you deferred and noticing when one stops being deferrable. Plenty of products never get there, and the ones that do usually count it as good news.
+```yaml
+ports:
+  - "127.0.0.1:${PORT:-8080}:8080"
+```
 
-## Two chores that stay yours
+**3. CI deploys do not wait for tests.** The scaffold ships workflows under `deployments/ci/`, but `Test` and `Deploy to VPS` both trigger on push to `main`, independently. After copying them into `.github/workflows/`, I made the deploy depend on the test run:
 
-Being honest about scope cuts both ways. Two pieces of a production VPS sit deliberately outside the deploy flow, because they are host concerns rather than release concerns, and pretending otherwise would only hide them.
+```yaml
+on:
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
+    branches: [main]
 
-The first is TLS. Terminate it in front of the app. A reverse proxy like [Caddy](https://caddyserver.com) gets you automatic Let's Encrypt certificates in a four-line config, and nginx does the same with a little more ceremony. Your Go process listens on localhost and the proxy owns 443. This is one of the rare places where the boring conventional setup is also simply the best one.
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+```
 
-The second is backups, which we mentioned above and will happily repeat, because nobody ever regretted hearing it twice. A deploy tool restores your previous binary in seconds and can do nothing at all about your data. Scheduled database dumps shipped off the box, into object storage that costs pennies, are the difference between a bad host day and a bad company day. Set them up before the first real user, and test the restore once so it is not a theory.
+The deploy workflow already has a `concurrency` group with `cancel-in-progress: false`, so two merges queue instead of racing.
 
-## If you would rather have a control panel
+## TLS
 
-Some teams want single-server economics with a dashboard on top, meaning a UI for deploys and buttons instead of commands. That layer exists and it is mature. [Coolify](https://coolify.io), [Dokploy](https://dokploy.com) and [Kamal](https://kamal-deploy.org) all run your containers on hardware you control, and a gofasta project deploys onto any of them without ceremony, because a scaffolded project is just Go plus Docker and nothing about it assumes our deploy flow. We keep [guides for all three](/docs/guides/deployment) in the docs.
+Setup installed the nginx vhost, which proxies to `127.0.0.1:8080` and forwards `X-Forwarded-*` and `X-Request-ID`. Certificates are left to you, and setup prints the two commands:
 
-The through-line, whichever route you pick: your app, your server, your data, and a deliberate absence of mystery.
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d api.bookshelf.dev
+```
+
+Then uncomment the `return 301 https://...` line in the vhost. Sessions already expect HTTPS: production compose sets `SESSION_COOKIE_SECURE=true`.
+
+## The binary method
+
+If you would rather skip Docker, `gofasta deploy --method binary` cross-compiles with `CGO_ENABLED=0`, uploads the binary plus `migrations/`, `templates/` and `configs/`, and runs it under the systemd unit in `deployments/systemd/app.service`. That unit runs as a dedicated user with `NoNewPrivileges`, `ProtectSystem=strict` and `PrivateTmp`. Logs go to `journalctl`, and `deploy logs` tails them. The database is then yours to run, since nothing provisions Postgres on the host.
+
+## What one VPS does not solve
+
+* **One server is one failure domain.** Rollback protects you from bad releases, not dead hosts.
+* **Backups are on you.** The release directories hold binaries and images, not data. Schedule `pg_dump` off the box into object storage, and test a restore once.
+* **Scale ceilings are real.** When one machine is not enough, a load balancer and a managed database stop being overhead.
+
+If you want single-server economics with a UI on top, [Coolify, Dokploy and Kamal](/docs/guides/deployment) all run a Gofasta project as-is, since it is plain Go plus Docker.
 
 ## The series, wrapped
 
-Four posts, one arc. [Scaffold a production-shaped API](/blog/build-production-rest-api-go), [authenticate and authorize it](/blog/jwt-authentication-rbac-go), [version its schema](/blog/database-migrations-go), and ship it to a machine you control, with health checks standing guard and a tested way back when a release goes wrong.
-
-None of it requires a platform team. That was rather the point. The [Quick Start](/docs/getting-started/quick-start) covers the first five minutes if you are starting from zero, and the deploy flow is waiting behind one command when you get there.
+We [scaffolded an API](/blog/build-production-rest-api-go), [authenticated it](/blog/jwt-authentication-rbac-go), [versioned its schema](/blog/database-migrations-go), and shipped it to a server we control, with a readiness gate on every release and a tested path back. The CLI's own CI runs this whole flow, failed-release rollback included, against a throwaway VPS container. That is a large part of why I trust it with a Friday deploy.

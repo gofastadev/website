@@ -23,7 +23,7 @@ After my talk at GopherCon Africa 2026 in Nairobi, someone in the Q\&A asked how
 
 My answer was short: gofasta scaffolds two layouts, layered and feature, and `gofasta refactor` converts a project between them. True, but only half an answer. Two days before my talk, I'd spent six hours in a workshop with [Ainsley Clark](https://ainsleyclark.com/), Go Developer Advocate at JetBrains, that rebuilt one Go application in five shapes: flat, layered, onion, hexagonal and feature. I came home with questions: *Are those an industry standard? Are they five options to pick from? And how do the choices I made for [gofasta](https://gofasta.dev/) hold up against the people who named these patterns?*
 
-So I spent the week after the conference reading the original sources and moving a fresh [gofasta](https://gofasta.dev/) project between shapes. This is what I found. Part 2 goes deep on the two layouts [gofasta](https://gofasta.dev/) generates.
+So I spent the week after the conference reading the original sources and moving a fresh [gofasta](https://gofasta.dev/) project between shapes. This is what I found. [Part 2](https://gofasta.dev/blog/go-project-structure-layered-vs-feature) goes deep on the two layouts [gofasta](https://gofasta.dev/) generates.
 
 ## There is no standard
 
@@ -114,7 +114,7 @@ I know what gofasta generates; I wrote the templates. What I hadn't done was che
 
 Your code: no. Your generators: yes, to two shapes.
 
-The generated project is plain Go. Dependency injection is resolved at compile time and nothing wraps your code at runtime, so the compiler is the only judge of where files live, and it accepted every move above. What you give up when you leave layered and feature is the generators. On a tree they don't know, they either refuse or, in `g scaffold`'s case, fail badly. That's a bug in how it fails: it should recognise an unknown tree and stop before writing anything.
+The generated project is plain Go. Dependency injection is resolved at compile time and nothing wraps your code at runtime, so the compiler is the only judge of where files live, and it accepted every move above. What you give up when you leave layered and feature is the generators. On a tree they don't know, they either refuse or, in `g scaffold`'s case, fail badly. That's a bug in how it fails: it should recognize an unknown tree and stop before writing anything.
 
 It's the same distinction I made in my talk and in [the post that went with it](/blog/default-or-dependency-a-five-minute-test-for-every-import-in-your-go-project). A default is something you can leave cheaply. Here, leaving costs a set of mechanical edits and the code generators. It doesn't cost a rewrite.
 
@@ -124,6 +124,6 @@ It's the same distinction I made in my talk and in [the post that went with it](
 * **Ask two questions, not one:** how do I group files, and which way do dependencies point?
 * **Take the next step when a question hurts.** Flat until you need privacy, layers until the domain needs to own its interfaces, a package per noun when one domain package fills up, feature folders when people need to work on one thing without touching four folders.
 
-For a [gofasta](https://gofasta.dev/) project, stay in the two layouts the generators know while you're adding resources every week, and move further when the domain's rules start to matter more than the scaffolding. Part 2 covers those two layouts: what `gofasta refactor` moves, what it leaves alone, and what didn't survive the round trip.
+For a [gofasta](https://gofasta.dev/) project, stay in the two layouts the generators know while you're adding resources every week, and move further when the domain's rules start to matter more than the scaffolding. [Part 2](https://gofasta.dev/blog/go-project-structure-layered-vs-feature) covers those two layouts: what `gofasta refactor` moves, what it leaves alone, and what didn't survive the round trip.
 
 Thanks to [Ainsley Clark](https://ainsleyclark.com/) for the workshop that started all this, and for letting me build on it here. To repeat the experiment yourself, the [quick start](/docs/getting-started/quick-start) gets you a project in a minute, and the [`gofasta refactor` reference](/docs/cli-reference/refactor) documents what moves and what stays.
